@@ -7,7 +7,7 @@ import type {
   ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo, UserPermissions,
   InventoryHistory, Invoice, BusinessDocument,
-  TenantApplication, TenantOnboarding, PropertyInspection
+  TenantApplication, TenantOnboarding, PropertyInspection, Expense
 } from '@/types';
 import { 
   generateMonthlyPayments, 
@@ -50,6 +50,7 @@ const STORAGE_KEYS = {
   TENANT_ONBOARDINGS: '@app/tenant_onboardings',
   PROPERTY_INSPECTIONS: '@app/property_inspections',
   BUSINESS_LOGO: '@app/business_logo',
+  EXPENSES: '@app/expenses',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -78,6 +79,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [tenantApplications, setTenantApplications] = useState<TenantApplication[]>([]);
   const [tenantOnboardings, setTenantOnboardings] = useState<TenantOnboarding[]>([]);
   const [propertyInspections, setPropertyInspections] = useState<PropertyInspection[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -150,11 +152,16 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
         AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_LOGO),
+        AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
       ]);
       if (savedTenantApplications) setTenantApplications(JSON.parse(savedTenantApplications));
       if (savedTenantOnboardings) setTenantOnboardings(JSON.parse(savedTenantOnboardings));
       if (savedPropertyInspections) setPropertyInspections(JSON.parse(savedPropertyInspections));
       if (savedBusinessLogo) setBusinessLogo(savedBusinessLogo);
+      const [savedExpenses] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
+      ]);
+      if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -1042,6 +1049,37 @@ export const [AppContext, useApp] = createContextHook(() => {
     }
   }, [saveData]);
 
+  const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'tenant_id' | 'created_by'>) => {
+    if (!currentTenant || !currentUser) return;
+    
+    const newExpense: Expense = {
+      ...expense,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_by: currentUser.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...expenses, newExpense];
+    setExpenses(updated);
+    await saveData(STORAGE_KEYS.EXPENSES, updated);
+    return newExpense;
+  }, [currentTenant, currentUser, expenses, saveData]);
+
+  const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
+    const updated = expenses.map(e => 
+      e.id === id ? { ...e, ...updates, updated_at: new Date().toISOString() } : e
+    );
+    setExpenses(updated);
+    await saveData(STORAGE_KEYS.EXPENSES, updated);
+  }, [expenses, saveData]);
+
+  const deleteExpense = useCallback(async (id: string) => {
+    const updated = expenses.filter(e => e.id !== id);
+    setExpenses(updated);
+    await saveData(STORAGE_KEYS.EXPENSES, updated);
+  }, [expenses, saveData]);
+
   const tenantProperties = useMemo(() => 
     properties.filter(p => p.tenant_id === currentTenant?.id),
     [properties, currentTenant]
@@ -1125,6 +1163,11 @@ export const [AppContext, useApp] = createContextHook(() => {
   const tenantPropertyInspections = useMemo(() => 
     propertyInspections.filter(i => i.tenant_id === currentTenant?.id),
     [propertyInspections, currentTenant]
+  );
+
+  const tenantExpenses = useMemo(() => 
+    expenses.filter(e => e.tenant_id === currentTenant?.id),
+    [expenses, currentTenant]
   );
 
   const tenantStaffUsers = useMemo(() => 
@@ -1249,5 +1292,9 @@ export const [AppContext, useApp] = createContextHook(() => {
     deletePropertyInspection,
     businessLogo,
     updateBusinessLogo,
+    expenses: tenantExpenses,
+    addExpense,
+    updateExpense,
+    deleteExpense,
   };
 });

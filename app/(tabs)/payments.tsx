@@ -24,15 +24,37 @@ export default function PaymentsScreen() {
     units,
     currentTenant,
     invoices,
+    expenses,
     addPayment, 
     updatePayment,
     addInvoice,
-    updateInvoice
+    updateInvoice,
+    addExpense,
+    updateExpense,
+    deleteExpense
   } = useApp();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [invoiceModalVisible, setInvoiceModalVisible] = useState<boolean>(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [activeTab, setActiveTab] = useState<'payments' | 'invoices' | 'expenses'>('payments');
+  const [expenseModalVisible, setExpenseModalVisible] = useState<boolean>(false);
+  const [expenseFormData, setExpenseFormData] = useState({
+    property_id: '',
+    unit_id: '',
+    tenant_renter_id: '',
+    lease_id: '',
+    category: 'maintenance' as ExpenseCategory,
+    description: '',
+    amount: '',
+    currency: DEFAULT_CURRENCY as PaymentCurrency,
+    expense_date: new Date().toISOString().split('T')[0],
+    paid_by: 'landlord' as ExpensePaidBy,
+    status: 'paid' as ExpenseStatus,
+    payment_method: 'bank_transfer' as 'cash' | 'cheque' | 'bank_transfer' | 'credit_card',
+    vendor_name: '',
+    notes: '',
+    receipts: [] as { uri: string; type: 'image' | 'pdf'; name: string }[],
+  });
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [formData, setFormData] = useState({
     lease_id: '',
@@ -698,6 +720,327 @@ export default function PaymentsScreen() {
           )}
         </>
       )}
+
+      {activeTab === 'expenses' && (
+        <>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.headerTitle}>Expenses ({expenses.length})</Text>
+              <Text style={styles.headerSubtitle}>
+                Track property and tenant-related expenses
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => {
+                setExpenseFormData({
+                  property_id: '',
+                  unit_id: '',
+                  tenant_renter_id: '',
+                  lease_id: '',
+                  category: 'maintenance',
+                  description: '',
+                  amount: '',
+                  currency: DEFAULT_CURRENCY,
+                  expense_date: new Date().toISOString().split('T')[0],
+                  paid_by: 'landlord',
+                  status: 'paid',
+                  payment_method: 'bank_transfer',
+                  vendor_name: '',
+                  notes: '',
+                  receipts: [],
+                });
+                setExpenseModalVisible(true);
+              }}
+              testID="add-expense-button"
+            >
+              <Plus size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {expenses.length === 0 ? (
+            <EmptyState
+              icon={TrendingDown}
+              title="No Expenses"
+              message="Track maintenance, repairs, and other property expenses"
+              actionLabel="Add Expense"
+              onAction={() => setExpenseModalVisible(true)}
+              testID="expenses-empty"
+            />
+          ) : (
+            <FlatList
+              data={expenses.sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime())}
+              renderItem={({ item }: { item: Expense }) => {
+                const property = properties.find(p => p.id === item.property_id);
+                const unit = units.find(u => u.id === item.unit_id);
+                const tenant = tenantRenters.find(t => t.id === item.tenant_renter_id);
+                const currencySymbol = getCurrencySymbol(item.currency);
+
+                return (
+                  <Card style={styles.paymentCard}>
+                    <View style={styles.paymentHeader}>
+                      <View style={styles.paymentInfo}>
+                        <Text style={styles.tenantRenterName}>{item.description}</Text>
+                        <Text style={styles.amount}>
+                          {currencySymbol}{item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {item.currency}
+                        </Text>
+                        <Text style={styles.propertyInfo}>
+                          {property?.name}{unit ? ` - Unit ${unit.unit_number}` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.invoiceAmountContainer}>
+                        <Badge label={item.category.replace('_', ' ')} variant="info" />
+                        <Badge label={item.paid_by.replace('_', ' ')} variant={item.paid_by === 'landlord' ? 'default' : 'warning'} />
+                        <Badge label={item.status} variant={item.status === 'paid' ? 'success' : 'warning'} />
+                      </View>
+                    </View>
+
+                    <View style={styles.datesRow}>
+                      <View style={styles.dateItem}>
+                        <Calendar size={14} color="#666" />
+                        <Text style={styles.dateText}>{formatDate(item.expense_date)}</Text>
+                      </View>
+                      {tenant && (
+                        <Text style={styles.paymentMethod}>
+                          Tenant: {tenant.type === 'business' ? tenant.business_name : `${tenant.first_name} ${tenant.last_name}`}
+                        </Text>
+                      )}
+                    </View>
+
+                    {item.vendor_name && (
+                      <Text style={styles.reference}>Vendor: {item.vendor_name}</Text>
+                    )}
+
+                    <View style={styles.paymentActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => {
+                          Alert.alert(
+                            'Delete Expense',
+                            'Are you sure you want to delete this expense?',
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              {
+                                text: 'Delete',
+                                style: 'destructive',
+                                onPress: async () => {
+                                  await deleteExpense(item.id);
+                                  Alert.alert('Success', 'Expense deleted');
+                                },
+                              },
+                            ]
+                          );
+                        }}
+                      >
+                        <Text style={[styles.actionText, { color: '#FF3B30' }]}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </Card>
+                );
+              }}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </>
+      )}
+
+      <Modal
+        visible={expenseModalVisible}
+        onClose={() => setExpenseModalVisible(false)}
+        title="Add Expense"
+        testID="expense-modal"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionTitle}>Property & Location</Text>
+          <View style={styles.formSection}>
+            <Text style={styles.label}>Property</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+              {properties.map(prop => (
+                <TouchableOpacity
+                  key={prop.id}
+                  style={[
+                    styles.selectorItem,
+                    expenseFormData.property_id === prop.id && styles.selectorItemActive
+                  ]}
+                  onPress={() => setExpenseFormData({ ...expenseFormData, property_id: prop.id, unit_id: '' })}
+                >
+                  <Text style={[
+                    styles.selectorText,
+                    expenseFormData.property_id === prop.id && styles.selectorTextActive
+                  ]}>
+                    {prop.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {expenseFormData.property_id && (
+            <View style={styles.formSection}>
+              <Text style={styles.label}>Unit (Optional)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+                <TouchableOpacity
+                  style={[
+                    styles.selectorItem,
+                    !expenseFormData.unit_id && styles.selectorItemActive
+                  ]}
+                  onPress={() => setExpenseFormData({ ...expenseFormData, unit_id: '' })}
+                >
+                  <Text style={[
+                    styles.selectorText,
+                    !expenseFormData.unit_id && styles.selectorTextActive
+                  ]}>All Units</Text>
+                </TouchableOpacity>
+                {units.filter(u => u.property_id === expenseFormData.property_id).map(unit => (
+                  <TouchableOpacity
+                    key={unit.id}
+                    style={[
+                      styles.selectorItem,
+                      expenseFormData.unit_id === unit.id && styles.selectorItemActive
+                    ]}
+                    onPress={() => setExpenseFormData({ ...expenseFormData, unit_id: unit.id })}
+                  >
+                    <Text style={[
+                      styles.selectorText,
+                      expenseFormData.unit_id === unit.id && styles.selectorTextActive
+                    ]}>Unit {unit.unit_number}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          <Text style={styles.sectionTitle}>Expense Details</Text>
+          <View style={styles.formSection}>
+            <Text style={styles.label}>Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+              {(['maintenance', 'repairs', 'utilities', 'insurance', 'taxes', 'cleaning', 'supplies', 'tenant_reimbursement', 'other'] as ExpenseCategory[]).map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.selectorItem,
+                    expenseFormData.category === cat && styles.selectorItemActive
+                  ]}
+                  onPress={() => setExpenseFormData({ ...expenseFormData, category: cat })}
+                >
+                  <Text style={[
+                    styles.selectorText,
+                    expenseFormData.category === cat && styles.selectorTextActive
+                  ]}>
+                    {cat.replace('_', ' ')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <Input
+            label="Description"
+            value={expenseFormData.description}
+            onChangeText={text => setExpenseFormData({ ...expenseFormData, description: text })}
+            placeholder="e.g., Fixed broken window"
+            required
+            testID="expense-description-input"
+          />
+
+          <View style={styles.row}>
+            <Input
+              label="Amount"
+              value={expenseFormData.amount}
+              onChangeText={text => setExpenseFormData({ ...expenseFormData, amount: text })}
+              placeholder="500"
+              keyboardType="decimal-pad"
+              required
+              containerStyle={styles.halfInput}
+              testID="expense-amount-input"
+            />
+            <Input
+              label="Date"
+              value={expenseFormData.expense_date}
+              onChangeText={text => setExpenseFormData({ ...expenseFormData, expense_date: text })}
+              placeholder="YYYY-MM-DD"
+              containerStyle={styles.halfInput}
+              testID="expense-date-input"
+            />
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.label}>Paid By</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+              {(['landlord', 'tenant', 'deducted_from_deposit'] as ExpensePaidBy[]).map(paidBy => (
+                <TouchableOpacity
+                  key={paidBy}
+                  style={[
+                    styles.selectorItem,
+                    expenseFormData.paid_by === paidBy && styles.selectorItemActive
+                  ]}
+                  onPress={() => setExpenseFormData({ ...expenseFormData, paid_by: paidBy })}
+                >
+                  <Text style={[
+                    styles.selectorText,
+                    expenseFormData.paid_by === paidBy && styles.selectorTextActive
+                  ]}>
+                    {paidBy.replace('_', ' ')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <Input
+            label="Vendor Name"
+            value={expenseFormData.vendor_name}
+            onChangeText={text => setExpenseFormData({ ...expenseFormData, vendor_name: text })}
+            placeholder="Optional"
+            testID="expense-vendor-input"
+          />
+
+          <Input
+            label="Notes"
+            value={expenseFormData.notes}
+            onChangeText={text => setExpenseFormData({ ...expenseFormData, notes: text })}
+            placeholder="Additional notes"
+            multiline
+            numberOfLines={3}
+            testID="expense-notes-input"
+          />
+
+          <Button
+            title="Add Expense"
+            onPress={async () => {
+              if (!expenseFormData.property_id || !expenseFormData.description || !expenseFormData.amount) {
+                Alert.alert('Error', 'Please fill in property, description, and amount');
+                return;
+              }
+
+              await addExpense({
+                property_id: expenseFormData.property_id,
+                unit_id: expenseFormData.unit_id || undefined,
+                tenant_renter_id: expenseFormData.tenant_renter_id || undefined,
+                lease_id: expenseFormData.lease_id || undefined,
+                category: expenseFormData.category,
+                description: expenseFormData.description,
+                amount: parseFloat(expenseFormData.amount),
+                currency: expenseFormData.currency,
+                expense_date: expenseFormData.expense_date,
+                paid_by: expenseFormData.paid_by,
+                status: expenseFormData.status,
+                payment_method: expenseFormData.payment_method,
+                vendor_name: expenseFormData.vendor_name || undefined,
+                notes: expenseFormData.notes || undefined,
+              });
+
+              Alert.alert('Success', 'Expense added successfully');
+              setExpenseModalVisible(false);
+            }}
+            fullWidth
+            testID="save-expense-button"
+          />
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </Modal>
 
       {selectedInvoice && (
         <InvoiceDetailModal
