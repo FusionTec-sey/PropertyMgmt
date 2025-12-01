@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
-import { Plus, Calendar, AlertCircle, Search, Trash2, Edit, Building2, FileText as FileTextIcon } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Image, Platform } from 'react-native';
+import { Plus, Calendar, AlertCircle, Search, Trash2, Edit, Building2, FileText as FileTextIcon, Upload, File, X } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import type { BusinessDocument, DocumentCategory } from '@/types';
 import Modal from '@/components/Modal';
 import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   business_license: 'Business License',
@@ -53,6 +55,9 @@ export default function DocumentsScreen() {
   const [reminderDays, setReminderDays] = useState<string>('30');
   const [notes, setNotes] = useState<string>('');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const [fileUri, setFileUri] = useState<string>('');
+  const [fileType, setFileType] = useState<'pdf' | 'image' | 'other'>('image');
+  const [fileSize, setFileSize] = useState<number>(0);
 
   const resetForm = () => {
     setName('');
@@ -64,6 +69,9 @@ export default function DocumentsScreen() {
     setReminderDays('30');
     setNotes('');
     setSelectedPropertyId('');
+    setFileUri('');
+    setFileType('image');
+    setFileSize(0);
   };
 
   const handleAdd = async () => {
@@ -82,6 +90,9 @@ export default function DocumentsScreen() {
       reminder_days_before: reminderDays ? parseInt(reminderDays, 10) : undefined,
       notes: notes.trim() || undefined,
       property_id: selectedPropertyId || undefined,
+      file_uri: fileUri || undefined,
+      file_type: fileUri ? fileType : undefined,
+      file_size: fileUri ? fileSize : undefined,
     });
 
     Alert.alert('Success', 'Document added successfully');
@@ -100,6 +111,9 @@ export default function DocumentsScreen() {
     setReminderDays(doc.reminder_days_before?.toString() || '30');
     setNotes(doc.notes || '');
     setSelectedPropertyId(doc.property_id || '');
+    setFileUri(doc.file_uri || '');
+    setFileType(doc.file_type || 'image');
+    setFileSize(doc.file_size || 0);
     setShowEditModal(true);
   };
 
@@ -119,6 +133,9 @@ export default function DocumentsScreen() {
       reminder_days_before: reminderDays ? parseInt(reminderDays, 10) : undefined,
       notes: notes.trim() || undefined,
       property_id: selectedPropertyId || undefined,
+      file_uri: fileUri || undefined,
+      file_type: fileUri ? fileType : undefined,
+      file_size: fileUri ? fileSize : undefined,
     });
 
     Alert.alert('Success', 'Document updated successfully');
@@ -197,6 +214,137 @@ export default function DocumentsScreen() {
   const formatDate = (date: string): string => {
     const d = new Date(date);
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your camera to take photos.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setFileUri(asset.uri);
+        setFileType('image');
+        setFileSize(asset.fileSize || 0);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setFileUri(asset.uri);
+        setFileType('image');
+        setFileSize(asset.fileSize || 0);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setFileUri(asset.uri);
+        
+        if (asset.mimeType?.includes('pdf')) {
+          setFileType('pdf');
+        } else if (asset.mimeType?.includes('image')) {
+          setFileType('image');
+        } else {
+          setFileType('other');
+        }
+        
+        setFileSize(asset.size || 0);
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick document. Please try again.');
+    }
+  };
+
+  const handleAddFile = () => {
+    if (Platform.OS === 'web') {
+      handlePickDocument();
+      return;
+    }
+
+    Alert.alert(
+      'Add File',
+      'Choose a source',
+      [
+        {
+          text: 'Take Photo',
+          onPress: handleTakePhoto,
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: handlePickImage,
+        },
+        {
+          text: 'Browse Files',
+          onPress: handlePickDocument,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleRemoveFile = () => {
+    setFileUri('');
+    setFileType('image');
+    setFileSize(0);
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
@@ -358,6 +506,22 @@ export default function DocumentsScreen() {
                       <Text style={styles.notesText}>{doc.notes}</Text>
                     </View>
                   )}
+
+                  {doc.file_uri && (
+                    <View style={styles.fileContainer}>
+                      {doc.file_type === 'image' ? (
+                        <Image source={{ uri: doc.file_uri }} style={styles.filePreview} />
+                      ) : (
+                        <View style={styles.fileIcon}>
+                          <File size={24} color="#007AFF" />
+                          <Text style={styles.fileTypeBadge}>{doc.file_type?.toUpperCase()}</Text>
+                        </View>
+                      )}
+                      {doc.file_size && (
+                        <Text style={styles.fileSize}>{formatFileSize(doc.file_size)}</Text>
+                      )}
+                    </View>
+                  )}
                 </View>
               );
             })
@@ -498,6 +662,34 @@ export default function DocumentsScreen() {
             />
           </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>File Attachment (Optional)</Text>
+            {fileUri ? (
+              <View style={styles.fileUploadPreview}>
+                {fileType === 'image' ? (
+                  <Image source={{ uri: fileUri }} style={styles.uploadedImage} />
+                ) : (
+                  <View style={styles.uploadedFileIcon}>
+                    <File size={40} color="#007AFF" />
+                    <Text style={styles.uploadedFileType}>{fileType?.toUpperCase()}</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.removeFileButton} onPress={handleRemoveFile}>
+                  <X size={18} color="#FFF" />
+                </TouchableOpacity>
+                {fileSize > 0 && (
+                  <Text style={styles.uploadedFileSize}>{formatFileSize(fileSize)}</Text>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.uploadButton} onPress={handleAddFile}>
+                <Upload size={24} color="#007AFF" />
+                <Text style={styles.uploadButtonText}>Upload File</Text>
+                <Text style={styles.uploadButtonHint}>Take photo, choose image, or upload PDF</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           <TouchableOpacity style={styles.submitButton} onPress={handleAdd}>
             <Text style={styles.submitButtonText}>Add Document</Text>
           </TouchableOpacity>
@@ -636,6 +828,34 @@ export default function DocumentsScreen() {
               multiline
               numberOfLines={3}
             />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>File Attachment (Optional)</Text>
+            {fileUri ? (
+              <View style={styles.fileUploadPreview}>
+                {fileType === 'image' ? (
+                  <Image source={{ uri: fileUri }} style={styles.uploadedImage} />
+                ) : (
+                  <View style={styles.uploadedFileIcon}>
+                    <File size={40} color="#007AFF" />
+                    <Text style={styles.uploadedFileType}>{fileType?.toUpperCase()}</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.removeFileButton} onPress={handleRemoveFile}>
+                  <X size={18} color="#FFF" />
+                </TouchableOpacity>
+                {fileSize > 0 && (
+                  <Text style={styles.uploadedFileSize}>{formatFileSize(fileSize)}</Text>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.uploadButton} onPress={handleAddFile}>
+                <Upload size={24} color="#007AFF" />
+                <Text style={styles.uploadButtonText}>Upload File</Text>
+                <Text style={styles.uploadButtonHint}>Take photo, choose image, or upload PDF</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <TouchableOpacity style={styles.submitButton} onPress={handleUpdate}>
@@ -922,5 +1142,97 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#FFF',
+  },
+  fileContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  filePreview: {
+    width: '100%' as const,
+    height: 150,
+    borderRadius: 8,
+    resizeMode: 'cover' as const,
+  },
+  fileIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  fileTypeBadge: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  fileSize: {
+    fontSize: 12,
+    color: '#999',
+  },
+  uploadButton: {
+    backgroundColor: '#F0F8FF',
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    borderStyle: 'dashed' as const,
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  uploadButtonHint: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center' as const,
+  },
+  fileUploadPreview: {
+    position: 'relative' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  uploadedImage: {
+    width: '100%' as const,
+    height: 150,
+    borderRadius: 8,
+    resizeMode: 'cover' as const,
+  },
+  uploadedFileIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  uploadedFileType: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  uploadedFileSize: {
+    fontSize: 12,
+    color: '#999',
+  },
+  removeFileButton: {
+    position: 'absolute' as const,
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
 });
