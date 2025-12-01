@@ -44,7 +44,15 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.card}>
             <Text style={styles.label}>Role</Text>
-            <Text style={styles.value}>{currentUser?.role || 'N/A'}</Text>
+            <View style={styles.roleBadgeContainer}>
+              <View style={[styles.roleBadge, currentUser?.role === 'owner' ? styles.ownerBadge : styles.staffBadge]}>
+                <Text style={styles.roleBadgeText}>
+                  {currentUser?.role === 'owner' ? 'Owner/Admin' : 
+                   currentUser?.role === 'maintenance' ? 'Staff (Maintenance)' : 
+                   currentUser?.role || 'N/A'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -105,5 +113,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#FFF',
+  },
+  roleBadgeContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  roleBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  ownerBadge: {
+    backgroundColor: '#007AFF15',
+  },
+  staffBadge: {
+    backgroundColor: '#34C75915',
+  },
+  roleBadgeText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
   },
 });

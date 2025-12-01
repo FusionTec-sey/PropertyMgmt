@@ -1,9 +1,12 @@
-// template
 import { Tabs } from "expo-router";
 import { Home, Building2, Users, DollarSign, Settings, Wrench, CheckSquare } from "lucide-react-native";
 import React from "react";
+import { useApp } from "@/contexts/AppContext";
 
 export default function TabLayout() {
+  const { currentUser } = useApp();
+  const isStaff = currentUser?.role === 'maintenance';
+
   return (
     <Tabs
       screenOptions={{
@@ -21,6 +24,7 @@ export default function TabLayout() {
         options={{
           title: "Dashboard",
           tabBarIcon: ({ color }) => <Home size={24} color={color} />,
+          href: isStaff ? null : undefined,
         }}
       />
       <Tabs.Screen
@@ -28,6 +32,7 @@ export default function TabLayout() {
         options={{
           title: "Properties",
           tabBarIcon: ({ color }) => <Building2 size={24} color={color} />,
+          href: isStaff ? null : undefined,
         }}
       />
       <Tabs.Screen
@@ -35,6 +40,7 @@ export default function TabLayout() {
         options={{
           title: "Tenants",
           tabBarIcon: ({ color }) => <Users size={24} color={color} />,
+          href: isStaff ? null : undefined,
         }}
       />
       <Tabs.Screen
@@ -42,6 +48,7 @@ export default function TabLayout() {
         options={{
           title: "Payments",
           tabBarIcon: ({ color }) => <DollarSign size={24} color={color} />,
+          href: isStaff ? null : undefined,
         }}
       />
       <Tabs.Screen
@@ -56,6 +63,7 @@ export default function TabLayout() {
         options={{
           title: "To-Do",
           tabBarIcon: ({ color }) => <CheckSquare size={24} color={color} />,
+          href: isStaff ? null : undefined,
         }}
       />
       <Tabs.Screen

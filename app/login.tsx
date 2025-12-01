@@ -22,6 +22,7 @@ export default function LoginScreen() {
   const [showNewTenant, setShowNewTenant] = useState<boolean>(false);
   const [newTenantName, setNewTenantName] = useState<string>('');
   const [newTenantEmail, setNewTenantEmail] = useState<string>('');
+  const [selectedRole, setSelectedRole] = useState<'owner' | 'staff'>('owner');
   
   const healthQuery = trpc.health.useQuery(undefined, {
     retry: 1,
@@ -52,9 +53,9 @@ export default function LoginScreen() {
         id: Date.now().toString(),
         tenant_id: tenant.id,
         email: newTenantEmail.trim(),
-        first_name: 'Admin',
+        first_name: selectedRole === 'owner' ? 'Admin' : 'Staff',
         last_name: 'User',
-        role: 'owner',
+        role: selectedRole === 'owner' ? 'owner' : 'maintenance',
         is_active: true,
         created_at: new Date().toISOString(),
       };
@@ -67,14 +68,14 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSelectTenant = async (tenant: Tenant) => {
+  const handleSelectTenant = async (tenant: Tenant, role: 'owner' | 'staff') => {
     const defaultUser: User = {
       id: Date.now().toString(),
       tenant_id: tenant.id,
       email: tenant.email,
-      first_name: 'Admin',
+      first_name: role === 'owner' ? 'Admin' : 'Staff',
       last_name: 'User',
-      role: 'owner',
+      role: role === 'owner' ? 'owner' : 'maintenance',
       is_active: true,
       created_at: new Date().toISOString(),
     };
@@ -129,19 +130,29 @@ export default function LoginScreen() {
                 </View>
               ) : (
                 tenants.map((tenant) => (
-                  <TouchableOpacity
-                    key={tenant.id}
-                    style={styles.tenantCard}
-                    onPress={() => handleSelectTenant(tenant)}
-                  >
-                    <View style={styles.tenantIcon}>
-                      <Building2 size={24} color="#007AFF" />
+                  <View key={tenant.id} style={styles.tenantCardContainer}>
+                    <View style={styles.tenantCardHeader}>
+                      <Building2 size={20} color="#007AFF" />
+                      <Text style={styles.tenantCardTitle}>{tenant.name}</Text>
                     </View>
-                    <View style={styles.tenantInfo}>
-                      <Text style={styles.tenantName}>{tenant.name}</Text>
-                      <Text style={styles.tenantEmail}>{tenant.email}</Text>
+                    <Text style={styles.tenantCardEmail}>{tenant.email}</Text>
+                    <View style={styles.roleButtons}>
+                      <TouchableOpacity
+                        style={[styles.roleButton, styles.ownerButton]}
+                        onPress={() => handleSelectTenant(tenant, 'owner')}
+                        testID={`login-owner-${tenant.id}`}
+                      >
+                        <Text style={styles.roleButtonText}>Login as Owner</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.roleButton, styles.staffButton]}
+                        onPress={() => handleSelectTenant(tenant, 'staff')}
+                        testID={`login-staff-${tenant.id}`}
+                      >
+                        <Text style={styles.roleButtonText}>Login as Staff</Text>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 ))
               )}
             </View>
@@ -182,6 +193,30 @@ export default function LoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Role</Text>
+              <View style={styles.roleSelector}>
+                <TouchableOpacity
+                  style={[styles.roleSelectorButton, selectedRole === 'owner' && styles.roleSelectorButtonActive]}
+                  onPress={() => setSelectedRole('owner')}
+                  testID="role-owner"
+                >
+                  <Text style={[styles.roleSelectorText, selectedRole === 'owner' && styles.roleSelectorTextActive]}>
+                    Owner/Admin
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.roleSelectorButton, selectedRole === 'staff' && styles.roleSelectorButtonActive]}
+                  onPress={() => setSelectedRole('staff')}
+                  testID="role-staff"
+                >
+                  <Text style={[styles.roleSelectorText, selectedRole === 'staff' && styles.roleSelectorTextActive]}>
+                    Staff
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity
@@ -292,9 +327,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
-  tenantCard: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+  tenantCardContainer: {
     backgroundColor: '#FFF',
     padding: 16,
     borderRadius: 12,
@@ -305,27 +338,43 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  tenantIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center' as const,
+  tenantCardHeader: {
+    flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    marginRight: 12,
+    gap: 8,
+    marginBottom: 4,
   },
-  tenantInfo: {
-    flex: 1,
-  },
-  tenantName: {
-    fontSize: 16,
+  tenantCardTitle: {
+    fontSize: 18,
     fontWeight: '600' as const,
     color: '#1A1A1A',
-    marginBottom: 2,
   },
-  tenantEmail: {
+  tenantCardEmail: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 12,
+  },
+  roleButtons: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  roleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+  },
+  ownerButton: {
+    backgroundColor: '#007AFF',
+  },
+  staffButton: {
+    backgroundColor: '#34C759',
+  },
+  roleButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
   },
   createButton: {
     flexDirection: 'row' as const,
@@ -382,5 +431,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#666',
+  },
+  roleSelector: {
+    flexDirection: 'row' as const,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 4,
+  },
+  roleSelectorButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center' as const,
+  },
+  roleSelectorButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  roleSelectorText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#8E8E93',
+  },
+  roleSelectorTextActive: {
+    color: '#007AFF',
   },
 });
