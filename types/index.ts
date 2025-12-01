@@ -244,6 +244,10 @@ export interface Payment {
   notes?: string;
   late_fee?: number;
   payment_proof?: PaymentProof;
+  receipt_id?: ReceiptId;
+  receipt_number?: string;
+  receipt_generated_at?: string;
+  receipt_pdf_uri?: string;
   created_at: string;
   updated_at: string;
 }
@@ -802,6 +806,7 @@ export interface PropertyInspection {
 }
 
 export type TenantMessageId = string;
+export type ReceiptId = string;
 
 export interface TenantMessage {
   id: TenantMessageId;
@@ -818,5 +823,25 @@ export interface TenantMessage {
   is_read: boolean;
   read_at?: string;
   parent_message_id?: TenantMessageId;
+  created_at: string;
+}
+
+export interface Receipt {
+  id: ReceiptId;
+  tenant_id: TenantId;
+  payment_id: PaymentId;
+  receipt_number: string;
+  receipt_date: string;
+  tenant_renter_id: TenantRenterId;
+  payment_amount: number;
+  currency: PaymentCurrency;
+  payment_method?: string;
+  reference_number?: string;
+  lease_id: LeaseId;
+  property_id: PropertyId;
+  unit_id: UnitId;
+  pdf_uri?: string;
+  auto_generated: boolean;
+  generated_at: string;
   created_at: string;
 }

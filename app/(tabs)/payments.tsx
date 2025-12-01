@@ -6,6 +6,8 @@ import { Payment, PaymentCurrency, Invoice } from '@/types';
 import * as DocumentPicker from 'expo-document-picker';
 import { CURRENCIES, DEFAULT_CURRENCY, getCurrencySymbol } from '@/constants/currencies';
 import { generateInvoiceNumber, generateInvoiceData, generateMonthlyInvoiceDate, shouldGenerateInvoice, shareInvoicePDF } from '@/utils/invoiceGenerator';
+import { generateReceiptNumber, generateReceiptData, shareReceiptPDF } from '@/utils/receiptGenerator';
+import type { Receipt as ReceiptType } from '@/types';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
@@ -105,11 +107,56 @@ export default function PaymentsScreen() {
               status: 'paid',
               payment_date: new Date().toISOString().split('T')[0]
             });
-            Alert.alert('Success', 'Payment marked as paid');
+            Alert.alert('Success', 'Payment marked as paid. Generate receipt from payment details.');
           }
         },
       ]
     );
+  };
+
+  const handleGenerateReceipt = async (payment: Payment) => {
+    const lease = leases.find(l => l.id === payment.lease_id);
+    const tenantRenter = tenantRenters.find(tr => tr.id === payment.tenant_renter_id);
+    const property = properties.find(p => p.id === lease?.property_id);
+    const unit = units.find(u => u.id === lease?.unit_id);
+
+    if (!lease || !tenantRenter || !property || !unit || !currentTenant) {
+      Alert.alert('Error', 'Unable to generate receipt. Missing required information.');
+      return;
+    }
+
+    try {
+      console.log('[Payments] Generating receipt for payment', payment.id);
+      
+      const receiptNumber = generateReceiptNumber(payments.filter(p => p.receipt_number).length);
+      const receiptData = generateReceiptData(payment, lease, receiptNumber, currentTenant.id, false);
+      
+      const receipt: ReceiptType = {
+        ...receiptData,
+        id: `receipt-${Date.now()}`,
+        generated_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      };
+
+      const landlordInfo = {
+        name: currentTenant.name,
+        address: property.address,
+        email: currentTenant.email,
+        phone: currentTenant.phone,
+      };
+
+      await shareReceiptPDF(receipt, payment, tenantRenter, lease, property, unit, landlordInfo);
+      
+      await updatePayment(payment.id, {
+        receipt_number: receiptNumber,
+        receipt_generated_at: new Date().toISOString(),
+      });
+      
+      Alert.alert('Success', `Receipt ${receiptNumber} generated and shared successfully!`);
+    } catch (error) {
+      console.error('[Payments] Error generating receipt:', error);
+      Alert.alert('Error', 'Failed to generate receipt. Please try again.');
+    }
   };
 
   const handlePickDocument = async () => {
@@ -134,7 +181,11 @@ export default function PaymentsScreen() {
         },
       });
       
-      Alert.alert('Success', `${file.name} attached successfully`);
+      Alert.alert(
+        'Success', 
+        `${file.name} attached successfully. A receipt will be automatically generated upon saving.`,
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('Error picking document:', error);
       Alert.alert('Error', 'Failed to pick document');
@@ -281,8 +332,23 @@ export default function PaymentsScreen() {
       } : undefined,
     };
 
-    await addPayment(paymentData);
-    Alert.alert('Success', 'Payment recorded successfully');
+    const newPayment = await addPayment(paymentData);
+    
+    if (formData.payment_proof && newPayment && formData.status === 'paid') {
+      console.log('[Payments] Proof of payment uploaded - Auto-generating receipt');
+      
+      setTimeout(async () => {
+        try {
+          await handleGenerateReceipt(newPayment);
+        } catch (error) {
+          console.error('[Payments] Error auto-generating receipt:', error);
+        }
+      }, 500);
+    }
+    
+    Alert.alert('Success', formData.payment_proof && formData.status === 'paid' 
+      ? 'Payment recorded successfully. Receipt will be generated automatically.'
+      : 'Payment recorded successfully');
     setModalVisible(false);
     resetForm();
   };
@@ -386,8 +452,8 @@ export default function PaymentsScreen() {
           </View>
         )}
 
-        {item.status !== 'paid' && item.status !== 'cancelled' && (
-          <View style={styles.paymentActions}>
+        <View style={styles.paymentActions}>
+          {item.status !== 'paid' && item.status !== 'cancelled' && (
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => handleMarkPaid(item)}
@@ -396,8 +462,20 @@ export default function PaymentsScreen() {
               <DollarSign size={16} color="#34C759" />
               <Text style={[styles.actionText, { color: '#34C759' }]}>Mark as Paid</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+          {item.status === 'paid' && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleGenerateReceipt(item)}
+              testID={`generate-receipt-${item.id}`}
+            >
+              <Receipt size={16} color="#34C759" />
+              <Text style={[styles.actionText, { color: '#34C759' }]}>
+                {item.receipt_number ? 'Re-generate Receipt' : 'Generate Receipt'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </Card>
     );
   };
