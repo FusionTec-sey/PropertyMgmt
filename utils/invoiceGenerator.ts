@@ -109,7 +109,7 @@ export function generateInvoiceData(params: GenerateInvoiceParams): Omit<Invoice
 
 export function formatRentPeriodFromDueDate(dueDate: string): string {
   const date = new Date(dueDate);
-  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const month = date.toLocaleDateString('en-GB', { month: 'long' });
   const year = date.getFullYear();
   return `${month} ${year}`;
 }
@@ -213,7 +213,7 @@ export function formatInvoiceHTML(
       <div>
         <h1>INVOICE</h1>
         <div class="invoice-number">#${invoice.invoice_number}</div>
-        <div class="invoice-number">Date: ${new Date(invoice.invoice_date).toLocaleDateString()}</div>
+        <div class="invoice-number">Date: ${new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</div>
       </div>
       <div style="text-align: right;">
         <span class="status-badge status-${invoice.status}">${invoice.status}</span>
@@ -259,7 +259,7 @@ export function formatInvoiceHTML(
       <div class="details-column">
         <h3>Due Date</h3>
         <p style="font-size: 16px; font-weight: 600; color: ${new Date(invoice.due_date) < new Date() ? '#FF3B30' : '#333'};">
-          ${new Date(invoice.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          ${new Date(invoice.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
       <div class="details-column">
@@ -281,8 +281,8 @@ export function formatInvoiceHTML(
             <tr>
               <td>${item.description}</td>
               <td class="text-right">${item.quantity}</td>
-              <td class="text-right">${currencySymbol}${item.unit_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              <td class="text-right">${currencySymbol}${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td class="text-right">${currencySymbol}${item.unit_price.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td class="text-right">${currencySymbol}${item.amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -292,38 +292,38 @@ export function formatInvoiceHTML(
     <div class="totals">
       <div class="totals-row">
         <span>Subtotal:</span>
-        <span>${currencySymbol}${invoice.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        <span>${currencySymbol}${invoice.subtotal.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
       </div>
       ${invoice.tax_amount ? `
         <div class="totals-row">
           <span>Tax:</span>
-          <span>${currencySymbol}${invoice.tax_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span>${currencySymbol}${invoice.tax_amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       ` : ''}
       ${invoice.late_fee_amount ? `
         <div class="totals-row" style="color: #FF9500;">
           <span>Late Fee:</span>
-          <span>${currencySymbol}${invoice.late_fee_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span>${currencySymbol}${invoice.late_fee_amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       ` : ''}
       ${invoice.discount_amount ? `
         <div class="totals-row" style="color: #34C759;">
           <span>Discount:</span>
-          <span>-${currencySymbol}${invoice.discount_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span>-${currencySymbol}${invoice.discount_amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       ` : ''}
       <div class="totals-row total">
         <span>Total Amount:</span>
-        <span class="amount">${currencySymbol}${invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}</span>
+        <span class="amount">${currencySymbol}${invoice.total_amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}</span>
       </div>
       ${invoice.amount_paid ? `
         <div class="totals-row">
           <span>Amount Paid:</span>
-          <span>${currencySymbol}${invoice.amount_paid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span>${currencySymbol}${invoice.amount_paid.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
         <div class="totals-row total">
           <span>Balance Due:</span>
-          <span class="amount">${currencySymbol}${(invoice.balance_due || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}</span>
+          <span class="amount">${currencySymbol}${(invoice.balance_due || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}</span>
         </div>
       ` : ''}
     </div>
@@ -337,7 +337,7 @@ export function formatInvoiceHTML(
 
     <div class="footer">
       <p>Thank you for your business!</p>
-      <p style="margin-top: 10px;">Please make payment by ${new Date(invoice.due_date).toLocaleDateString()}</p>
+      <p style="margin-top: 10px;">Please make payment by ${new Date(invoice.due_date).toLocaleDateString('en-GB')}</p>
     </div>
   </div>
 </body>

@@ -33,7 +33,7 @@ export function generateChecklistHTML(checklist: MoveInChecklist): string {
       <p class="checklist-subtitle">Move-In Inspection Report</p>
       
       <div class="checklist-info">
-        <p><strong>Inspection Date:</strong> ${checklist.completed_date ? new Date(checklist.completed_date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+        <p><strong>Inspection Date:</strong> ${checklist.completed_date ? new Date(checklist.completed_date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</p>
         <p><strong>Overall Condition:</strong> ${checklist.overall_condition.charAt(0).toUpperCase() + checklist.overall_condition.slice(1)}</p>
       </div>
   `;
@@ -209,7 +209,7 @@ export function generateInventoryHTML(items: PropertyItem[]): string {
     categoryItems.forEach(item => {
       const serialModel = [item.serial_number, item.model_number].filter(Boolean).join(' / ') || 'N/A';
       const replacementCost = item.replacement_cost 
-        ? `₨${item.replacement_cost.toLocaleString('en-US', { minimumFractionDigits: 2 })} SCR`
+        ? `₨${item.replacement_cost.toLocaleString('en-GB', { minimumFractionDigits: 2 })} SCR`
         : 'N/A';
       
       html += `
@@ -338,7 +338,7 @@ export function generateCompleteTenancyDocument(
   inventoryItems?: PropertyItem[]
 ): string {
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
+    return new Date(dateString).toLocaleDateString('en-GB', { 
       day: '2-digit',
       month: '2-digit', 
       year: 'numeric' 
@@ -346,7 +346,7 @@ export function generateCompleteTenancyDocument(
   };
 
   const formatCurrency = (amount: number) => {
-    return `₨${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₨${amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const tenantName = tenant.type === 'business' 
@@ -403,9 +403,9 @@ export function generateCompleteTenancyDocument(
     late_fee_additional: '₨525 SCR',
     dishonour_fee: '₨500 SCR',
     additional_terms: lease.terms || '',
-    generation_date: new Date().toLocaleDateString('en-US', { 
+    generation_date: new Date().toLocaleDateString('en-GB', { 
+      day: 'numeric',
       month: 'long', 
-      day: 'numeric', 
       year: 'numeric' 
     }),
   };

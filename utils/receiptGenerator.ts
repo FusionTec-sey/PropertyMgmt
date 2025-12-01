@@ -52,9 +52,9 @@ export function formatReceiptHTML(
     : `${tenantRenter.first_name} ${tenantRenter.last_name}`;
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
+    return new Date(dateString).toLocaleDateString('en-GB', { 
+      day: 'numeric',
       month: 'long', 
-      day: 'numeric', 
       year: 'numeric' 
     });
   };
@@ -118,7 +118,7 @@ export function formatReceiptHTML(
 
     <div class="amount-paid">
       <div class="label">Amount Paid</div>
-      <div class="amount">${currencySymbol}${receipt.payment_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${receipt.currency}</div>
+      <div class="amount">${currencySymbol}${receipt.payment_amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${receipt.currency}</div>
     </div>
 
     <div class="details-grid">
@@ -157,17 +157,17 @@ export function formatReceiptHTML(
     <div class="breakdown">
       <div class="breakdown-row">
         <span class="label">Rent Amount:</span>
-        <span class="value">${currencySymbol}${payment.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        <span class="value">${currencySymbol}${payment.amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
       </div>
       ${payment.late_fee && payment.late_fee > 0 ? `
         <div class="breakdown-row">
           <span class="label">Late Fee:</span>
-          <span class="value">${currencySymbol}${payment.late_fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span class="value">${currencySymbol}${payment.late_fee.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       ` : ''}
       <div class="breakdown-row total">
         <span class="label">Total Amount Paid:</span>
-        <span class="value">${currencySymbol}${receipt.payment_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${receipt.currency}</span>
+        <span class="value">${currencySymbol}${receipt.payment_amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${receipt.currency}</span>
       </div>
     </div>
 

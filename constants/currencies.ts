@@ -36,5 +36,5 @@ export const getCurrencySymbol = (code: CurrencyCode): string => {
 
 export const formatCurrency = (amount: number, currencyCode: CurrencyCode): string => {
   const currency = CURRENCIES[currencyCode];
-  return `${currency.symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency.code}`;
+  return `${currency.symbol}${amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency.code}`;
 };

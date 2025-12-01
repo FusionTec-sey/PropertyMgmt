@@ -77,7 +77,7 @@ export default function DashboardScreen() {
   );
 
   const formatCurrency = (amount: number) => {
-    return `₨${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
+    return `₨${amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
   };
 
   const today = new Date();
@@ -925,7 +925,7 @@ export default function DashboardScreen() {
                             ? 'Overdue'
                             : isDueToday
                             ? 'Due today'
-                            : new Date(todo.due_date).toLocaleDateString()}
+                            : new Date(todo.due_date).toLocaleDateString('en-GB')}
                         </Text>
                       )}
                     </View>
