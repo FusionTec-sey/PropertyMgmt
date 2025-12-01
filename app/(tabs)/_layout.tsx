@@ -46,9 +46,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="payments"
         options={{
-          title: "Payments",
+          title: "Payments & Invoices",
           tabBarIcon: ({ color }) => <DollarSign size={24} color={color} />,
           href: hasPermission('payments') ? undefined : null,
+        }}
+      />
+      <Tabs.Screen
+        name="invoices"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
