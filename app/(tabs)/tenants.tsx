@@ -818,7 +818,7 @@ export default function TenantsScreen() {
                       [
                         { text: 'Cancel', style: 'cancel' },
                         ...availableUnits.map(unit => ({
-                          text: `${unit.unit_number} - ${unit.rent_amount}/month`,
+                          text: `${unit.unit_number} - ₨${unit.rent_amount.toLocaleString()} SCR/month`,
                           onPress: () => {
                             setLeaseFormData({ 
                               ...leaseFormData, 
@@ -1389,7 +1389,7 @@ function TenantDetailModal({
 
                   <View style={styles.leaseRentInfo}>
                     <DollarSign size={16} color="#34C759" />
-                    <Text style={styles.leaseRentAmount}>${lease.rent_amount.toLocaleString()}/month</Text>
+                    <Text style={styles.leaseRentAmount}>₨{lease.rent_amount.toLocaleString()} SCR/month</Text>
                   </View>
                 </Card>
               );

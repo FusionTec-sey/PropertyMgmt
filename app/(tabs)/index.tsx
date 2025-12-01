@@ -43,10 +43,7 @@ export default function DashboardScreen() {
   );
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+    return `₨${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
   };
 
   const recentLeases = leases.slice(-3).reverse();
@@ -176,7 +173,7 @@ export default function DashboardScreen() {
                 <View style={styles.leaseInfo}>
                   <Text style={styles.leaseProperty}>{property?.name || 'Unknown'}</Text>
                   <Text style={styles.leaseDetails}>
-                    {formatCurrency(lease.rent_amount)}/month
+                    ₨{lease.rent_amount.toLocaleString()} SCR/month
                   </Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(lease.status) }]}>

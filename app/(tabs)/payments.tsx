@@ -191,7 +191,7 @@ export default function PaymentsScreen() {
               {tenantRenter ? (tenantRenter.type === 'business' ? tenantRenter.business_name : `${tenantRenter.first_name} ${tenantRenter.last_name}`) : 'Unknown'}
             </Text>
             <Text style={styles.amount}>
-              {currencySymbol}{totalAmount.toLocaleString()} {item.currency}
+              {currencySymbol}{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {item.currency}
             </Text>
           </View>
           <Badge label={item.status} variant={getStatusVariant(item.status)} />
@@ -216,7 +216,7 @@ export default function PaymentsScreen() {
           <View style={styles.lateFeeRow}>
             <AlertCircle size={14} color="#FF9500" />
             <Text style={styles.lateFeeText}>
-              Late Fee: {currencySymbol}{item.late_fee.toLocaleString()}
+              Late Fee: {currencySymbol}{item.late_fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
         )}
@@ -273,8 +273,8 @@ export default function PaymentsScreen() {
     <View style={styles.container}>
       <View style={styles.statsBar}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>₨{paidThisMonth.toLocaleString()}</Text>
-          <Text style={styles.statLabel}>This Month ({DEFAULT_CURRENCY})</Text>
+          <Text style={styles.statValue}>₨{paidThisMonth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+          <Text style={styles.statLabel}>This Month (SCR)</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: '#FF9500' }]}>{pendingPayments}</Text>

@@ -397,7 +397,7 @@ export default function MaintenanceScreen() {
         {item.estimated_cost && (
           <View style={styles.scheduleDetails}>
             <Text style={styles.detailLabel}>Est. Cost: </Text>
-            <Text style={styles.detailValue}>${item.estimated_cost.toFixed(2)}</Text>
+            <Text style={styles.detailValue}>₨{item.estimated_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR</Text>
           </View>
         )}
 
