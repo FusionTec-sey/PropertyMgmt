@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Property, Unit, PropertyType, ParkingSpot } from '@/types';
@@ -382,9 +383,17 @@ export default function PropertiesScreen() {
           testID={`toggle-property-${item.id}`}
         >
           <View style={styles.propertyHeader}>
-            <View style={styles.propertyIcon}>
-              <Building2 size={24} color="#007AFF" />
-            </View>
+            {item.images && item.images.length > 0 ? (
+              <Image
+                source={{ uri: item.images[0] }}
+                style={styles.propertyImage}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={styles.propertyIcon}>
+                <Building2 size={24} color="#007AFF" />
+              </View>
+            )}
             <View style={styles.propertyInfo}>
               <View style={styles.propertyTitleRow}>
                 <Text style={styles.propertyName}>{item.name}</Text>
@@ -914,6 +923,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginRight: 12,
+  },
+  propertyImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#F0F0F0',
   },
   propertyInfo: {
     flex: 1,
