@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
-import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench } from 'lucide-react-native';
+import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench, User } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Property, Unit, PropertyType, ParkingSpot } from '@/types';
 import Button from '@/components/Button';
@@ -16,7 +16,7 @@ import SwipeableItem, { SwipeAction } from '@/components/SwipeableItem';
 import { useRouter } from 'expo-router';
 
 export default function PropertiesScreen() {
-  const { properties, units, addProperty, updateProperty, deleteProperty, addUnit, updateUnit } = useApp();
+  const { properties, units, addProperty, updateProperty, deleteProperty, addUnit, updateUnit, leases, tenantRenters, maintenanceRequests } = useApp();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [unitModalVisible, setUnitModalVisible] = useState<boolean>(false);
@@ -309,10 +309,29 @@ export default function PropertiesScreen() {
     }
   };
 
-  const renderUnit = (unit: Unit) => (
+  const getUnitTenant = (unit: Unit) => {
+    const activeLease = leases.find(l => l.unit_id === unit.id && l.status === 'active');
+    if (!activeLease) return null;
+    return tenantRenters.find(t => t.id === activeLease.tenant_renter_id);
+  };
+
+  const getUnitMaintenanceCount = (unitId: string) => {
+    return maintenanceRequests.filter(m => m.unit_id === unitId && m.status !== 'resolved').length;
+  };
+
+  const getTenantName = (tenant: typeof tenantRenters[0]) => {
+    if (tenant.type === 'business') return tenant.business_name || 'Unnamed Business';
+    return `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed';
+  };
+
+  const renderUnit = (unit: Unit) => {
+    const tenant = getUnitTenant(unit);
+    const maintenanceCount = getUnitMaintenanceCount(unit.id);
+
+    return (
     <Card key={unit.id} style={styles.unitCard}>
       <View style={styles.unitHeader}>
-        <View>
+        <View style={styles.unitMainInfo}>
           <Text style={styles.unitNumber}>Unit {unit.unit_number}</Text>
           {unit.bedrooms || unit.bathrooms ? (
             <Text style={styles.unitDetails}>
@@ -321,6 +340,24 @@ export default function PropertiesScreen() {
               {unit.bathrooms && `${unit.bathrooms} bath`}
             </Text>
           ) : null}
+          {tenant && (
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/tenants')}
+              style={styles.tenantLinkContainer}
+            >
+              <User size={12} color="#007AFF" />
+              <Text style={styles.tenantLinkText}>{getTenantName(tenant)}</Text>
+            </TouchableOpacity>
+          )}
+          {maintenanceCount > 0 && (
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/maintenance')}
+              style={styles.maintenanceLinkContainer}
+            >
+              <Wrench size={12} color="#FF9500" />
+              <Text style={styles.maintenanceLinkText}>{maintenanceCount} open request{maintenanceCount > 1 ? 's' : ''}</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <Badge label={unit.status} variant={getStatusVariant(unit.status)} />
       </View>
@@ -369,13 +406,15 @@ export default function PropertiesScreen() {
         </TouchableOpacity>
       </View>
     </Card>
-  );
+    );
+  };
 
   const renderProperty = ({ item }: { item: Property }) => {
     const propertyUnits = units.filter(u => u.property_id === item.id);
     const occupiedUnits = propertyUnits.filter(u => u.status === 'occupied').length;
     const isExpanded = expandedProperties.has(item.id);
     const parkingCount = item.parking_spots?.length || 0;
+    const propertyMaintenanceCount = maintenanceRequests.filter(m => m.property_id === item.id && m.status !== 'resolved').length;
 
     const swipeActions: SwipeAction[] = [
       {
@@ -447,6 +486,15 @@ export default function PropertiesScreen() {
               <Text style={styles.statValue}>{propertyUnits.length - occupiedUnits}</Text>
               <Text style={styles.statLabel}>Available</Text>
             </View>
+            {propertyMaintenanceCount > 0 && (
+              <TouchableOpacity 
+                style={styles.stat}
+                onPress={() => router.push('/(tabs)/maintenance')}
+              >
+                <Text style={[styles.statValue, styles.maintenanceStatValue]}>{propertyMaintenanceCount}</Text>
+                <Text style={[styles.statLabel, styles.maintenanceStatLabel]}>Maintenance</Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.stat}>
               <Text style={styles.statValue}>{parkingCount}</Text>
               <Text style={styles.statLabel}>Parking</Text>
@@ -1236,5 +1284,38 @@ const styles = StyleSheet.create({
   unitPhotosText: {
     fontSize: 13,
     color: '#666',
+  },
+  unitMainInfo: {
+    flex: 1,
+  },
+  tenantLinkContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    marginTop: 4,
+    paddingVertical: 2,
+  },
+  tenantLinkText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500' as const,
+  },
+  maintenanceLinkContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    marginTop: 2,
+    paddingVertical: 2,
+  },
+  maintenanceLinkText: {
+    fontSize: 12,
+    color: '#FF9500',
+    fontWeight: '500' as const,
+  },
+  maintenanceStatValue: {
+    color: '#FF9500',
+  },
+  maintenanceStatLabel: {
+    color: '#FF9500',
   },
 });
