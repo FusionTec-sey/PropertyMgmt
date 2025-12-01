@@ -79,6 +79,16 @@ export default function DashboardScreen() {
     (m) => m.priority === 'urgent' || m.priority === 'high'
   ).slice(0, 3);
 
+  const today = new Date();
+  const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const expiringLeases = leases.filter((l) => {
+    if (l.status !== 'active') return false;
+    const endDate = new Date(l.end_date);
+    return endDate >= today && endDate <= thirtyDaysFromNow;
+  }).sort((a, b) => new Date(a.end_date).getTime() - new Date(b.end_date).getTime());
+
+  const pendingRenewalOffers = leases.filter((l) => l.renewal_offer && l.renewal_offer.status === 'pending');
+
   const pendingTodos = todos.filter((t) => t.status === 'pending' || t.status === 'in_progress');
   const todayTodos = pendingTodos.filter((t) => {
     if (!t.due_date) return false;
@@ -453,6 +463,128 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             )}
           </View>
+        </View>
+      )}
+
+      {expiringLeases.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Calendar size={20} color="#FF9500" />
+            <Text style={styles.sectionTitle}>Expiring Leases</Text>
+          </View>
+          {expiringLeases.map((lease) => {
+            const property = properties.find((p) => p.id === lease.property_id);
+            const unit = units.find((u) => u.id === lease.unit_id);
+            const tenant = tenantRenters.find((t) => t.id === lease.tenant_renter_id);
+            const tenantName = tenant
+              ? tenant.type === 'business'
+                ? tenant.business_name || 'Unnamed Business'
+                : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+              : 'Unknown';
+            
+            const endDate = new Date(lease.end_date);
+            const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+            return (
+              <TouchableOpacity
+                key={lease.id}
+                style={styles.expiringLeaseCard}
+                onPress={() => router.push(`/lease/${lease.id}`)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.leaseInfo}>
+                  <Text style={styles.leaseProperty}>{property?.name || 'Unknown'}</Text>
+                  <Text style={styles.leaseDetails}>
+                    {tenantName} • Unit {unit?.unit_number || 'N/A'}
+                  </Text>
+                  <Text style={[styles.leaseExpiry, daysUntilExpiry <= 7 && styles.leaseExpiryUrgent]}>
+                    {daysUntilExpiry === 0 
+                      ? 'Expires today' 
+                      : daysUntilExpiry === 1 
+                      ? 'Expires tomorrow' 
+                      : `Expires in ${daysUntilExpiry} days`}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.renewButton}
+                  onPress={() => {
+                    const monthsDiff = Math.round(
+                      (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) / 
+                      (1000 * 60 * 60 * 24 * 30)
+                    );
+                    const leasePeriod = [6, 12, 24].includes(monthsDiff) ? monthsDiff : 12;
+                    router.push(`/renewLease/${lease.id}?leasePeriod=${leasePeriod}` as any);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.renewButtonText}>Renew</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {pendingRenewalOffers.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FileText size={20} color="#5856D6" />
+            <Text style={styles.sectionTitle}>Pending Renewal Offers</Text>
+          </View>
+          {pendingRenewalOffers.map((lease) => {
+            if (!lease.renewal_offer) return null;
+            const property = properties.find((p) => p.id === lease.property_id);
+            const unit = units.find((u) => u.id === lease.unit_id);
+            const tenant = tenantRenters.find((t) => t.id === lease.tenant_renter_id);
+            const tenantName = tenant
+              ? tenant.type === 'business'
+                ? tenant.business_name || 'Unnamed Business'
+                : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+              : 'Unknown';
+            
+            const deadline = new Date(lease.renewal_offer.response_deadline);
+            const daysUntilDeadline = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const isOverdue = daysUntilDeadline < 0;
+
+            return (
+              <View
+                key={lease.id}
+                style={[styles.renewalOfferCard, isOverdue && styles.renewalOfferOverdue]}
+              >
+                <View style={styles.leaseInfo}>
+                  <Text style={styles.leaseProperty}>{property?.name || 'Unknown'}</Text>
+                  <Text style={styles.leaseDetails}>
+                    {tenantName} • Unit {unit?.unit_number || 'N/A'}
+                  </Text>
+                  <View style={styles.renewalOfferDetails}>
+                    <View style={styles.renewalOfferRow}>
+                      <Text style={styles.renewalOfferLabel}>New Rent:</Text>
+                      <Text style={styles.renewalOfferValue}>
+                        {formatCurrency(lease.renewal_offer.new_rent_amount)}
+                      </Text>
+                    </View>
+                    {lease.renewal_offer.rent_increase !== 0 && (
+                      <View style={styles.renewalOfferRow}>
+                        <Text style={styles.renewalOfferLabel}>Change:</Text>
+                        <Text style={[styles.renewalOfferValue, lease.renewal_offer.rent_increase > 0 ? styles.rentIncrease : styles.rentDecrease]}>
+                          {lease.renewal_offer.rent_increase > 0 ? '+' : ''}{formatCurrency(lease.renewal_offer.rent_increase)} ({lease.renewal_offer.rent_increase_percentage > 0 ? '+' : ''}{lease.renewal_offer.rent_increase_percentage.toFixed(1)}%)
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={[styles.offerDeadline, isOverdue && styles.offerDeadlineOverdue]}>
+                      {isOverdue
+                        ? `Deadline passed ${Math.abs(daysUntilDeadline)} day${Math.abs(daysUntilDeadline) !== 1 ? 's' : ''} ago`
+                        : daysUntilDeadline === 0
+                        ? 'Deadline today'
+                        : daysUntilDeadline === 1
+                        ? 'Deadline tomorrow'
+                        : `${daysUntilDeadline} days until deadline`}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -1157,6 +1289,97 @@ const styles = StyleSheet.create({
   todoDueToday: {
     color: '#FF9500',
     fontWeight: '600' as const,
+  },
+  expiringLeaseCard: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9500',
+  },
+  leaseExpiry: {
+    fontSize: 13,
+    color: '#FF9500',
+    fontWeight: '600' as const,
+    marginTop: 4,
+  },
+  leaseExpiryUrgent: {
+    color: '#FF3B30',
+  },
+  renewalOfferCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#5856D6',
+  },
+  renewalOfferOverdue: {
+    borderLeftColor: '#FF3B30',
+  },
+  renewalOfferDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  renewalOfferRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 6,
+  },
+  renewalOfferLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  renewalOfferValue: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+  },
+  rentIncrease: {
+    color: '#FF9500',
+  },
+  rentDecrease: {
+    color: '#34C759',
+  },
+  offerDeadline: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 6,
+    fontStyle: 'italic' as const,
+  },
+  offerDeadlineOverdue: {
+    color: '#FF3B30',
+    fontWeight: '600' as const,
+  },
+  renewButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    backgroundColor: '#FFF',
+  },
+  renewButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
   },
   reminderButton: {
     padding: 8,

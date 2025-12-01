@@ -177,6 +177,22 @@ export interface SignedDocument {
   uploadedAt: string;
 }
 
+export interface LeaseRenewalOffer {
+  offered_at: string;
+  response_deadline: string;
+  new_start_date: string;
+  new_end_date: string;
+  new_rent_amount: number;
+  new_deposit_amount: number;
+  new_payment_due_day: number;
+  new_terms?: string;
+  rent_increase: number;
+  rent_increase_percentage: number;
+  status: 'pending' | 'accepted' | 'declined';
+  tenant_response_at?: string;
+  tenant_response_notes?: string;
+}
+
 export interface Lease {
   id: LeaseId;
   tenant_id: TenantId;
@@ -197,6 +213,8 @@ export interface Lease {
   move_in_checklist_id?: MoveInChecklistId;
   complete_agreement_uri?: string;
   complete_agreement_generated_at?: string;
+  renewed_from_lease_id?: LeaseId;
+  renewal_offer?: LeaseRenewalOffer;
   created_at: string;
   updated_at: string;
 }
