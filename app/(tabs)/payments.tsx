@@ -4,6 +4,7 @@ import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye } fro
 import { useApp } from '@/contexts/AppContext';
 import { Payment, PaymentCurrency } from '@/types';
 import * as DocumentPicker from 'expo-document-picker';
+import { CURRENCIES, DEFAULT_CURRENCY, getCurrencySymbol } from '@/constants/currencies';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
@@ -18,7 +19,7 @@ export default function PaymentsScreen() {
     lease_id: '',
     tenant_renter_id: '',
     amount: '',
-    currency: 'SCR' as PaymentCurrency,
+    currency: DEFAULT_CURRENCY as PaymentCurrency,
     payment_date: '',
     due_date: '',
     status: 'pending' as 'pending' | 'paid' | 'overdue' | 'partial' | 'cancelled',
@@ -52,7 +53,7 @@ export default function PaymentsScreen() {
       lease_id: '',
       tenant_renter_id: '',
       amount: '',
-      currency: 'SCR',
+      currency: DEFAULT_CURRENCY,
       payment_date: new Date().toISOString().split('T')[0],
       due_date: '',
       status: 'pending',
@@ -157,14 +158,7 @@ export default function PaymentsScreen() {
     return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const getCurrencySymbol = (currency: PaymentCurrency) => {
-    switch (currency) {
-      case 'SCR': return '₨';
-      case 'EUR': return '€';
-      case 'USD': return '$';
-      default: return '$';
-    }
-  };
+
 
   const renderPayment = ({ item }: { item: Payment }) => {
     const tenantRenter = tenantRenters.find((tr: any) => tr.id === item.tenant_renter_id);
@@ -262,8 +256,8 @@ export default function PaymentsScreen() {
     <View style={styles.container}>
       <View style={styles.statsBar}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>${paidThisMonth.toLocaleString()}</Text>
-          <Text style={styles.statLabel}>This Month</Text>
+          <Text style={styles.statValue}>₨{paidThisMonth.toLocaleString()}</Text>
+          <Text style={styles.statLabel}>This Month ({DEFAULT_CURRENCY})</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: '#FF9500' }]}>{pendingPayments}</Text>
@@ -418,23 +412,26 @@ export default function PaymentsScreen() {
           <View style={[styles.formSection, styles.halfInput]}>
             <Text style={styles.label}>Currency</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
-              {(['SCR', 'EUR', 'USD'] as PaymentCurrency[]).map(currency => (
-                <TouchableOpacity
-                  key={currency}
-                  style={[
-                    styles.selectorItem,
-                    formData.currency === currency && styles.selectorItemActive
-                  ]}
-                  onPress={() => setFormData({ ...formData, currency })}
-                >
-                  <Text style={[
-                    styles.selectorText,
-                    formData.currency === currency && styles.selectorTextActive
-                  ]}>
-                    {currency}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {(Object.keys(CURRENCIES) as PaymentCurrency[]).map(currencyCode => {
+                const curr = CURRENCIES[currencyCode];
+                return (
+                  <TouchableOpacity
+                    key={currencyCode}
+                    style={[
+                      styles.selectorItem,
+                      formData.currency === currencyCode && styles.selectorItemActive
+                    ]}
+                    onPress={() => setFormData({ ...formData, currency: currencyCode })}
+                  >
+                    <Text style={[
+                      styles.selectorText,
+                      formData.currency === currencyCode && styles.selectorTextActive
+                    ]}>
+                      {curr.flag} {curr.code}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 
