@@ -417,71 +417,110 @@ export function generateCompleteTenancyDocument(
   
   const convertMarkdownToHTML = (text: string): string => {
     const lines = text.split('\n');
-    const htmlLines: string[] = [];
-    let inList = false;
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmedLine = line.trim();
-      
-      if (trimmedLine.startsWith('# ')) {
-        if (inList) {
-          htmlLines.push('</ul>');
-          inList = false;
-        }
-        htmlLines.push(`<h1 class="main-title">${trimmedLine.substring(2)}</h1>`);
-      } else if (trimmedLine.startsWith('## ')) {
-        if (inList) {
-          htmlLines.push('</ul>');
-          inList = false;
-        }
-        htmlLines.push(`<h2 class="section-title">${trimmedLine.substring(3)}</h2>`);
-      } else if (trimmedLine.startsWith('### ')) {
-        if (inList) {
-          htmlLines.push('</ul>');
-          inList = false;
-        }
-        htmlLines.push(`<h3 class="subsection-title">${trimmedLine.substring(4)}</h3>`);
-      } else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('• ')) {
-        if (!inList) {
-          htmlLines.push('<ul class="agreement-list">');
-          inList = true;
-        }
-        const content = trimmedLine.substring(2).trim();
-        const processedContent = processBoldText(content);
-        htmlLines.push(`<li>${processedContent}</li>`);
-      } else if (trimmedLine === '---') {
-        if (inList) {
-          htmlLines.push('</ul>');
-          inList = false;
-        }
-        htmlLines.push('<hr class="separator" />');
-      } else if (trimmedLine === '') {
-        if (inList) {
-          htmlLines.push('</ul>');
-          inList = false;
-        }
-      } else {
-        if (inList) {
-          htmlLines.push('</ul>');
-          inList = false;
-        }
-        const processedLine = processBoldText(trimmedLine);
-        htmlLines.push(`<p class="agreement-paragraph">${processedLine}</p>`);
+    const htmlParts: string[] = [];
+    let activeList: 'ul' | 'ol' | null = null;
+    let sectionOpen = false;
+
+    const closeList = () => {
+      if (activeList) {
+        htmlParts.push(`</${activeList}>`);
+        activeList = null;
       }
-    }
-    
-    if (inList) {
-      htmlLines.push('</ul>');
-    }
-    
-    return htmlLines.join('\n');
+    };
+
+    const openSectionIfNeeded = () => {
+      if (!sectionOpen) {
+        htmlParts.push('<div class="agreement-section">');
+        sectionOpen = true;
+      }
+    };
+
+    const closeSection = () => {
+      closeList();
+      if (sectionOpen) {
+        htmlParts.push('</div>');
+        sectionOpen = false;
+      }
+    };
+
+    lines.forEach(rawLine => {
+      const trimmedLine = rawLine.trim();
+
+      if (trimmedLine === '') {
+        closeList();
+        return;
+      }
+
+      if (trimmedLine.startsWith('# ')) {
+        closeSection();
+        htmlParts.push(`<h1 class="main-title">${trimmedLine.substring(2).trim()}</h1>`);
+        return;
+      }
+
+      if (trimmedLine.startsWith('## ')) {
+        closeSection();
+        const headingText = trimmedLine.substring(3).trim();
+        const normalizedHeading = headingText.toLowerCase();
+        const shouldForceBreak = normalizedHeading.includes('signatures') || normalizedHeading.includes('schedules');
+        htmlParts.push('<div class="agreement-section">');
+        sectionOpen = true;
+        htmlParts.push(`<h2 class="section-title${shouldForceBreak ? ' section-title--page-break' : ''}">${headingText}</h2>`);
+        return;
+      }
+
+      if (trimmedLine.startsWith('### ')) {
+        openSectionIfNeeded();
+        htmlParts.push(`<h3 class="subsection-title">${trimmedLine.substring(4).trim()}</h3>`);
+        return;
+      }
+
+      if (/^(\d+)\.\s+/.test(trimmedLine)) {
+        openSectionIfNeeded();
+        if (activeList !== 'ol') {
+          closeList();
+          htmlParts.push('<ol class="agreement-ordered-list">');
+          activeList = 'ol';
+        }
+        const content = trimmedLine.replace(/^(\d+)\.\s+/, '');
+        htmlParts.push(`<li>${processInlineFormatting(content)}</li>`);
+        return;
+      }
+
+      if (/^[-*•]\s+/.test(trimmedLine)) {
+        openSectionIfNeeded();
+        if (activeList !== 'ul') {
+          closeList();
+          htmlParts.push('<ul class="agreement-list">');
+          activeList = 'ul';
+        }
+        const content = trimmedLine.replace(/^[-*•]\s+/, '');
+        htmlParts.push(`<li>${processInlineFormatting(content)}</li>`);
+        return;
+      }
+
+      if (trimmedLine === '---') {
+        closeSection();
+        htmlParts.push('<div class="section-divider"></div>');
+        return;
+      }
+
+      openSectionIfNeeded();
+      closeList();
+      htmlParts.push(`<p class="agreement-paragraph">${processInlineFormatting(trimmedLine)}</p>`);
+    });
+
+    closeSection();
+    return htmlParts.join('\n');
   };
-  
-  const processBoldText = (text: string): string => {
-    return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  const processInlineFormatting = (text: string): string => {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/_(.+?)_/g, '<em>$1</em>');
   };
-  
+
   agreementText = convertMarkdownToHTML(agreementText);
 
   const checklistHTML = checklist ? generateChecklistHTML(checklist) : '';
@@ -528,6 +567,12 @@ export function generateCompleteTenancyDocument(
             padding-bottom: 20px;
           }
           
+          .agreement-section {
+            margin-bottom: 24px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          
           .section-title {
             font-size: 13pt;
             font-weight: bold;
@@ -536,6 +581,11 @@ export function generateCompleteTenancyDocument(
             page-break-after: avoid;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+          }
+          
+          .section-title--page-break {
+            page-break-before: always;
+            margin-top: 60px;
           }
           
           .subsection-title {
@@ -550,15 +600,25 @@ export function generateCompleteTenancyDocument(
             margin: 10px 0;
             text-align: justify;
             line-height: 1.8;
+            page-break-inside: avoid;
+          }
+          
+          .agreement-list,
+          .agreement-ordered-list {
+            margin: 10px 0 15px 30px;
+            padding: 0;
           }
           
           .agreement-list {
-            margin: 10px 0 15px 30px;
-            padding: 0;
             list-style-type: disc;
           }
           
-          .agreement-list li {
+          .agreement-ordered-list {
+            list-style-type: decimal;
+          }
+          
+          .agreement-list li,
+          .agreement-ordered-list li {
             margin: 8px 0;
             line-height: 1.7;
             text-align: justify;
@@ -569,10 +629,10 @@ export function generateCompleteTenancyDocument(
             color: #000;
           }
           
-          hr.separator {
-            border: none;
+          .section-divider {
             border-top: 1px solid #CCCCCC;
-            margin: 25px 0;
+            margin: 35px 0;
+            page-break-inside: avoid;
           }
           
           .schedule-title {
