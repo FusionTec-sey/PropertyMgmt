@@ -1,4 +1,7 @@
 import { MoveInChecklist, Lease, Property, Unit, TenantRenter, PropertyItem } from '@/types';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { fillTenancyAgreementTemplate, TENANCY_AGREEMENT_TEMPLATE, TenancyAgreementData } from '@/constants/tenancyAgreement';
 
 export function generateChecklistHTML(checklist: MoveInChecklist): string {
@@ -93,6 +96,66 @@ export function generateChecklistHTML(checklist: MoveInChecklist): string {
   return html;
 }
 
+export async function generateChecklistPDF(
+  checklist: MoveInChecklist,
+  property: Property,
+  unit: Unit,
+  tenant: TenantRenter
+): Promise<string> {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Property Condition Checklist</title>
+        <style>
+          @page { size: A4; margin: 2cm; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #1A1A1A; font-size: 11pt; }
+          .header { text-align: center; border-bottom: 3px solid #003366; padding-bottom: 20px; margin-bottom: 30px; }
+          .header h1 { color: #003366; margin: 0 0 10px 0; font-size: 24pt; }
+          .checklist-section { margin-top: 20px; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10pt; }
+          th { background: #003366; color: white; padding: 10px 8px; text-align: left; border: 1px solid #003366; }
+          td { padding: 8px; border: 1px solid #ddd; }
+          tr:nth-child(even) { background: #f9f9f9; }
+          .category-title { font-size: 13pt; font-weight: bold; color: #003366; margin: 20px 0 10px 0; padding: 8px 12px; background: #E8F0F7; border-left: 4px solid #003366; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>RENTAL PROPERTY CONDITION CHECKLIST</h1>
+          <p><strong>Property:</strong> ${property.name} - Unit ${unit.unit_number}</p>
+          <p><strong>Tenant:</strong> ${tenant.type === 'business' ? tenant.business_name : `${tenant.first_name} ${tenant.last_name}`}</p>
+        </div>
+        ${generateChecklistHTML(checklist)}
+      </body>
+    </html>
+  `;
+
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  return uri;
+}
+
+export async function shareChecklistPDF(
+  checklist: MoveInChecklist,
+  property: Property,
+  unit: Unit,
+  tenant: TenantRenter
+): Promise<void> {
+  const pdfUri = await generateChecklistPDF(checklist, property, unit, tenant);
+  
+  if (Platform.OS !== 'web') {
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Share Checklist',
+        UTI: 'com.adobe.pdf',
+      });
+    }
+  }
+}
+
 export function generateInventoryHTML(items: PropertyItem[]): string {
   if (items.length === 0) {
     return `
@@ -172,6 +235,98 @@ export function generateInventoryHTML(items: PropertyItem[]): string {
   `;
 
   return html;
+}
+
+export async function generateInventoryPDF(
+  items: PropertyItem[],
+  property: Property,
+  unit: Unit
+): Promise<string> {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Property Inventory</title>
+        <style>
+          @page { size: A4; margin: 2cm; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #1A1A1A; font-size: 11pt; }
+          .header { text-align: center; border-bottom: 3px solid #003366; padding-bottom: 20px; margin-bottom: 30px; }
+          .header h1 { color: #003366; margin: 0 0 10px 0; font-size: 24pt; }
+          .inventory-section { margin-top: 20px; }
+          .category-title { font-size: 13pt; font-weight: bold; color: #003366; margin: 20px 0 10px 0; padding: 8px 12px; background: #E8F0F7; border-left: 4px solid #003366; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10pt; }
+          th { background: #003366; color: white; padding: 10px 8px; text-align: left; border: 1px solid #003366; }
+          td { padding: 8px; border: 1px solid #ddd; }
+          tr:nth-child(even) { background: #f9f9f9; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>PROPERTY INVENTORY LIST</h1>
+          <p><strong>Property:</strong> ${property.name} - Unit ${unit.unit_number}</p>
+        </div>
+        ${generateInventoryHTML(items)}
+      </body>
+    </html>
+  `;
+
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  return uri;
+}
+
+export async function shareInventoryPDF(
+  items: PropertyItem[],
+  property: Property,
+  unit: Unit
+): Promise<void> {
+  const pdfUri = await generateInventoryPDF(items, property, unit);
+  
+  if (Platform.OS !== 'web') {
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Share Inventory',
+        UTI: 'com.adobe.pdf',
+      });
+    }
+  }
+}
+
+export async function generateCompleteTenancyPDF(
+  lease: Lease,
+  property: Property,
+  unit: Unit,
+  tenant: TenantRenter,
+  checklist?: MoveInChecklist,
+  inventoryItems?: PropertyItem[]
+): Promise<string> {
+  const html = generateCompleteTenancyDocument(lease, property, unit, tenant, checklist, inventoryItems);
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  return uri;
+}
+
+export async function shareCompleteTenancyPDF(
+  lease: Lease,
+  property: Property,
+  unit: Unit,
+  tenant: TenantRenter,
+  checklist?: MoveInChecklist,
+  inventoryItems?: PropertyItem[]
+): Promise<void> {
+  const pdfUri = await generateCompleteTenancyPDF(lease, property, unit, tenant, checklist, inventoryItems);
+  
+  if (Platform.OS !== 'web') {
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Share Complete Tenancy Agreement',
+        UTI: 'com.adobe.pdf',
+      });
+    }
+  }
 }
 
 export function generateCompleteTenancyDocument(
