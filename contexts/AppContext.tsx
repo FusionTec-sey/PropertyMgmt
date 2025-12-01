@@ -3,8 +3,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Tenant, User, Property, Unit, Renter, Lease, Payment,
-  MaintenanceRequest, Document, Notification, TenantSettings,
-  ActivityLog, DashboardStats, TenantId, MoveInChecklist,
+  MaintenanceRequest, Notification,
+  ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo
 } from '@/types';
 
@@ -35,16 +35,13 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [renters, setRenters] = useState<Renter[]>([]);
   const [leases, setLeases] = useState<Lease[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [settings, setSettings] = useState<TenantSettings[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [moveInChecklists, setMoveInChecklists] = useState<MoveInChecklist[]>([]);
   const [propertyItems, setPropertyItems] = useState<PropertyItem[]>([]);
@@ -57,16 +54,13 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedCurrentTenant,
         savedCurrentUser,
         savedTenants,
-        savedUsers,
         savedProperties,
         savedUnits,
         savedRenters,
         savedLeases,
         savedPayments,
         savedMaintenance,
-        savedDocuments,
         savedNotifications,
-        savedSettings,
         savedLogs,
         savedMoveInChecklists,
         savedPropertyItems,
@@ -76,16 +70,13 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
         AsyncStorage.getItem(STORAGE_KEYS.TENANTS),
-        AsyncStorage.getItem(STORAGE_KEYS.USERS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTIES),
         AsyncStorage.getItem(STORAGE_KEYS.UNITS),
         AsyncStorage.getItem(STORAGE_KEYS.RENTERS),
         AsyncStorage.getItem(STORAGE_KEYS.LEASES),
         AsyncStorage.getItem(STORAGE_KEYS.PAYMENTS),
         AsyncStorage.getItem(STORAGE_KEYS.MAINTENANCE),
-        AsyncStorage.getItem(STORAGE_KEYS.DOCUMENTS),
         AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
-        AsyncStorage.getItem(STORAGE_KEYS.SETTINGS),
         AsyncStorage.getItem(STORAGE_KEYS.ACTIVITY_LOGS),
         AsyncStorage.getItem(STORAGE_KEYS.MOVE_IN_CHECKLISTS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_ITEMS),
@@ -96,16 +87,13 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
       if (savedCurrentUser) setCurrentUser(JSON.parse(savedCurrentUser));
       if (savedTenants) setTenants(JSON.parse(savedTenants));
-      if (savedUsers) setUsers(JSON.parse(savedUsers));
       if (savedProperties) setProperties(JSON.parse(savedProperties));
       if (savedUnits) setUnits(JSON.parse(savedUnits));
       if (savedRenters) setRenters(JSON.parse(savedRenters));
       if (savedLeases) setLeases(JSON.parse(savedLeases));
       if (savedPayments) setPayments(JSON.parse(savedPayments));
       if (savedMaintenance) setMaintenanceRequests(JSON.parse(savedMaintenance));
-      if (savedDocuments) setDocuments(JSON.parse(savedDocuments));
       if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
-      if (savedSettings) setSettings(JSON.parse(savedSettings));
       if (savedLogs) setActivityLogs(JSON.parse(savedLogs));
       if (savedMoveInChecklists) setMoveInChecklists(JSON.parse(savedMoveInChecklists));
       if (savedPropertyItems) setPropertyItems(JSON.parse(savedPropertyItems));
