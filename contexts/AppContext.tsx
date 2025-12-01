@@ -9,6 +9,7 @@ import type {
   InventoryHistory, Invoice, BusinessDocument,
   TenantApplication, TenantOnboarding, PropertyInspection
 } from '@/types';
+import { generateMonthlyPayments, generateLeaseRenewalReminder, generateMoveOutChecklistReminder } from '@/utils/automationHelper';
 
 const STORAGE_KEYS = {
   CURRENT_TENANT: '@app/current_tenant',
@@ -299,7 +300,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.TENANT_RENTERS, updated);
   }, [tenantRenters, saveData]);
 
-  const addLease = useCallback(async (lease: Omit<Lease, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+  const addLease = useCallback(async (lease: Omit<Lease, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>, autoGeneratePayments: boolean = true) => {
     if (!currentTenant) return;
     
     const newLease: Lease = {
@@ -319,8 +320,45 @@ export const [AppContext, useApp] = createContextHook(() => {
     setUnits(unitUpdated);
     await saveData(STORAGE_KEYS.UNITS, unitUpdated);
     
+    if (autoGeneratePayments && (newLease.status === 'active' || newLease.status === 'draft')) {
+      const generatedPayments = generateMonthlyPayments(newLease, currentTenant.id);
+      const newPayments = generatedPayments.map(payment => ({
+        ...payment,
+        id: `${Date.now()}-${Math.random()}`,
+        tenant_id: currentTenant.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+      
+      const updatedPayments = [...payments, ...newPayments];
+      setPayments(updatedPayments);
+      await saveData(STORAGE_KEYS.PAYMENTS, updatedPayments);
+      
+      const renewalReminder = generateLeaseRenewalReminder(newLease, currentTenant.id);
+      const renewalTodo: Todo = {
+        ...renewalReminder,
+        id: `${Date.now()}-renewal`,
+        tenant_id: currentTenant.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      const moveOutReminder = generateMoveOutChecklistReminder(newLease, currentTenant.id);
+      const moveOutTodo: Todo = {
+        ...moveOutReminder,
+        id: `${Date.now()}-moveout`,
+        tenant_id: currentTenant.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      const updatedTodos = [...todos, renewalTodo, moveOutTodo];
+      setTodos(updatedTodos);
+      await saveData(STORAGE_KEYS.TODOS, updatedTodos);
+    }
+    
     return newLease;
-  }, [currentTenant, leases, units, saveData]);
+  }, [currentTenant, leases, units, payments, todos, saveData]);
 
   const updateLease = useCallback(async (id: string, updates: Partial<Lease>) => {
     const updated = leases.map(l => 
