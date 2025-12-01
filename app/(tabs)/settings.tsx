@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
-import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight } from 'lucide-react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import type { UserRole, UserPermissions } from '@/types';
@@ -177,7 +177,25 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Management</Text>
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+          
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={() => router.push('/(tabs)/todos')}
+            testID="manage-todos-button"
+          >
+            <View style={styles.managementIconContainer}>
+              <CheckSquare size={20} color="#34C759" />
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>Tasks & To-Do</Text>
+              <Text style={styles.managementSubtitle}>
+                Manage your tasks and to-do items
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.managementCard}
             onPress={() => router.push('/(tabs)/documents')}
@@ -187,9 +205,26 @@ export default function SettingsScreen() {
               <FileText size={20} color="#007AFF" />
             </View>
             <View style={styles.managementContent}>
-              <Text style={styles.managementTitle}>Document Management</Text>
+              <Text style={styles.managementTitle}>Documents</Text>
               <Text style={styles.managementSubtitle}>
-                Manage business licenses, insurance, and other documents
+                Business licenses, insurance, and other documents
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={() => router.push('/(tabs)/notifications')}
+            testID="manage-notifications-button"
+          >
+            <View style={styles.managementIconContainer}>
+              <Bell size={20} color="#FF9500" />
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>Notifications & Reminders</Text>
+              <Text style={styles.managementSubtitle}>
+                View upcoming events and manage notification settings
               </Text>
             </View>
             <ChevronRight size={20} color="#999" />

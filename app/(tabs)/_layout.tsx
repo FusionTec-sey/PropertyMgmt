@@ -1,11 +1,10 @@
 import { Tabs } from "expo-router";
-import { Home, Building2, Users, DollarSign, Settings, Wrench, CheckSquare } from "lucide-react-native";
+import { Home, Building2, Users, DollarSign, MoreHorizontal } from "lucide-react-native";
 import React from "react";
 import { useApp } from "@/contexts/AppContext";
 
 export default function TabLayout() {
-  const { currentUser, hasPermission } = useApp();
-  const isOwner = currentUser?.role === 'owner';
+  const { hasPermission } = useApp();
 
   return (
     <Tabs
@@ -22,9 +21,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          title: "Home",
           tabBarIcon: ({ color }) => <Home size={24} color={color} />,
-          href: isOwner ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -46,9 +44,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="payments"
         options={{
-          title: "Payments & Invoices",
+          title: "Finances",
           tabBarIcon: ({ color }) => <DollarSign size={24} color={color} />,
           href: hasPermission('payments') ? undefined : null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "More",
+          tabBarIcon: ({ color }) => <MoreHorizontal size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -60,17 +65,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="maintenance"
         options={{
-          title: "Maintenance",
-          tabBarIcon: ({ color }) => <Wrench size={24} color={color} />,
-          href: hasPermission('maintenance') ? undefined : null,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="todos"
         options={{
-          title: "To-Do",
-          tabBarIcon: ({ color }) => <CheckSquare size={24} color={color} />,
-          href: hasPermission('todos') ? undefined : null,
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -83,14 +84,6 @@ export default function TabLayout() {
         name="notifications"
         options={{
           href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
-          href: hasPermission('settings') ? undefined : null,
         }}
       />
     </Tabs>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
-import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package } from 'lucide-react-native';
+import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Property, Unit, PropertyType, ParkingSpot } from '@/types';
 import Button from '@/components/Button';
@@ -528,14 +528,25 @@ export default function PropertiesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Properties ({properties.length})</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAdd}
-          testID="add-property-button"
-        >
-          <Plus size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View>
+          <Text style={styles.headerTitle}>Properties ({properties.length})</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.maintenanceButton}
+            onPress={() => router.push('/(tabs)/maintenance')}
+            testID="maintenance-button"
+          >
+            <Wrench size={20} color="#007AFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleAdd}
+            testID="add-property-button"
+          >
+            <Plus size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {properties.length === 0 ? (
@@ -917,6 +928,18 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700' as const,
     color: '#1A1A1A',
+  },
+  headerActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  maintenanceButton: {
+    backgroundColor: '#007AFF15',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   addButton: {
     backgroundColor: '#007AFF',
