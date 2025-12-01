@@ -918,17 +918,20 @@ const styles = StyleSheet.create({
   propertyInfo: {
     flex: 1,
     justifyContent: 'center' as const,
+    marginRight: 8,
   },
   propertyTitleRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap' as const,
   },
   propertyName: {
     fontSize: 18,
     fontWeight: '600' as const,
     color: '#1A1A1A',
+    flexShrink: 1,
   },
   locationRow: {
     flexDirection: 'row' as const,
