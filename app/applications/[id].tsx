@@ -11,11 +11,11 @@ import Card from '@/components/Card';
 import Badge from '@/components/Badge';
 import Modal from '@/components/Modal';
 import { useApp } from '@/contexts/AppContext';
-import type { TenantApplication } from '@/types';
+import type { TenantRenter, TenantApplication } from '@/types';
 
 export default function ApplicationDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { tenantApplications, updateTenantApplication, properties, units } = useApp();
+  const { tenantApplications, updateTenantApplication, properties, units, addTenantRenter } = useApp();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showScreeningModal, setShowScreeningModal] = useState(false);
@@ -68,23 +68,81 @@ export default function ApplicationDetailScreen() {
       reviewed_at: new Date().toISOString(),
       review_notes: reviewNotes,
     });
-    setShowApproveModal(false);
+    
     Alert.alert(
-      'Application Approved',
-      'The applicant has been approved. You can now create a lease for them.',
+      'Create Tenant?',
+      'Application approved! Would you like to automatically create a tenant from this application?',
       [
         {
-          text: 'Create Lease',
+          text: 'No, Later',
+          style: 'cancel',
           onPress: () => {
+            setShowApproveModal(false);
             router.back();
           },
         },
         {
-          text: 'Done',
-          onPress: () => router.back(),
+          text: 'Yes, Create Tenant',
+          onPress: async () => {
+            await createTenantFromApplication();
+            setShowApproveModal(false);
+          },
         },
       ]
     );
+  };
+
+  const createTenantFromApplication = async () => {
+    const tenantData: Omit<TenantRenter, 'id' | 'created_at' | 'updated_at' | 'tenant_id'> = {
+      type: application.applicant_type,
+      first_name: application.applicant_type === 'individual' ? application.applicant_first_name : undefined,
+      last_name: application.applicant_type === 'individual' ? application.applicant_last_name : undefined,
+      business_name: application.applicant_type === 'business' ? application.business_name : undefined,
+      email: application.applicant_email,
+      phone: application.applicant_phone,
+      date_of_birth: application.date_of_birth,
+      emergency_contact_name: application.emergency_contact_name,
+      emergency_contact_phone: application.emergency_contact_phone,
+      id_number: application.id_number,
+      id_type: application.id_type,
+      address: application.current_address,
+      island: application.island,
+      postal_code: application.postal_code,
+      country: application.country,
+      notes: application.additional_notes,
+    };
+
+    try {
+      const newTenant = await addTenantRenter(tenantData);
+      
+      await updateTenantApplication(application.id, {
+        tenant_renter_id: newTenant?.id,
+      });
+
+      Alert.alert(
+        'Tenant Created',
+        'Tenant created successfully! Would you like to create a lease for them now?',
+        [
+          {
+            text: 'Later',
+            onPress: () => router.back(),
+          },
+          {
+            text: 'Create Lease',
+            onPress: () => {
+              router.back();
+              setTimeout(() => {
+                router.push('/(tabs)/tenants');
+              }, 100);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error creating tenant:', error);
+      Alert.alert('Error', 'Failed to create tenant. Please try again manually.');
+      router.back();
+    }
   };
 
   const handleReject = async () => {

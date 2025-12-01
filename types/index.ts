@@ -642,6 +642,9 @@ export interface TenantApplication {
   id_type?: string;
   id_number?: string;
   current_address?: string;
+  island?: string;
+  postal_code?: string;
+  country?: string;
   employment_status?: 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'student';
   employer_name?: string;
   job_title?: string;
@@ -664,6 +667,7 @@ export interface TenantApplication {
   desired_move_in_date?: string;
   lease_duration_preference?: string;
   additional_notes?: string;
+  tenant_renter_id?: TenantRenterId;
   status: TenantApplicationStatus;
   reviewed_by?: UserId;
   reviewed_at?: string;

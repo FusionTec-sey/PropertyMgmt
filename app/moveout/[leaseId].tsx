@@ -147,7 +147,7 @@ const CHECKLIST_TEMPLATE: RoomSection[] = [
 export default function MoveOutChecklistScreen() {
   const { leaseId } = useLocalSearchParams();
   const router = useRouter();
-  const { leases, units, properties, tenantRenters } = useApp();
+  const { leases, updateLease, units, updateUnit, properties, tenantRenters } = useApp();
 
   const lease = leases.find(l => l.id === leaseId);
   const unit = units.find(u => u.id === lease?.unit_id);
@@ -233,20 +233,37 @@ export default function MoveOutChecklistScreen() {
   const depositAmount = lease?.deposit_amount || 0;
   const depositReturn = Math.max(0, depositAmount - totalDamageCost);
 
-  const handleComplete = () => {
-    Alert.alert(
-      'Complete Move-Out Inspection',
-      `Total Damages: ₨${totalDamageCost.toLocaleString()}\nDeposit Return: ₨${depositReturn.toLocaleString()}\n\nProceed to deposit return?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Proceed',
-          onPress: () => {
-            router.push(`/depositReturn/${leaseId}?damageCost=${totalDamageCost}` as any);
+  const handleComplete = async () => {
+    if (!lease) return;
+    
+    try {
+      await updateLease(lease.id, {
+        status: 'terminated',
+      });
+
+      if (lease.unit_id) {
+        await updateUnit(lease.unit_id, {
+          status: 'available',
+        });
+      }
+
+      Alert.alert(
+        'Lease Terminated',
+        `Lease has been terminated and unit is now available.\nTotal Damages: ₨${totalDamageCost.toLocaleString()}\nDeposit Return: ₨${depositReturn.toLocaleString()}\n\nProceed to deposit return?`,
+        [
+          { text: 'Skip', onPress: () => router.back() },
+          {
+            text: 'Proceed',
+            onPress: () => {
+              router.push(`/depositReturn/${leaseId}?damageCost=${totalDamageCost}` as any);
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Error completing move-out:', error);
+      Alert.alert('Error', 'Failed to complete move-out process. Please try again.');
+    }
   };
 
   const getConditionColor = (condition?: string) => {
