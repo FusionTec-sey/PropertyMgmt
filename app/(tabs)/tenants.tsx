@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
 import { Plus, Users, Mail, Phone, Edit, User, ClipboardCheck, Camera, CheckCircle, Circle, X, Building, FileText, Calendar, DollarSign } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
-import { TenantRenter, MoveInChecklistItem, Unit, Lease } from '@/types';
+import { TenantRenter, MoveInChecklistItem, Unit, Lease, LeaseStatus } from '@/types';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
@@ -13,7 +13,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function TenantsScreen() {
-  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties } = useApp();
+  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease } = useApp();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingTenant, setEditingTenant] = useState<TenantRenter | null>(null);
   const [checklistModalVisible, setChecklistModalVisible] = useState<boolean>(false);
@@ -24,7 +24,21 @@ export default function TenantsScreen() {
   const [damagePhotos, setDamagePhotos] = useState<string[]>([]);
   const [selectedTenantForDetail, setSelectedTenantForDetail] = useState<TenantRenter | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
+  const [leaseModalVisible, setLeaseModalVisible] = useState<boolean>(false);
+  const [selectedTenantForLease, setSelectedTenantForLease] = useState<TenantRenter | null>(null);
   
+  const [leaseFormData, setLeaseFormData] = useState({
+    property_id: '',
+    unit_id: '',
+    start_date: '',
+    end_date: '',
+    rent_amount: '',
+    deposit_amount: '',
+    payment_due_day: '1',
+    status: 'draft' as LeaseStatus,
+    terms: '',
+  });
+
   const [formData, setFormData] = useState({
     type: 'individual' as 'individual' | 'business',
     first_name: '',
@@ -92,6 +106,62 @@ export default function TenantsScreen() {
       notes: tenant.notes || '',
     });
     setModalVisible(true);
+  };
+
+  const handleAddLease = (tenant: TenantRenter) => {
+    setSelectedTenantForLease(tenant);
+    setLeaseFormData({
+      property_id: '',
+      unit_id: '',
+      start_date: '',
+      end_date: '',
+      rent_amount: '',
+      deposit_amount: '',
+      payment_due_day: '1',
+      status: 'draft',
+      terms: '',
+    });
+    setLeaseModalVisible(true);
+  };
+
+  const handleSaveLease = async () => {
+    if (!selectedTenantForLease) return;
+
+    if (!leaseFormData.property_id || !leaseFormData.unit_id || !leaseFormData.start_date || !leaseFormData.end_date || !leaseFormData.rent_amount) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    const rentAmount = parseFloat(leaseFormData.rent_amount);
+    const depositAmount = leaseFormData.deposit_amount ? parseFloat(leaseFormData.deposit_amount) : 0;
+    const paymentDueDay = parseInt(leaseFormData.payment_due_day, 10);
+
+    if (isNaN(rentAmount) || rentAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid rent amount');
+      return;
+    }
+
+    if (paymentDueDay < 1 || paymentDueDay > 31) {
+      Alert.alert('Error', 'Payment due day must be between 1 and 31');
+      return;
+    }
+
+    await addLease({
+      property_id: leaseFormData.property_id,
+      unit_id: leaseFormData.unit_id,
+      tenant_renter_id: selectedTenantForLease.id,
+      start_date: leaseFormData.start_date,
+      end_date: leaseFormData.end_date,
+      rent_amount: rentAmount,
+      deposit_amount: depositAmount,
+      payment_due_day: paymentDueDay,
+      status: leaseFormData.status,
+      terms: leaseFormData.terms || undefined,
+    });
+
+    Alert.alert('Success', 'Lease created successfully!');
+    setLeaseModalVisible(false);
+    setSelectedTenantForLease(null);
   };
 
   const handleOpenChecklist = (tenant: TenantRenter) => {
@@ -340,6 +410,14 @@ export default function TenantsScreen() {
           >
             <Edit size={16} color="#007AFF" />
             <Text style={styles.actionText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleAddLease(item)}
+            testID={`add-lease-tenant-${item.id}`}
+          >
+            <FileText size={16} color="#FF9500" />
+            <Text style={[styles.actionText, { color: '#FF9500' }]}>Add Lease</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
@@ -596,6 +674,200 @@ export default function TenantsScreen() {
           getTenantName={getTenantName}
         />
       )}
+
+      <Modal
+        visible={leaseModalVisible}
+        onClose={() => {
+          setLeaseModalVisible(false);
+          setSelectedTenantForLease(null);
+        }}
+        title="Add Lease"
+        testID="lease-modal"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {selectedTenantForLease && (
+            <View style={styles.tenantInfoBanner}>
+              <View style={styles.avatarSmall}>
+                {selectedTenantForLease.type === 'business' ? (
+                  <Building size={16} color="#007AFF" />
+                ) : (
+                  <User size={16} color="#007AFF" />
+                )}
+              </View>
+              <Text style={styles.tenantInfoText}>{getTenantName(selectedTenantForLease)}</Text>
+            </View>
+          )}
+
+          <Text style={styles.sectionTitle}>Property & Unit</Text>
+          <View style={styles.pickerContainer}>
+            <Text style={styles.inputLabel}>Property *</Text>
+            <View style={styles.picker}>
+              <Text 
+                style={[styles.pickerText, !leaseFormData.property_id && styles.pickerPlaceholder]}
+                onPress={() => {
+                  Alert.alert(
+                    'Select Property',
+                    'Choose a property',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      ...properties.map(prop => ({
+                        text: prop.name,
+                        onPress: () => {
+                          setLeaseFormData({ ...leaseFormData, property_id: prop.id, unit_id: '' });
+                        },
+                      })),
+                    ]
+                  );
+                }}
+              >
+                {leaseFormData.property_id 
+                  ? properties.find(p => p.id === leaseFormData.property_id)?.name 
+                  : 'Select Property'}
+              </Text>
+            </View>
+          </View>
+
+          {leaseFormData.property_id && (
+            <View style={styles.pickerContainer}>
+              <Text style={styles.inputLabel}>Unit *</Text>
+              <View style={styles.picker}>
+                <Text 
+                  style={[styles.pickerText, !leaseFormData.unit_id && styles.pickerPlaceholder]}
+                  onPress={() => {
+                    const availableUnits = units.filter(u => 
+                      u.property_id === leaseFormData.property_id && 
+                      (u.status === 'available' || u.status === 'reserved')
+                    );
+                    
+                    if (availableUnits.length === 0) {
+                      Alert.alert('No Units Available', 'There are no available units for this property.');
+                      return;
+                    }
+
+                    Alert.alert(
+                      'Select Unit',
+                      'Choose a unit',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        ...availableUnits.map(unit => ({
+                          text: `${unit.unit_number} - ${unit.rent_amount}/month`,
+                          onPress: () => {
+                            setLeaseFormData({ 
+                              ...leaseFormData, 
+                              unit_id: unit.id,
+                              rent_amount: unit.rent_amount.toString(),
+                              deposit_amount: unit.deposit_amount?.toString() || '',
+                            });
+                          },
+                        })),
+                      ]
+                    );
+                  }}
+                >
+                  {leaseFormData.unit_id 
+                    ? units.find(u => u.id === leaseFormData.unit_id)?.unit_number 
+                    : 'Select Unit'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <Text style={styles.sectionTitle}>Lease Period</Text>
+          <View style={styles.row}>
+            <Input
+              label="Start Date"
+              value={leaseFormData.start_date}
+              onChangeText={text => setLeaseFormData({ ...leaseFormData, start_date: text })}
+              placeholder="YYYY-MM-DD"
+              required
+              containerStyle={styles.halfInput}
+              testID="lease-start-date-input"
+            />
+            <Input
+              label="End Date"
+              value={leaseFormData.end_date}
+              onChangeText={text => setLeaseFormData({ ...leaseFormData, end_date: text })}
+              placeholder="YYYY-MM-DD"
+              required
+              containerStyle={styles.halfInput}
+              testID="lease-end-date-input"
+            />
+          </View>
+
+          <Text style={styles.sectionTitle}>Financial Details</Text>
+          <View style={styles.row}>
+            <Input
+              label="Rent Amount"
+              value={leaseFormData.rent_amount}
+              onChangeText={text => setLeaseFormData({ ...leaseFormData, rent_amount: text })}
+              placeholder="1000"
+              keyboardType="numeric"
+              required
+              containerStyle={styles.halfInput}
+              testID="lease-rent-input"
+            />
+            <Input
+              label="Deposit Amount"
+              value={leaseFormData.deposit_amount}
+              onChangeText={text => setLeaseFormData({ ...leaseFormData, deposit_amount: text })}
+              placeholder="1000"
+              keyboardType="numeric"
+              containerStyle={styles.halfInput}
+              testID="lease-deposit-input"
+            />
+          </View>
+
+          <Input
+            label="Payment Due Day"
+            value={leaseFormData.payment_due_day}
+            onChangeText={text => setLeaseFormData({ ...leaseFormData, payment_due_day: text })}
+            placeholder="1"
+            keyboardType="numeric"
+            testID="lease-due-day-input"
+          />
+
+          <Text style={styles.sectionTitle}>Status</Text>
+          <View style={styles.statusSelector}>
+            {(['draft', 'active'] as const).map((status) => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.statusButton,
+                  leaseFormData.status === status && styles.statusButtonActive,
+                ]}
+                onPress={() => setLeaseFormData({ ...leaseFormData, status })}
+              >
+                <Text
+                  style={[
+                    styles.statusButtonText,
+                    leaseFormData.status === status && styles.statusButtonTextActive,
+                  ]}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Input
+            label="Lease Terms"
+            value={leaseFormData.terms}
+            onChangeText={text => setLeaseFormData({ ...leaseFormData, terms: text })}
+            placeholder="Enter lease terms and conditions..."
+            multiline
+            numberOfLines={4}
+            testID="lease-terms-input"
+          />
+
+          <Button
+            title="Create Lease"
+            onPress={handleSaveLease}
+            fullWidth
+            testID="save-lease-button"
+          />
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </Modal>
 
       {selectedTenantForDetail && (
         <TenantDetailModal
@@ -1113,17 +1385,18 @@ const styles = StyleSheet.create({
   },
   tenantActions: {
     flexDirection: 'row' as const,
-    gap: 12,
+    flexWrap: 'wrap' as const,
+    gap: 8,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
   actionButton: {
-    flex: 1,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     padding: 10,
+    paddingHorizontal: 14,
     borderRadius: 8,
     backgroundColor: '#F8F9FA',
     gap: 6,
@@ -1438,5 +1711,78 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#34C759',
+  },
+  tenantInfoBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#F0F8FF',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
+  },
+  avatarSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#007AFF15',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 10,
+  },
+  tenantInfoText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  pickerContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 6,
+  },
+  picker: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+  },
+  pickerText: {
+    fontSize: 16,
+    color: '#1A1A1A',
+  },
+  pickerPlaceholder: {
+    color: '#999',
+  },
+  statusSelector: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    marginBottom: 16,
+  },
+  statusButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    alignItems: 'center' as const,
+  },
+  statusButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  statusButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  statusButtonTextActive: {
+    color: '#FFFFFF',
   },
 });
