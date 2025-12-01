@@ -6,7 +6,6 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppContext } from "@/contexts/AppContext";
 import { trpc, trpcClient } from "@/lib/trpc";
-
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -23,7 +22,16 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    const initApp = async () => {
+      try {
+        await SplashScreen.hideAsync();
+        console.log("App initialized successfully");
+      } catch (error) {
+        console.error("Error initializing app:", error);
+      }
+    };
+
+    initApp();
   }, []);
 
   return (
