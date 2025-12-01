@@ -23,6 +23,8 @@ import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'expo-router';
 import { Todo, TodoStatus } from '@/types';
 import * as Notifications from 'expo-notifications';
+import { addTodoToCalendar, addInspectionToCalendar, addLeaseToCalendar } from '@/utils/calendarHelper';
+import UpcomingEventsWidget, { UpcomingEvent } from '@/components/UpcomingEventsWidget';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -454,6 +456,84 @@ export default function DashboardScreen() {
         </View>
       </View>
 
+      <UpcomingEventsWidget
+        events={(
+          [
+            ...expiringLeases.slice(0, 3).map((lease) => {
+              const property = properties.find((p) => p.id === lease.property_id);
+              const unit = units.find((u) => u.id === lease.unit_id);
+              const tenant = tenantRenters.find((t) => t.id === lease.tenant_renter_id);
+              const tenantName = tenant
+                ? tenant.type === 'business'
+                  ? tenant.business_name || 'Unnamed Business'
+                  : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+                : 'Unknown';
+              const daysUntil = Math.ceil((new Date(lease.end_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              return {
+                id: lease.id,
+                title: `Lease Expiring: ${property?.name || 'Unknown'}`,
+                subtitle: `${tenantName} • Unit ${unit?.unit_number || 'N/A'}`,
+                date: lease.end_date,
+                type: 'lease' as const,
+                priority: daysUntil <= 7 ? 'high' as const : 'medium' as const,
+              };
+            }),
+            ...upcomingInspections.slice(0, 3).map((inspection) => {
+              const property = properties.find((p) => p.id === inspection.property_id);
+              const unit = units.find((u) => u.id === inspection.unit_id);
+              const daysUntil = Math.ceil((new Date(inspection.scheduled_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              return {
+                id: inspection.id,
+                title: `${inspection.inspection_type.replace('_', ' ')} Inspection`,
+                subtitle: `${property?.name || 'Unknown'}${unit ? ` • Unit ${unit.unit_number}` : ''}`,
+                date: inspection.scheduled_date,
+                type: 'inspection' as const,
+                priority: daysUntil <= 3 ? 'high' as const : 'medium' as const,
+              };
+            }),
+            ...overdueTodos.slice(0, 2).map((todo) => ({
+              id: todo.id,
+              title: todo.title,
+              subtitle: 'Overdue',
+              date: todo.due_date!,
+              type: 'todo' as const,
+              priority: 'urgent' as const,
+            })),
+            ...todayTodos.slice(0, 2).map((todo) => ({
+              id: todo.id,
+              title: todo.title,
+              subtitle: 'Due today',
+              date: todo.due_date!,
+              type: 'todo' as const,
+              priority: 'high' as const,
+            })),
+            ...expiringDocuments.slice(0, 2).map((doc) => {
+              const property = doc.property_id ? properties.find((p) => p.id === doc.property_id) : null;
+              const daysUntil = Math.ceil((new Date(doc.expiry_date!).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              return {
+                id: doc.id,
+                title: `${doc.name} Expiring`,
+                subtitle: property?.name || doc.category.replace('_', ' '),
+                date: doc.expiry_date!,
+                type: 'document' as const,
+                priority: daysUntil <= 14 ? 'high' as const : 'medium' as const,
+              };
+            }),
+          ] as UpcomingEvent[]
+        ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())}
+        maxEvents={8}
+        onEventPress={(event) => {
+          if (event.type === 'lease') {
+            router.push(`/lease/${event.id}`);
+          } else if (event.type === 'inspection') {
+            router.push(`/inspection/${event.id}` as any);
+          } else if (event.type === 'todo') {
+            router.push('/(tabs)/todos');
+          }
+        }}
+        testID="dashboard-upcoming-events"
+      />
+
       {pendingApplications.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -543,12 +623,12 @@ export default function DashboardScreen() {
             const daysUntil = Math.ceil((inspDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
             return (
-              <TouchableOpacity
-                key={inspection.id}
-                style={styles.inspectionCard}
-                onPress={() => router.push(`/inspection/${inspection.id}` as any)}
-                activeOpacity={0.8}
-              >
+              <View key={inspection.id} style={styles.inspectionCard}>
+                <TouchableOpacity
+                  onPress={() => router.push(`/inspection/${inspection.id}` as any)}
+                  activeOpacity={0.8}
+                  style={{ flex: 1 }}
+                >
                 <View style={styles.leaseInfo}>
                   <Text style={styles.leaseProperty}>{property?.name || 'Unknown'}</Text>
                   <Text style={styles.leaseDetails}>
@@ -562,7 +642,23 @@ export default function DashboardScreen() {
                       : `In ${daysUntil} days`} • {inspDate.toLocaleDateString()}
                   </Text>
                 </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.inspectionCalendarButton}
+                  onPress={async () => {
+                    await addInspectionToCalendar({
+                      property_name: property?.name || 'Unknown',
+                      unit_number: unit?.unit_number,
+                      inspection_type: inspection.inspection_type,
+                      scheduled_date: inspection.scheduled_date,
+                      scheduled_time: inspection.scheduled_time,
+                      notes: `${inspection.inspection_type.replace('_', ' ')} inspection`,
+                    });
+                  }}
+                >
+                  <Calendar size={16} color="#34C759" />
+                </TouchableOpacity>
+              </View>
             );
           })}
         </View>
@@ -639,20 +735,38 @@ export default function DashboardScreen() {
                       : `Expires in ${daysUntilExpiry} days`}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.renewButton}
-                  onPress={() => {
-                    const monthsDiff = Math.round(
-                      (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) / 
-                      (1000 * 60 * 60 * 24 * 30)
-                    );
-                    const leasePeriod = [6, 12, 24].includes(monthsDiff) ? monthsDiff : 12;
-                    router.push(`/renewLease/${lease.id}?leasePeriod=${leasePeriod}` as any);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.renewButtonText}>Renew</Text>
-                </TouchableOpacity>
+                <View style={styles.leaseActions}>
+                  <TouchableOpacity
+                    style={styles.leaseCalendarButton}
+                    onPress={async () => {
+                      await addLeaseToCalendar({
+                        property_name: property?.name || 'Unknown',
+                        unit_number: unit?.unit_number || 'N/A',
+                        start_date: lease.start_date,
+                        end_date: lease.end_date,
+                        tenant_name: tenantName,
+                        rent_amount: lease.rent_amount,
+                        currency: 'SCR',
+                      });
+                    }}
+                  >
+                    <Calendar size={16} color="#34C759" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.renewButton}
+                    onPress={() => {
+                      const monthsDiff = Math.round(
+                        (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) / 
+                        (1000 * 60 * 60 * 24 * 30)
+                      );
+                      const leasePeriod = [6, 12, 24].includes(monthsDiff) ? monthsDiff : 12;
+                      router.push(`/renewLease/${lease.id}?leasePeriod=${leasePeriod}` as any);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.renewButtonText}>Renew</Text>
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -931,13 +1045,32 @@ export default function DashboardScreen() {
                     </View>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.reminderButton}
-                    onPress={() => scheduleNotification(todo)}
-                    disabled={requestingNotificationPermission}
-                  >
-                    <Bell size={18} color="#007AFF" />
-                  </TouchableOpacity>
+                  <View style={styles.todoActions}>
+                    <TouchableOpacity
+                      style={styles.reminderButton}
+                      onPress={() => scheduleNotification(todo)}
+                      disabled={requestingNotificationPermission}
+                    >
+                      <Bell size={18} color="#007AFF" />
+                    </TouchableOpacity>
+                    {todo.due_date && (
+                      <TouchableOpacity
+                        style={styles.calendarButton}
+                        onPress={async () => {
+                          if (todo.due_date) {
+                            await addTodoToCalendar({
+                              title: todo.title,
+                              description: todo.description,
+                              due_date: todo.due_date,
+                              priority: todo.priority,
+                            });
+                          }
+                        }}
+                      >
+                        <Calendar size={18} color="#34C759" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -1561,10 +1694,39 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#FF9500',
   },
+  todoActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
   reminderButton: {
     padding: 8,
     backgroundColor: '#007AFF15',
     borderRadius: 8,
+  },
+  calendarButton: {
+    padding: 8,
+    backgroundColor: '#34C75915',
+    borderRadius: 8,
+  },
+  inspectionCalendarButton: {
+    position: 'absolute' as const,
+    top: 16,
+    right: 16,
+    padding: 8,
+    backgroundColor: '#34C75915',
+    borderRadius: 8,
+  },
+  leaseActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+    alignItems: 'center' as const,
+  },
+  leaseCalendarButton: {
+    padding: 8,
+    backgroundColor: '#34C75915',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#34C759',
   },
   viewAllButton: {
     marginTop: 12,
