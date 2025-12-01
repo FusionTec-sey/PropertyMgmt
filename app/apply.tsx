@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, User, Building, Upload, FileText } from 'lucide-react-native';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Input from '@/components/Input';
 import Select from '@/components/Select';
+import { useApp } from '@/contexts/AppContext';
+import { ApplicationDocument } from '@/types';
 
 export default function TenantApplicationScreen() {
+  const { propertyId, unitId } = useLocalSearchParams();
+  const { addTenantApplication, properties, units } = useApp();
   const [step, setStep] = useState<number>(1);
   const [applicationType, setApplicationType] = useState<'individual' | 'business'>('individual');
+  const [uploadedDocuments, setUploadedDocuments] = useState<ApplicationDocument[]>([]);
   
   const [formData, setFormData] = useState({
     applicant_type: 'individual' as 'individual' | 'business',
@@ -68,7 +73,20 @@ export default function TenantApplicationScreen() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!formData.emergency_contact_name || !formData.emergency_contact_phone) {
+      Alert.alert('Error', 'Please fill in emergency contact information');
+      return;
+    }
+
+    const propertyToUse = (propertyId as string) || formData.property_id;
+    const unitToUse = (unitId as string) || formData.unit_id;
+
+    if (!propertyToUse) {
+      Alert.alert('Error', 'Please select a property');
+      return;
+    }
+
     Alert.alert(
       'Submit Application',
       'Your application will be reviewed by the property owner. You will be notified once a decision is made.',
@@ -76,9 +94,44 @@ export default function TenantApplicationScreen() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Submit',
-          onPress: () => {
-            Alert.alert('Success', 'Your application has been submitted successfully!');
-            router.back();
+          onPress: async () => {
+            try {
+              await addTenantApplication({
+                property_id: propertyToUse,
+                unit_id: unitToUse || undefined,
+                applicant_type: formData.applicant_type,
+                applicant_first_name: formData.applicant_type === 'individual' ? formData.first_name : undefined,
+                applicant_last_name: formData.applicant_type === 'individual' ? formData.last_name : undefined,
+                business_name: formData.applicant_type === 'business' ? formData.business_name : undefined,
+                applicant_email: formData.email,
+                applicant_phone: formData.phone,
+                date_of_birth: formData.date_of_birth || undefined,
+                id_type: formData.id_type || undefined,
+                id_number: formData.id_number || undefined,
+                current_address: formData.current_address || undefined,
+                employment_status: formData.employment_status as any || undefined,
+                employer_name: formData.employer_name || undefined,
+                job_title: formData.job_title || undefined,
+                monthly_income: formData.monthly_income ? parseFloat(formData.monthly_income) : undefined,
+                previous_landlord_name: formData.previous_landlord_name || undefined,
+                previous_landlord_phone: formData.previous_landlord_phone || undefined,
+                reason_for_moving: formData.reason_for_moving || undefined,
+                emergency_contact_name: formData.emergency_contact_name,
+                emergency_contact_phone: formData.emergency_contact_phone,
+                emergency_contact_relationship: formData.emergency_contact_relationship || undefined,
+                number_of_occupants: formData.number_of_occupants ? parseInt(formData.number_of_occupants) : undefined,
+                has_pets: formData.has_pets,
+                pet_type: formData.has_pets ? formData.pet_type : undefined,
+                pet_count: formData.has_pets && formData.pet_count ? parseInt(formData.pet_count) : undefined,
+                desired_move_in_date: formData.desired_move_in_date || undefined,
+                documents: uploadedDocuments,
+              });
+              Alert.alert('Success', 'Your application has been submitted successfully!');
+              router.back();
+            } catch (error) {
+              console.error('Error submitting application:', error);
+              Alert.alert('Error', 'Failed to submit application. Please try again.');
+            }
           },
         },
       ]
@@ -110,7 +163,7 @@ export default function TenantApplicationScreen() {
           {step === 1 && (
             <>
               <Text style={styles.stepTitle}>Personal Information</Text>
-              <Text style={styles.stepDescription}>Let's start with your basic information</Text>
+              <Text style={styles.stepDescription}>Let&apos;s start with your basic information</Text>
 
               <Card style={styles.card}>
                 <Text style={styles.sectionTitle}>Applicant Type</Text>
@@ -352,9 +405,19 @@ export default function TenantApplicationScreen() {
                   <Text style={styles.uploadDescription}>
                     Please upload copies of your ID, proof of income, and any reference letters
                   </Text>
+                  {uploadedDocuments.length > 0 && (
+                    <View style={styles.documentsPreview}>
+                      {uploadedDocuments.map((doc, index) => (
+                        <View key={index} style={styles.documentItem}>
+                          <FileText size={16} color="#007AFF" />
+                          <Text style={styles.documentName} numberOfLines={1}>{doc.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                   <Button
                     title="Choose Files"
-                    onPress={() => Alert.alert('Info', 'Document upload coming soon')}
+                    onPress={() => Alert.alert('Info', 'Document upload is done through the portal or email')}
                     variant="outline"
                     icon={<Upload size={20} color="#007AFF" />}
                   />
@@ -562,5 +625,25 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginBottom: 32,
+  },
+  documentsPreview: {
+    width: '100%' as const,
+    marginBottom: 16,
+    gap: 8,
+  },
+  documentItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  documentName: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1A1A1A',
   },
 });

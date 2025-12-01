@@ -6,7 +6,8 @@ import type {
   MaintenanceRequest, Notification,
   ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo, UserPermissions,
-  InventoryHistory, Invoice, BusinessDocument
+  InventoryHistory, Invoice, BusinessDocument,
+  TenantApplication, TenantOnboarding
 } from '@/types';
 
 const STORAGE_KEYS = {
@@ -32,6 +33,8 @@ const STORAGE_KEYS = {
   INVENTORY_HISTORY: '@app/inventory_history',
   INVOICES: '@app/invoices',
   BUSINESS_DOCUMENTS: '@app/business_documents',
+  TENANT_APPLICATIONS: '@app/tenant_applications',
+  TENANT_ONBOARDINGS: '@app/tenant_onboardings',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -56,6 +59,8 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [inventoryHistory, setInventoryHistory] = useState<InventoryHistory[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [businessDocuments, setBusinessDocuments] = useState<BusinessDocument[]>([]);
+  const [tenantApplications, setTenantApplications] = useState<TenantApplication[]>([]);
+  const [tenantOnboardings, setTenantOnboardings] = useState<TenantOnboarding[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -99,6 +104,8 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.INVENTORY_HISTORY),
         AsyncStorage.getItem(STORAGE_KEYS.INVOICES),
         AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_DOCUMENTS),
+        AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
+        AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -120,6 +127,12 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedInventoryHistory) setInventoryHistory(JSON.parse(savedInventoryHistory));
       if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
       if (savedBusinessDocuments) setBusinessDocuments(JSON.parse(savedBusinessDocuments));
+      const [savedTenantApplications, savedTenantOnboardings] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
+        AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
+      ]);
+      if (savedTenantApplications) setTenantApplications(JSON.parse(savedTenantApplications));
+      if (savedTenantOnboardings) setTenantOnboardings(JSON.parse(savedTenantOnboardings));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -581,6 +594,68 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.BUSINESS_DOCUMENTS, updated);
   }, [businessDocuments, saveData]);
 
+  const addTenantApplication = useCallback(async (application: Omit<TenantApplication, 'id' | 'created_at' | 'updated_at' | 'tenant_id' | 'status'>) => {
+    if (!currentTenant) return;
+    
+    const newApplication: TenantApplication = {
+      ...application,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      status: 'pending',
+      documents: application.documents || [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...tenantApplications, newApplication];
+    setTenantApplications(updated);
+    await saveData(STORAGE_KEYS.TENANT_APPLICATIONS, updated);
+    return newApplication;
+  }, [currentTenant, tenantApplications, saveData]);
+
+  const updateTenantApplication = useCallback(async (id: string, updates: Partial<TenantApplication>) => {
+    const updated = tenantApplications.map(a => 
+      a.id === id ? { ...a, ...updates, updated_at: new Date().toISOString() } : a
+    );
+    setTenantApplications(updated);
+    await saveData(STORAGE_KEYS.TENANT_APPLICATIONS, updated);
+  }, [tenantApplications, saveData]);
+
+  const deleteTenantApplication = useCallback(async (id: string) => {
+    const updated = tenantApplications.filter(a => a.id !== id);
+    setTenantApplications(updated);
+    await saveData(STORAGE_KEYS.TENANT_APPLICATIONS, updated);
+  }, [tenantApplications, saveData]);
+
+  const addTenantOnboarding = useCallback(async (onboarding: Omit<TenantOnboarding, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    if (!currentTenant) return;
+    
+    const newOnboarding: TenantOnboarding = {
+      ...onboarding,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...tenantOnboardings, newOnboarding];
+    setTenantOnboardings(updated);
+    await saveData(STORAGE_KEYS.TENANT_ONBOARDINGS, updated);
+    return newOnboarding;
+  }, [currentTenant, tenantOnboardings, saveData]);
+
+  const updateTenantOnboarding = useCallback(async (id: string, updates: Partial<TenantOnboarding>) => {
+    const updated = tenantOnboardings.map(o => 
+      o.id === id ? { ...o, ...updates, updated_at: new Date().toISOString() } : o
+    );
+    setTenantOnboardings(updated);
+    await saveData(STORAGE_KEYS.TENANT_ONBOARDINGS, updated);
+  }, [tenantOnboardings, saveData]);
+
+  const deleteTenantOnboarding = useCallback(async (id: string) => {
+    const updated = tenantOnboardings.filter(o => o.id !== id);
+    setTenantOnboardings(updated);
+    await saveData(STORAGE_KEYS.TENANT_ONBOARDINGS, updated);
+  }, [tenantOnboardings, saveData]);
+
   const addStaffUser = useCallback(async (user: Omit<User, 'id' | 'created_at' | 'tenant_id'>) => {
     if (!currentTenant || !currentUser) return;
     
@@ -727,6 +802,16 @@ export const [AppContext, useApp] = createContextHook(() => {
     [businessDocuments, currentTenant]
   );
 
+  const tenantTenantApplications = useMemo(() => 
+    tenantApplications.filter(a => a.tenant_id === currentTenant?.id),
+    [tenantApplications, currentTenant]
+  );
+
+  const tenantTenantOnboardings = useMemo(() => 
+    tenantOnboardings.filter(o => o.tenant_id === currentTenant?.id),
+    [tenantOnboardings, currentTenant]
+  );
+
   const tenantStaffUsers = useMemo(() => 
     staffUsers.filter(u => u.tenant_id === currentTenant?.id),
     [staffUsers, currentTenant]
@@ -835,5 +920,13 @@ export const [AppContext, useApp] = createContextHook(() => {
     addBusinessDocument,
     updateBusinessDocument,
     deleteBusinessDocument,
+    tenantApplications: tenantTenantApplications,
+    addTenantApplication,
+    updateTenantApplication,
+    deleteTenantApplication,
+    tenantOnboardings: tenantTenantOnboardings,
+    addTenantOnboarding,
+    updateTenantOnboarding,
+    deleteTenantOnboarding,
   };
 });
