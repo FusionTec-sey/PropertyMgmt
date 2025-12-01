@@ -75,10 +75,24 @@ export default function PaymentsScreen() {
   };
 
   const handleMarkPaid = (payment: Payment) => {
-    updatePayment(payment.id, { 
-      status: 'paid',
-      payment_date: new Date().toISOString().split('T')[0]
-    });
+    Alert.alert(
+      'Mark as Paid',
+      'Confirm that this payment has been received?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Confirm', 
+          style: 'default',
+          onPress: () => {
+            updatePayment(payment.id, { 
+              status: 'paid',
+              payment_date: new Date().toISOString().split('T')[0]
+            });
+            Alert.alert('Success', 'Payment marked as paid');
+          }
+        },
+      ]
+    );
   };
 
   const handlePickDocument = async () => {
@@ -102,6 +116,8 @@ export default function PaymentsScreen() {
           size: file.size,
         },
       });
+      
+      Alert.alert('Success', `${file.name} attached successfully`);
     } catch (error) {
       console.error('Error picking document:', error);
       Alert.alert('Error', 'Failed to pick document');
@@ -133,6 +149,7 @@ export default function PaymentsScreen() {
     };
 
     await addPayment(paymentData);
+    Alert.alert('Success', 'Payment recorded successfully');
     setModalVisible(false);
     resetForm();
   };

@@ -159,8 +159,10 @@ export default function MaintenanceScreen() {
 
     if (editingRequest) {
       await updateMaintenanceRequest(editingRequest.id, data);
+      Alert.alert('Success', 'Maintenance request updated');
     } else {
       await addMaintenanceRequest(data);
+      Alert.alert('Success', 'Maintenance request created');
     }
 
     setRequestModalVisible(false);
@@ -191,8 +193,10 @@ export default function MaintenanceScreen() {
 
     if (editingSchedule) {
       await updateMaintenanceSchedule(editingSchedule.id, data);
+      Alert.alert('Success', 'Maintenance schedule updated');
     } else {
       await addMaintenanceSchedule(data);
+      Alert.alert('Success', 'Maintenance schedule created');
     }
 
     setScheduleModalVisible(false);
@@ -293,11 +297,26 @@ export default function MaintenanceScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, item.status !== 'resolved' && styles.resolveButton]}
-            onPress={async () => {
-              await updateMaintenanceRequest(item.id, {
-                status: item.status === 'resolved' ? 'open' : 'resolved',
-                completed_date: item.status === 'resolved' ? undefined : new Date().toISOString(),
-              });
+            onPress={() => {
+              Alert.alert(
+                item.status === 'resolved' ? 'Reopen Request' : 'Resolve Request',
+                item.status === 'resolved' 
+                  ? 'Are you sure you want to reopen this maintenance request?'
+                  : 'Mark this maintenance request as resolved?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: item.status === 'resolved' ? 'Reopen' : 'Resolve',
+                    onPress: async () => {
+                      await updateMaintenanceRequest(item.id, {
+                        status: item.status === 'resolved' ? 'open' : 'resolved',
+                        completed_date: item.status === 'resolved' ? undefined : new Date().toISOString(),
+                      });
+                      Alert.alert('Success', `Request ${item.status === 'resolved' ? 'reopened' : 'resolved'} successfully`);
+                    }
+                  },
+                ]
+              );
             }}
             testID={`toggle-status-${item.id}`}
           >

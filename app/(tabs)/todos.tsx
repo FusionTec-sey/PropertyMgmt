@@ -90,8 +90,10 @@ export default function TodosScreen() {
 
     if (editingTodo) {
       await updateTodo(editingTodo.id, data);
+      Alert.alert('Success', 'Task updated successfully');
     } else {
       await addTodo(data);
+      Alert.alert('Success', 'Task created successfully');
     }
 
     setModalVisible(false);

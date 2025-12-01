@@ -245,6 +245,30 @@ export default function TenantsScreen() {
     if (tenantLeases.length === 0) return;
 
     const lease = tenantLeases[0];
+    const uncheckedItems = items.filter(item => !item.checked);
+
+    if (uncheckedItems.length > 0) {
+      Alert.alert(
+        'Incomplete Checklist',
+        `${uncheckedItems.length} item${uncheckedItems.length > 1 ? 's' : ''} not checked. Save anyway?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Save Anyway', 
+            onPress: async () => {
+              await saveChecklistData(items, unitId, overallCondition, lease.id);
+            }
+          },
+        ]
+      );
+      return;
+    }
+
+    await saveChecklistData(items, unitId, overallCondition, lease.id);
+  };
+
+  const saveChecklistData = async (items: MoveInChecklistItem[], unitId: string, overallCondition: 'excellent' | 'good' | 'fair' | 'poor', leaseId: string) => {
+    if (!selectedTenant) return;
 
     const existingChecklist = moveInChecklists.find(c => c.tenant_renter_id === selectedTenant.id && c.unit_id === unitId);
 
@@ -260,7 +284,7 @@ export default function TenantsScreen() {
       await addMoveInChecklist({
         tenant_renter_id: selectedTenant.id,
         unit_id: unitId,
-        lease_id: lease.id,
+        lease_id: leaseId,
         items,
         overall_condition: overallCondition,
         damage_images: damagePhotos,
