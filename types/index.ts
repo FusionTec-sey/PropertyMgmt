@@ -194,6 +194,9 @@ export interface Lease {
   pdf_generated_uri?: string;
   pdf_generated_at?: string;
   signed_agreement?: SignedDocument;
+  move_in_checklist_id?: MoveInChecklistId;
+  complete_agreement_uri?: string;
+  complete_agreement_generated_at?: string;
   created_at: string;
   updated_at: string;
 }

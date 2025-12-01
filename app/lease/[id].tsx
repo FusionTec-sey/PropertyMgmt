@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import { TenantRenter, SignedDocument } from '@/types';
-import { Building, User, Calendar, FileText, Download, Upload, Camera, Trash, CheckCircle, Edit2 } from 'lucide-react-native';
+import { Building, User, Calendar, FileText, Download, Upload, Camera, Trash, CheckCircle, Edit2, FileStack } from 'lucide-react-native';
 import Button from '@/components/Button';
 import Badge from '@/components/Badge';
 import * as Print from 'expo-print';
@@ -11,11 +11,12 @@ import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import Modal from '@/components/Modal';
+import { generateCompleteTenancyDocument } from '@/utils/documentGenerator';
 
 export default function LeaseDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { leases, updateLease, properties, units, tenantRenters } = useApp();
+  const { leases, updateLease, properties, units, tenantRenters, moveInChecklists, propertyItems } = useApp();
   
   const lease = leases.find((l) => l.id === id);
   const [cameraVisible, setCameraVisible] = useState<boolean>(false);
@@ -279,6 +280,94 @@ export default function LeaseDetailScreen() {
       Alert.alert('Error', 'Failed to generate PDF agreement');
     } finally {
       setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleGenerateCompleteAgreement = async () => {
+    if (!property || !unit || !tenant) {
+      Alert.alert('Error', 'Missing property, unit, or tenant information');
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    try {
+      const checklist = lease.move_in_checklist_id 
+        ? moveInChecklists.find(c => c.id === lease.move_in_checklist_id)
+        : moveInChecklists.find(c => c.lease_id === lease.id);
+
+      const unitInventory = propertyItems.filter(item => item.unit_id === unit.id);
+
+      if (!checklist && unitInventory.length === 0) {
+        Alert.alert(
+          'Missing Information',
+          'No checklist or inventory items found. Would you like to generate the agreement anyway?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Generate Anyway',
+              onPress: async () => {
+                await generateComplete(undefined, []);
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      await generateComplete(checklist, unitInventory);
+    } catch (error) {
+      console.error('Error generating complete agreement:', error);
+      Alert.alert('Error', 'Failed to generate complete agreement');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const generateComplete = async (checklist: any, inventory: any[]) => {
+    if (!property || !unit || !tenant) return;
+
+    const html = generateCompleteTenancyDocument(
+      lease,
+      property,
+      unit,
+      tenant,
+      checklist,
+      inventory
+    );
+
+    const { uri } = await Print.printToFileAsync({ html });
+    
+    await updateLease(lease.id, {
+      complete_agreement_uri: uri,
+      complete_agreement_generated_at: new Date().toISOString(),
+      move_in_checklist_id: checklist?.id,
+    });
+
+    if (Platform.OS !== 'web') {
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        Alert.alert(
+          'Complete Agreement Generated',
+          'Would you like to share the complete tenancy agreement with all schedules?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Share',
+              onPress: async () => {
+                await Sharing.shareAsync(uri, {
+                  mimeType: 'application/pdf',
+                  dialogTitle: 'Share Complete Tenancy Agreement',
+                  UTI: 'com.adobe.pdf',
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Success', 'Complete tenancy agreement generated successfully!');
+      }
+    } else {
+      Alert.alert('Success', 'Complete tenancy agreement generated successfully!');
     }
   };
 
@@ -595,6 +684,44 @@ export default function LeaseDetailScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Complete Tenancy Agreement</Text>
+          <Text style={styles.sectionSubtitle}>
+            Includes agreement + checklist (Schedule 1) + inventory (Schedule 2)
+          </Text>
+          {lease.complete_agreement_uri ? (
+            <View style={styles.documentCard}>
+              <View style={styles.documentInfo}>
+                <FileStack size={24} color="#34C759" />
+                <View style={styles.documentDetails}>
+                  <Text style={styles.documentName}>Complete Tenancy Agreement.pdf</Text>
+                  <Text style={styles.documentDate}>
+                    Generated {formatDate(lease.complete_agreement_generated_at || lease.created_at)}
+                  </Text>
+                  {lease.move_in_checklist_id && (
+                    <Text style={styles.documentStatus}>✓ Checklist Attached</Text>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity 
+                style={styles.regenerateButton}
+                onPress={handleGenerateCompleteAgreement}
+                disabled={isGeneratingPDF}
+              >
+                <Download size={18} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Button
+              title="Generate Complete Agreement"
+              onPress={handleGenerateCompleteAgreement}
+              loading={isGeneratingPDF}
+              icon={<FileStack size={20} color="#FFFFFF" />}
+              fullWidth
+            />
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Signed Agreement</Text>
           {lease.signed_agreement ? (
             <View style={styles.documentCard}>
@@ -744,6 +871,12 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginBottom: 12,
   },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
   infoCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -860,6 +993,12 @@ const styles = StyleSheet.create({
   documentDate: {
     fontSize: 12,
     color: '#666',
+  },
+  documentStatus: {
+    fontSize: 11,
+    color: '#34C759',
+    marginTop: 4,
+    fontWeight: '600' as const,
   },
   regenerateButton: {
     padding: 8,
