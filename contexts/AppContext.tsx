@@ -9,7 +9,16 @@ import type {
   InventoryHistory, Invoice, BusinessDocument,
   TenantApplication, TenantOnboarding, PropertyInspection
 } from '@/types';
-import { generateMonthlyPayments, generateLeaseRenewalReminder, generateMoveOutChecklistReminder } from '@/utils/automationHelper';
+import { 
+  generateMonthlyPayments, 
+  generateLeaseRenewalReminder, 
+  generateMoveOutChecklistReminder,
+  generateOverduePaymentTodo,
+  generateMaintenanceCompletionInspectionTodo,
+  generatePreventiveMaintenanceTodo,
+  linkPaymentToInvoice,
+  shouldTriggerAutomation
+} from '@/utils/automationHelper';
 
 const STORAGE_KEYS = {
   CURRENT_TENANT: '@app/current_tenant',
@@ -385,12 +394,58 @@ export const [AppContext, useApp] = createContextHook(() => {
   }, [currentTenant, payments, saveData]);
 
   const updatePayment = useCallback(async (id: string, updates: Partial<Payment>) => {
+    const payment = payments.find(p => p.id === id);
     const updated = payments.map(p => 
       p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p
     );
     setPayments(updated);
     await saveData(STORAGE_KEYS.PAYMENTS, updated);
-  }, [payments, saveData]);
+    
+    if (currentTenant && payment && updates.status === 'overdue') {
+      if (shouldTriggerAutomation('overdue_payment_followup', { payment: { ...payment, ...updates } })) {
+        const dueDate = new Date(payment.due_date);
+        const daysOverdue = Math.ceil((new Date().getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        const hasExistingTodo = todos.some(
+          t => t.related_to_id === id && t.category === 'payment' && t.title.includes('Overdue')
+        );
+        
+        if (!hasExistingTodo) {
+          const overduePaymentTodo = generateOverduePaymentTodo({ ...payment, ...updates }, currentTenant.id, daysOverdue);
+          const newTodo: Todo = {
+            ...overduePaymentTodo,
+            id: `${Date.now()}-overdue-payment`,
+            tenant_id: currentTenant.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          
+          const updatedTodos = [...todos, newTodo];
+          setTodos(updatedTodos);
+          await saveData(STORAGE_KEYS.TODOS, updatedTodos);
+        }
+      }
+    }
+    
+    if (currentTenant && payment && updates.status === 'paid') {
+      const matchingInvoiceId = linkPaymentToInvoice({ ...payment, ...updates }, invoices);
+      if (matchingInvoiceId) {
+        const updatedInvoices = invoices.map(inv => 
+          inv.id === matchingInvoiceId ? { 
+            ...inv, 
+            payment_id: id,
+            status: 'paid' as const,
+            paid_at: new Date().toISOString(),
+            amount_paid: inv.total_amount,
+            balance_due: 0,
+            updated_at: new Date().toISOString() 
+          } : inv
+        );
+        setInvoices(updatedInvoices);
+        await saveData(STORAGE_KEYS.INVOICES, updatedInvoices);
+      }
+    }
+  }, [payments, currentTenant, todos, invoices, saveData]);
 
   const addMaintenanceRequest = useCallback(async (request: Omit<MaintenanceRequest, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
     if (!currentTenant) return;
@@ -409,12 +464,36 @@ export const [AppContext, useApp] = createContextHook(() => {
   }, [currentTenant, maintenanceRequests, saveData]);
 
   const updateMaintenanceRequest = useCallback(async (id: string, updates: Partial<MaintenanceRequest>) => {
+    const maintenance = maintenanceRequests.find(m => m.id === id);
     const updated = maintenanceRequests.map(m => 
       m.id === id ? { ...m, ...updates, updated_at: new Date().toISOString() } : m
     );
     setMaintenanceRequests(updated);
     await saveData(STORAGE_KEYS.MAINTENANCE, updated);
-  }, [maintenanceRequests, saveData]);
+    
+    if (currentTenant && maintenance && updates.status === 'resolved') {
+      if (shouldTriggerAutomation('maintenance_inspection', { maintenance: { ...maintenance, ...updates } })) {
+        const hasExistingTodo = todos.some(
+          t => t.related_to_id === id && t.category === 'inspection' && t.title.includes('Post-Maintenance')
+        );
+        
+        if (!hasExistingTodo) {
+          const inspectionTodo = generateMaintenanceCompletionInspectionTodo({ ...maintenance, ...updates }, currentTenant.id);
+          const newTodo: Todo = {
+            ...inspectionTodo,
+            id: `${Date.now()}-maintenance-inspection`,
+            tenant_id: currentTenant.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          
+          const updatedTodos = [...todos, newTodo];
+          setTodos(updatedTodos);
+          await saveData(STORAGE_KEYS.TODOS, updatedTodos);
+        }
+      }
+    }
+  }, [maintenanceRequests, currentTenant, todos, saveData]);
 
   const addNotification = useCallback(async (notification: Omit<Notification, 'id' | 'created_at'>) => {
     if (!currentTenant) return;
@@ -502,12 +581,36 @@ export const [AppContext, useApp] = createContextHook(() => {
   }, [currentTenant, maintenanceSchedules, saveData]);
 
   const updateMaintenanceSchedule = useCallback(async (id: string, updates: Partial<MaintenanceSchedule>) => {
+    const schedule = maintenanceSchedules.find(s => s.id === id);
     const updated = maintenanceSchedules.map(s => 
       s.id === id ? { ...s, ...updates, updated_at: new Date().toISOString() } : s
     );
     setMaintenanceSchedules(updated);
     await saveData(STORAGE_KEYS.MAINTENANCE_SCHEDULES, updated);
-  }, [maintenanceSchedules, saveData]);
+    
+    if (currentTenant && schedule && updates.next_service_date) {
+      if (shouldTriggerAutomation('preventive_maintenance', { schedule: { ...schedule, ...updates } })) {
+        const hasExistingTodo = todos.some(
+          t => t.related_to_id === id && t.title.includes(schedule.asset_name)
+        );
+        
+        if (!hasExistingTodo) {
+          const preventiveTodo = generatePreventiveMaintenanceTodo({ ...schedule, ...updates }, currentTenant.id);
+          const newTodo: Todo = {
+            ...preventiveTodo,
+            id: `${Date.now()}-preventive-maintenance`,
+            tenant_id: currentTenant.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          
+          const updatedTodos = [...todos, newTodo];
+          setTodos(updatedTodos);
+          await saveData(STORAGE_KEYS.TODOS, updatedTodos);
+        }
+      }
+    }
+  }, [maintenanceSchedules, currentTenant, todos, saveData]);
 
   const deleteMaintenanceSchedule = useCallback(async (id: string) => {
     const updated = maintenanceSchedules.filter(s => s.id !== id);
