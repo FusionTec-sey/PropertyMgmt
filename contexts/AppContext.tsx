@@ -5,7 +5,8 @@ import type {
   Tenant, User, Property, Unit, TenantRenter, Lease, Payment,
   MaintenanceRequest, Notification,
   ActivityLog, DashboardStats, MoveInChecklist,
-  PropertyItem, MaintenanceSchedule, Todo, UserPermissions
+  PropertyItem, MaintenanceSchedule, Todo, UserPermissions,
+  InventoryHistory
 } from '@/types';
 
 const STORAGE_KEYS = {
@@ -28,6 +29,7 @@ const STORAGE_KEYS = {
   MAINTENANCE_SCHEDULES: '@app/maintenance_schedules',
   TODOS: '@app/todos',
   STAFF_USERS: '@app/staff_users',
+  INVENTORY_HISTORY: '@app/inventory_history',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -49,6 +51,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [propertyItems, setPropertyItems] = useState<PropertyItem[]>([]);
   const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [inventoryHistory, setInventoryHistory] = useState<InventoryHistory[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -69,6 +72,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedPropertyItems,
         savedMaintenanceSchedules,
         savedTodos,
+        savedInventoryHistory,
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
@@ -86,6 +90,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_ITEMS),
         AsyncStorage.getItem(STORAGE_KEYS.MAINTENANCE_SCHEDULES),
         AsyncStorage.getItem(STORAGE_KEYS.TODOS),
+        AsyncStorage.getItem(STORAGE_KEYS.INVENTORY_HISTORY),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -104,6 +109,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedPropertyItems) setPropertyItems(JSON.parse(savedPropertyItems));
       if (savedMaintenanceSchedules) setMaintenanceSchedules(JSON.parse(savedMaintenanceSchedules));
       if (savedTodos) setTodos(JSON.parse(savedTodos));
+      if (savedInventoryHistory) setInventoryHistory(JSON.parse(savedInventoryHistory));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -473,6 +479,37 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.TODOS, updated);
   }, [todos, saveData]);
 
+  const addInventoryHistory = useCallback(async (history: Omit<InventoryHistory, 'id' | 'created_at' | 'tenant_id' | 'performed_by' | 'performed_at'>) => {
+    if (!currentTenant || !currentUser) return;
+    
+    const newHistory: InventoryHistory = {
+      ...history,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      performed_by: currentUser.id,
+      performed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    const updated = [...inventoryHistory, newHistory];
+    setInventoryHistory(updated);
+    await saveData(STORAGE_KEYS.INVENTORY_HISTORY, updated);
+    return newHistory;
+  }, [currentTenant, currentUser, inventoryHistory, saveData]);
+
+  const updateInventoryHistory = useCallback(async (id: string, updates: Partial<InventoryHistory>) => {
+    const updated = inventoryHistory.map(h => 
+      h.id === id ? { ...h, ...updates } : h
+    );
+    setInventoryHistory(updated);
+    await saveData(STORAGE_KEYS.INVENTORY_HISTORY, updated);
+  }, [inventoryHistory, saveData]);
+
+  const deleteInventoryHistory = useCallback(async (id: string) => {
+    const updated = inventoryHistory.filter(h => h.id !== id);
+    setInventoryHistory(updated);
+    await saveData(STORAGE_KEYS.INVENTORY_HISTORY, updated);
+  }, [inventoryHistory, saveData]);
+
   const addStaffUser = useCallback(async (user: Omit<User, 'id' | 'created_at' | 'tenant_id'>) => {
     if (!currentTenant || !currentUser) return;
     
@@ -604,6 +641,11 @@ export const [AppContext, useApp] = createContextHook(() => {
     [todos, currentTenant]
   );
 
+  const tenantInventoryHistory = useMemo(() => 
+    inventoryHistory.filter(h => h.tenant_id === currentTenant?.id),
+    [inventoryHistory, currentTenant]
+  );
+
   const tenantStaffUsers = useMemo(() => 
     staffUsers.filter(u => u.tenant_id === currentTenant?.id),
     [staffUsers, currentTenant]
@@ -700,5 +742,9 @@ export const [AppContext, useApp] = createContextHook(() => {
     updateStaffUser,
     deleteStaffUser,
     hasPermission,
+    inventoryHistory: tenantInventoryHistory,
+    addInventoryHistory,
+    updateInventoryHistory,
+    deleteInventoryHistory,
   };
 });

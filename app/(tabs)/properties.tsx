@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon } from 'lucide-react-native';
+import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Property, Unit, PropertyType, ParkingSpot } from '@/types';
 import Button from '@/components/Button';
@@ -11,9 +11,11 @@ import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 import PhotoGallery from '@/components/PhotoGallery';
 import { showPhotoOptions } from '@/components/PhotoPicker';
+import { useRouter } from 'expo-router';
 
 export default function PropertiesScreen() {
   const { properties, units, addProperty, updateProperty, deleteProperty, addUnit, updateUnit } = useApp();
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [unitModalVisible, setUnitModalVisible] = useState<boolean>(false);
   const [parkingModalVisible, setParkingModalVisible] = useState<boolean>(false);
@@ -213,6 +215,10 @@ export default function PropertiesScreen() {
     setPhotosModalVisible(true);
   };
 
+  const handleManageInventory = (property: Property, unit?: Unit) => {
+    router.push(`/inventory/${property.id}${unit ? `?unitId=${unit.id}` : ''}` as any);
+  };
+
   const handleAddPhoto = () => {
     showPhotoOptions((uri: string) => {
       if (editingPhotosFor === 'property' && editingProperty) {
@@ -334,6 +340,17 @@ export default function PropertiesScreen() {
       <View style={styles.unitActions}>
         <TouchableOpacity
           style={styles.unitActionButton}
+          onPress={() => {
+            const property = properties.find(p => p.id === unit.property_id);
+            if (property) handleManageInventory(property, unit);
+          }}
+          testID={`inventory-unit-${unit.id}`}
+        >
+          <Package size={16} color="#007AFF" />
+          <Text style={styles.unitActionText}>Inventory</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.unitActionButton}
           onPress={() => handleManageUnitPhotos(unit)}
           testID={`photos-unit-${unit.id}`}
         >
@@ -417,6 +434,14 @@ export default function PropertiesScreen() {
               >
                 <Plus size={16} color="#007AFF" />
                 <Text style={styles.actionText}>Add Unit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => router.push(`/inventory/${item.id}` as any)}
+                testID={`inventory-property-${item.id}`}
+              >
+                <Package size={16} color="#007AFF" />
+                <Text style={styles.actionText}>Inventory</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}

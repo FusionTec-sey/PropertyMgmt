@@ -15,6 +15,7 @@ export type MoveInChecklistId = string;
 export type PropertyItemId = string;
 export type MaintenanceScheduleId = string;
 export type TodoId = string;
+export type InventoryHistoryId = string;
 
 export type UserRole = 'owner' | 'manager' | 'accountant' | 'maintenance' | 'viewer';
 
@@ -367,12 +368,50 @@ export interface PropertyItem {
   purchase_date?: string;
   warranty_expiry?: string;
   value?: number;
+  replacement_cost?: number;
   serial_number?: string;
   model_number?: string;
   images?: string[];
   notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+export type InventoryChangeReason = 
+  | 'initial_provision'
+  | 'replacement_damage'
+  | 'replacement_wear'
+  | 'upgrade'
+  | 'repair'
+  | 'removal'
+  | 'tenant_request'
+  | 'maintenance'
+  | 'other';
+
+export type InventoryPaidBy = 'landlord' | 'tenant_deposit' | 'tenant_direct';
+
+export interface InventoryHistory {
+  id: InventoryHistoryId;
+  tenant_id: TenantId;
+  property_item_id: PropertyItemId;
+  property_id: PropertyId;
+  unit_id?: UnitId;
+  tenant_renter_id?: TenantRenterId;
+  lease_id?: LeaseId;
+  action: 'added' | 'replaced' | 'repaired' | 'removed' | 'condition_changed';
+  reason: InventoryChangeReason;
+  previous_condition?: 'new' | 'excellent' | 'good' | 'fair' | 'poor' | 'damaged';
+  new_condition?: 'new' | 'excellent' | 'good' | 'fair' | 'poor' | 'damaged';
+  cost?: number;
+  paid_by?: InventoryPaidBy;
+  deducted_from_deposit?: boolean;
+  quantity_before?: number;
+  quantity_after?: number;
+  notes?: string;
+  images?: string[];
+  performed_by?: UserId;
+  performed_at: string;
+  created_at: string;
 }
 
 export type MaintenanceScheduleFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual';
