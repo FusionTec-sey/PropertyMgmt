@@ -37,6 +37,7 @@ export default function TenantsScreen() {
     payment_due_day: '1',
     status: 'draft' as LeaseStatus,
     terms: '',
+    lease_period_months: 12,
   });
 
   const [formData, setFormData] = useState({
@@ -120,6 +121,7 @@ export default function TenantsScreen() {
       payment_due_day: '1',
       status: 'draft',
       terms: '',
+      lease_period_months: 12,
     });
     setLeaseModalVisible(true);
   };
@@ -773,26 +775,65 @@ export default function TenantsScreen() {
           )}
 
           <Text style={styles.sectionTitle}>Lease Period</Text>
-          <View style={styles.row}>
-            <Input
-              label="Start Date"
-              value={leaseFormData.start_date}
-              onChangeText={text => setLeaseFormData({ ...leaseFormData, start_date: text })}
-              placeholder="YYYY-MM-DD"
-              required
-              containerStyle={styles.halfInput}
-              testID="lease-start-date-input"
-            />
-            <Input
-              label="End Date"
-              value={leaseFormData.end_date}
-              onChangeText={text => setLeaseFormData({ ...leaseFormData, end_date: text })}
-              placeholder="YYYY-MM-DD"
-              required
-              containerStyle={styles.halfInput}
-              testID="lease-end-date-input"
-            />
+          <Input
+            label="Move-In Date (Start Date)"
+            value={leaseFormData.start_date}
+            onChangeText={(text) => {
+              setLeaseFormData({ ...leaseFormData, start_date: text });
+              if (text && /^\d{4}-\d{2}-\d{2}$/.test(text)) {
+                const startDate = new Date(text);
+                const endDate = new Date(startDate);
+                endDate.setMonth(endDate.getMonth() + leaseFormData.lease_period_months);
+                const endDateStr = endDate.toISOString().split('T')[0];
+                setLeaseFormData((prev) => ({ ...prev, start_date: text, end_date: endDateStr }));
+              }
+            }}
+            placeholder="YYYY-MM-DD"
+            required
+            testID="lease-start-date-input"
+          />
+
+          <Text style={styles.inputLabel}>Lease Period *</Text>
+          <View style={styles.leasePeriodSelector}>
+            {([6, 12, 24] as const).map((months) => (
+              <TouchableOpacity
+                key={months}
+                style={[
+                  styles.periodButton,
+                  leaseFormData.lease_period_months === months && styles.periodButtonActive,
+                ]}
+                onPress={() => {
+                  setLeaseFormData({ ...leaseFormData, lease_period_months: months });
+                  if (leaseFormData.start_date && /^\d{4}-\d{2}-\d{2}$/.test(leaseFormData.start_date)) {
+                    const startDate = new Date(leaseFormData.start_date);
+                    const endDate = new Date(startDate);
+                    endDate.setMonth(endDate.getMonth() + months);
+                    const endDateStr = endDate.toISOString().split('T')[0];
+                    setLeaseFormData((prev) => ({ ...prev, lease_period_months: months, end_date: endDateStr }));
+                  }
+                }}
+                testID={`lease-period-${months}-button`}
+              >
+                <Text
+                  style={[
+                    styles.periodButtonText,
+                    leaseFormData.lease_period_months === months && styles.periodButtonTextActive,
+                  ]}
+                >
+                  {months} Months
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
+
+          <Input
+            label="End Date"
+            value={leaseFormData.end_date}
+            onChangeText={text => setLeaseFormData({ ...leaseFormData, end_date: text })}
+            placeholder="YYYY-MM-DD (Auto-calculated)"
+            required
+            testID="lease-end-date-input"
+          />
 
           <Text style={styles.sectionTitle}>Financial Details</Text>
           <View style={styles.row}>
@@ -1783,6 +1824,32 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   statusButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  leasePeriodSelector: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    marginBottom: 16,
+  },
+  periodButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    alignItems: 'center' as const,
+  },
+  periodButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  periodButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  periodButtonTextActive: {
     color: '#FFFFFF',
   },
 });
