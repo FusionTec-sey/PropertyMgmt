@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Share, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { FileText, Eye, Calendar, DollarSign, Send, RefreshCw } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Invoice } from '@/types';
-import { generateInvoiceNumber, generateInvoiceData, generateMonthlyInvoiceDate, shouldGenerateInvoice, formatInvoiceHTML } from '@/utils/invoiceGenerator';
+import { generateInvoiceNumber, generateInvoiceData, generateMonthlyInvoiceDate, shouldGenerateInvoice, shareInvoicePDF } from '@/utils/invoiceGenerator';
 import { getCurrencySymbol, DEFAULT_CURRENCY } from '@/constants/currencies';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -94,16 +94,11 @@ export default function InvoicesScreen() {
     const tenantRenter = tenantRenters.find(tr => tr.id === invoice.tenant_renter_id);
     const property = properties.find(p => p.id === invoice.property_id);
     const unit = units.find(u => u.id === invoice.unit_id);
-    const currencySymbol = getCurrencySymbol(invoice.currency);
     
     if (!tenantRenter || !property || !unit) {
       Alert.alert('Error', 'Unable to find invoice details');
       return;
     }
-
-    const tenantName = tenantRenter.type === 'business' 
-      ? tenantRenter.business_name 
-      : `${tenantRenter.first_name} ${tenantRenter.last_name}`;
 
     const landlordInfo = {
       name: currentTenant?.name || 'Landlord',
@@ -112,90 +107,23 @@ export default function InvoicesScreen() {
       phone: currentTenant?.phone || '',
     };
 
-    const htmlContent = formatInvoiceHTML(invoice, tenantRenter, property, unit, landlordInfo);
-
-    Alert.alert(
-      'Share Invoice',
-      `Share invoice ${invoice.invoice_number} with ${tenantName}`,
-      [
-        {
-          text: 'Email',
-          onPress: () => handleEmailInvoice(invoice, tenantRenter, htmlContent),
-        },
-        {
-          text: 'SMS',
-          onPress: () => handleSMSInvoice(invoice, tenantRenter),
-        },
-        {
-          text: 'Copy Link',
-          onPress: async () => {
-            const message = `Invoice ${invoice.invoice_number}\nAmount: ${currencySymbol}${invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}\nDue: ${new Date(invoice.due_date).toLocaleDateString()}`;
-            try {
-              await Share.share({ message });
-              await updateInvoice(invoice.id, { 
-                sent_at: new Date().toISOString(),
-                status: 'sent'
-              });
-              Alert.alert('Success', 'Invoice details shared successfully!');
-            } catch (error) {
-              console.error('[Invoices] Share error:', error);
-            }
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
-  };
-
-  const handleEmailInvoice = async (invoice: Invoice, tenantRenter: any, htmlContent: string) => {
-    const subject = `Invoice ${invoice.invoice_number} - ${new Date(invoice.due_date).toLocaleDateString()}`;
-    const body = `Dear ${tenantRenter.type === 'business' ? tenantRenter.business_name : tenantRenter.first_name},\n\nPlease find attached your invoice for the period.\n\nInvoice Number: ${invoice.invoice_number}\nAmount Due: ${getCurrencySymbol(invoice.currency)}${invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}\nDue Date: ${new Date(invoice.due_date).toLocaleDateString()}\n\nThank you for your business.`;
-    
-    const mailtoUrl = `mailto:${tenantRenter.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    
     try {
-      const supported = await Linking.canOpenURL(mailtoUrl);
-      if (supported) {
-        await Linking.openURL(mailtoUrl);
-        await updateInvoice(invoice.id, { 
-          sent_at: new Date().toISOString(),
-          status: 'sent'
-        });
-        Alert.alert('Success', 'Email client opened. Invoice marked as sent.');
-      } else {
-        Alert.alert('Error', 'Unable to open email client');
-      }
+      console.log('[Invoices] Starting PDF generation and share for invoice', invoice.invoice_number);
+      await shareInvoicePDF(invoice, tenantRenter, property, unit, landlordInfo);
+      
+      await updateInvoice(invoice.id, { 
+        sent_at: new Date().toISOString(),
+        status: 'sent'
+      });
+      
+      Alert.alert('Success', `Invoice ${invoice.invoice_number} PDF shared successfully!`);
     } catch (error) {
-      console.error('[Invoices] Email error:', error);
-      Alert.alert('Error', 'Failed to open email client');
+      console.error('[Invoices] Error sharing PDF:', error);
+      Alert.alert('Error', 'Failed to share invoice PDF. Please try again.');
     }
   };
 
-  const handleSMSInvoice = async (invoice: Invoice, tenantRenter: any) => {
-    const message = `Invoice ${invoice.invoice_number}\nAmount: ${getCurrencySymbol(invoice.currency)}${invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}\nDue: ${new Date(invoice.due_date).toLocaleDateString()}\nPlease check your email for full details.`;
-    
-    const smsUrl = `sms:${tenantRenter.phone}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(message)}`;
-    
-    try {
-      const supported = await Linking.canOpenURL(smsUrl);
-      if (supported) {
-        await Linking.openURL(smsUrl);
-        await updateInvoice(invoice.id, { 
-          sent_at: new Date().toISOString(),
-          status: 'sent'
-        });
-        Alert.alert('Success', 'SMS client opened. Invoice marked as sent.');
-      } else {
-        Alert.alert('Error', 'Unable to open SMS client');
-      }
-    } catch (error) {
-      console.error('[Invoices] SMS error:', error);
-      Alert.alert('Error', 'Failed to open SMS client');
-    }
-  };
+
 
   const handleMarkAsPaid = async (invoice: Invoice) => {
     Alert.alert(

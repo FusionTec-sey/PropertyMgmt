@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image, Share, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
 import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye, Send, RefreshCw, Receipt } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Payment, PaymentCurrency, Invoice } from '@/types';
 import * as DocumentPicker from 'expo-document-picker';
 import { CURRENCIES, DEFAULT_CURRENCY, getCurrencySymbol } from '@/constants/currencies';
-import { generateInvoiceNumber, generateInvoiceData, generateMonthlyInvoiceDate, shouldGenerateInvoice } from '@/utils/invoiceGenerator';
+import { generateInvoiceNumber, generateInvoiceData, generateMonthlyInvoiceDate, shouldGenerateInvoice, shareInvoicePDF } from '@/utils/invoiceGenerator';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
@@ -204,97 +204,32 @@ export default function PaymentsScreen() {
     const tenantRenter = tenantRenters.find(tr => tr.id === invoice.tenant_renter_id);
     const property = properties.find(p => p.id === invoice.property_id);
     const unit = units.find(u => u.id === invoice.unit_id);
-    const currencySymbol = getCurrencySymbol(invoice.currency);
     
     if (!tenantRenter || !property || !unit) {
       Alert.alert('Error', 'Unable to find invoice details');
       return;
     }
 
-    const tenantName = tenantRenter.type === 'business' 
-      ? tenantRenter.business_name 
-      : `${tenantRenter.first_name} ${tenantRenter.last_name}`;
+    const landlordInfo = {
+      name: currentTenant?.name || 'Landlord',
+      address: property.address,
+      email: currentTenant?.email || '',
+      phone: currentTenant?.phone || '',
+    };
 
-    Alert.alert(
-      'Share Invoice',
-      `Share invoice ${invoice.invoice_number} with ${tenantName}`,
-      [
-        {
-          text: 'Email',
-          onPress: () => handleEmailInvoice(invoice, tenantRenter),
-        },
-        {
-          text: 'SMS',
-          onPress: () => handleSMSInvoice(invoice, tenantRenter),
-        },
-        {
-          text: 'Copy Link',
-          onPress: async () => {
-            const message = `Invoice ${invoice.invoice_number}\nAmount: ${currencySymbol}${invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}\nDue: ${new Date(invoice.due_date).toLocaleDateString()}`;
-            try {
-              await Share.share({ message });
-              await updateInvoice(invoice.id, { 
-                sent_at: new Date().toISOString(),
-                status: 'sent'
-              });
-              Alert.alert('Success', 'Invoice details shared successfully!');
-            } catch (error) {
-              console.error('[Payments] Share error:', error);
-            }
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
-  };
-
-  const handleEmailInvoice = async (invoice: Invoice, tenantRenter: any) => {
-    const subject = `Invoice ${invoice.invoice_number} - ${new Date(invoice.due_date).toLocaleDateString()}`;
-    const body = `Dear ${tenantRenter.type === 'business' ? tenantRenter.business_name : tenantRenter.first_name},\n\nPlease find attached your invoice for the period.\n\nInvoice Number: ${invoice.invoice_number}\nAmount Due: ${getCurrencySymbol(invoice.currency)}${invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}\nDue Date: ${new Date(invoice.due_date).toLocaleDateString()}\n\nThank you for your business.`;
-    
-    const mailtoUrl = `mailto:${tenantRenter.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    
     try {
-      const supported = await Linking.canOpenURL(mailtoUrl);
-      if (supported) {
-        await Linking.openURL(mailtoUrl);
-        await updateInvoice(invoice.id, { 
-          sent_at: new Date().toISOString(),
-          status: 'sent'
-        });
-        Alert.alert('Success', 'Email client opened. Invoice marked as sent.');
-      } else {
-        Alert.alert('Error', 'Unable to open email client');
-      }
+      console.log('[Payments] Starting PDF generation and share for invoice', invoice.invoice_number);
+      await shareInvoicePDF(invoice, tenantRenter, property, unit, landlordInfo);
+      
+      await updateInvoice(invoice.id, { 
+        sent_at: new Date().toISOString(),
+        status: 'sent'
+      });
+      
+      Alert.alert('Success', `Invoice ${invoice.invoice_number} PDF shared successfully!`);
     } catch (error) {
-      console.error('[Payments] Email error:', error);
-      Alert.alert('Error', 'Failed to open email client');
-    }
-  };
-
-  const handleSMSInvoice = async (invoice: Invoice, tenantRenter: any) => {
-    const message = `Invoice ${invoice.invoice_number}\nAmount: ${getCurrencySymbol(invoice.currency)}${invoice.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoice.currency}\nDue: ${new Date(invoice.due_date).toLocaleDateString()}\nPlease check your email for full details.`;
-    
-    const smsUrl = `sms:${tenantRenter.phone}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(message)}`;
-    
-    try {
-      const supported = await Linking.canOpenURL(smsUrl);
-      if (supported) {
-        await Linking.openURL(smsUrl);
-        await updateInvoice(invoice.id, { 
-          sent_at: new Date().toISOString(),
-          status: 'sent'
-        });
-        Alert.alert('Success', 'SMS client opened. Invoice marked as sent.');
-      } else {
-        Alert.alert('Error', 'Unable to open SMS client');
-      }
-    } catch (error) {
-      console.error('[Payments] SMS error:', error);
-      Alert.alert('Error', 'Failed to open SMS client');
+      console.error('[Payments] Error sharing PDF:', error);
+      Alert.alert('Error', 'Failed to share invoice PDF. Please try again.');
     }
   };
 

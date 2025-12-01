@@ -1,5 +1,7 @@
 import { Invoice, InvoiceLineItem, Lease, TenantRenter, Property, Unit, PaymentCurrency } from '@/types';
 import { getCurrencySymbol } from '@/constants/currencies';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 export interface GenerateInvoiceParams {
   lease: Lease;
@@ -313,4 +315,57 @@ export function formatInvoiceHTML(
 </body>
 </html>
   `.trim();
+}
+
+export async function generateInvoicePDF(
+  invoice: Invoice,
+  tenantRenter: TenantRenter,
+  property: Property,
+  unit: Unit,
+  landlordInfo: { name: string; address?: string; email?: string; phone?: string }
+): Promise<string> {
+  const htmlContent = formatInvoiceHTML(invoice, tenantRenter, property, unit, landlordInfo);
+  
+  try {
+    const { uri } = await Print.printToFileAsync({
+      html: htmlContent,
+      base64: false,
+    });
+    
+    console.log('[Invoice] Generated PDF at:', uri);
+    
+    console.log('[Invoice] PDF generated successfully');
+    return uri;
+  } catch (error) {
+    console.error('[Invoice] Error generating PDF:', error);
+    throw error;
+  }
+}
+
+export async function shareInvoicePDF(
+  invoice: Invoice,
+  tenantRenter: TenantRenter,
+  property: Property,
+  unit: Unit,
+  landlordInfo: { name: string; address?: string; email?: string; phone?: string }
+): Promise<void> {
+  try {
+    const pdfUri = await generateInvoicePDF(invoice, tenantRenter, property, unit, landlordInfo);
+    
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Share Invoice ${invoice.invoice_number}`,
+        UTI: 'com.adobe.pdf',
+      });
+      console.log('[Invoice] PDF shared successfully');
+    } else {
+      console.warn('[Invoice] Sharing not available on this platform');
+      throw new Error('Sharing not available on this platform');
+    }
+  } catch (error) {
+    console.error('[Invoice] Error sharing PDF:', error);
+    throw error;
+  }
 }
