@@ -385,6 +385,15 @@ export default function InspectionDetailScreen() {
               />
             </>
           )}
+          {inspection.status === 'completed' && inspection.unit_id && (
+            <Button
+              title="View Unit Inventory"
+              onPress={() => router.push(`/inventory/${inspection.property_id}?unitId=${inspection.unit_id}` as any)}
+              fullWidth
+              variant="primary"
+              testID="view-inventory-button"
+            />
+          )}
           <Button
             title="Edit Inspection"
             onPress={handleEdit}

@@ -147,7 +147,7 @@ const CHECKLIST_TEMPLATE: RoomSection[] = [
 export default function ChecklistScreen() {
   const { unitId } = useLocalSearchParams();
   const router = useRouter();
-  const { units, properties, tenantRenters, leases, addMoveInChecklist } = useApp();
+  const { units, properties, tenantRenters, leases, addMoveInChecklist, addPropertyItem } = useApp();
 
   const unit = units.find(u => u.id === unitId);
   const property = properties.find(p => p.id === unit?.property_id);
@@ -282,6 +282,36 @@ export default function ChecklistScreen() {
                 console.log('[CHECKLIST] Completed move-in checklist for unit:', unit.id);
                 Alert.alert('Success', 'Move-in checklist completed!', [
                   {
+                    text: 'Sync to Inventory',
+                    onPress: async () => {
+                      const itemsToAdd = checklistItems.filter(item => 
+                        item.checked && 
+                        item.category !== 'keys' &&
+                        !item.name.toLowerCase().includes('wall') &&
+                        !item.name.toLowerCase().includes('floor') &&
+                        !item.name.toLowerCase().includes('ceiling') &&
+                        !item.name.toLowerCase().includes('door')
+                      );
+
+                      for (const item of itemsToAdd) {
+                        await addPropertyItem({
+                          property_id: property!.id,
+                          unit_id: unit.id,
+                          name: item.name,
+                          category: item.category.includes('kitchen') ? 'appliance' : 
+                                   item.category.includes('bedroom') || item.category.includes('living') ? 'furniture' : 'other',
+                          quantity: 1,
+                          condition: item.condition,
+                          notes: item.notes || `From move-in checklist: ${new Date().toLocaleDateString('en-GB')}`,
+                          images: item.images,
+                        });
+                      }
+
+                      router.back();
+                      router.push(`/inventory/${property?.id}?unitId=${unit.id}` as any);
+                    }
+                  },
+                  {
                     text: 'View Inventory',
                     onPress: () => {
                       router.back();
@@ -320,7 +350,38 @@ export default function ChecklistScreen() {
         });
 
         console.log('[CHECKLIST] Completed move-in checklist for unit:', unit.id);
+        
         Alert.alert('Success', 'Move-in checklist completed!', [
+          {
+            text: 'Sync to Inventory',
+            onPress: async () => {
+              const itemsToAdd = checklistItems.filter(item => 
+                item.checked && 
+                item.category !== 'keys' &&
+                !item.name.toLowerCase().includes('wall') &&
+                !item.name.toLowerCase().includes('floor') &&
+                !item.name.toLowerCase().includes('ceiling') &&
+                !item.name.toLowerCase().includes('door')
+              );
+
+              for (const item of itemsToAdd) {
+                await addPropertyItem({
+                  property_id: property!.id,
+                  unit_id: unit.id,
+                  name: item.name,
+                  category: item.category.includes('kitchen') ? 'appliance' : 
+                           item.category.includes('bedroom') || item.category.includes('living') ? 'furniture' : 'other',
+                  quantity: 1,
+                  condition: item.condition,
+                  notes: item.notes || `From move-in checklist: ${new Date().toLocaleDateString('en-GB')}`,
+                  images: item.images,
+                });
+              }
+
+              router.back();
+              router.push(`/inventory/${property?.id}?unitId=${unit.id}` as any);
+            }
+          },
           {
             text: 'View Inventory',
             onPress: () => {

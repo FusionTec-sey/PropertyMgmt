@@ -62,6 +62,20 @@ export default function InventoryScreen() {
     return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  const getTotalInventoryValue = () => {
+    return items.reduce((sum, item) => sum + ((item.replacement_cost || item.value || 0) * item.quantity), 0);
+  };
+
+  const getItemsByCondition = () => {
+    return {
+      new: items.filter(i => i.condition === 'new').length,
+      excellent: items.filter(i => i.condition === 'excellent').length,
+      good: items.filter(i => i.condition === 'good').length,
+      fair: items.filter(i => i.condition === 'fair').length,
+      poor: items.filter(i => i.condition === 'poor').length,
+    };
+  };
+
   const getTenantName = (tenantId: string) => {
     const tenant = tenantRenters.find(t => t.id === tenantId);
     if (!tenant) return 'Unknown Tenant';
@@ -340,12 +354,37 @@ export default function InventoryScreen() {
         options={{
           title: unit ? `Inventory - Unit ${unit.unit_number}` : `Inventory - ${property?.name || 'Property'}`,
           headerRight: () => (
-            <TouchableOpacity onPress={handleAdd} style={styles.headerButton}>
-              <Plus size={24} color="#007AFF" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, marginRight: 8 }}>
+              <TouchableOpacity onPress={handleAdd} style={styles.headerButton}>
+                <Plus size={24} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
+
+      {items.length > 0 && (
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Items:</Text>
+            <Text style={styles.summaryValue}>{items.length}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Value:</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(getTotalInventoryValue())}</Text>
+          </View>
+          <View style={styles.conditionSummary}>
+            {Object.entries(getItemsByCondition()).map(([condition, count]) => (
+              count > 0 && (
+                <View key={condition} style={styles.conditionBadge}>
+                  <View style={[styles.conditionDot, { backgroundColor: getConditionColor(condition) }]} />
+                  <Text style={styles.conditionCount}>{count} {condition}</Text>
+                </View>
+              )
+            ))}
+          </View>
+        </View>
+      )}
 
       {items.length === 0 ? (
         <EmptyState
@@ -1001,5 +1040,62 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic' as const,
     marginTop: 4,
+  },
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  summaryRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#1A1A1A',
+  },
+  conditionSummary: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  conditionBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+  },
+  conditionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  conditionCount: {
+    fontSize: 12,
+    color: '#666',
+    textTransform: 'capitalize' as const,
   },
 });
