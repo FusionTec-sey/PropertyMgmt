@@ -1,5 +1,101 @@
-import { Alert, Platform } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Platform } from 'react-native';
+import { Camera, Trash2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+
+interface PhotoPickerProps {
+  photos: string[];
+  onPhotosChange: (photos: string[]) => void;
+  maxPhotos?: number;
+}
+
+export function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: PhotoPickerProps) {
+  const handleAddPhoto = () => {
+    showPhotoOptions((uri: string) => {
+      if (photos.length < maxPhotos) {
+        onPhotosChange([...photos, uri]);
+      } else {
+        Alert.alert('Limit Reached', `You can only add up to ${maxPhotos} photos.`);
+      }
+    });
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    const updated = photos.filter((_, i) => i !== index);
+    onPhotosChange(updated);
+  };
+
+  return (
+    <View style={styles.container}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoList}>
+        {photos.map((uri, index) => (
+          <View key={index} style={styles.photoItem}>
+            <Image source={{ uri }} style={styles.photo} />
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => handleRemovePhoto(index)}
+            >
+              <Trash2 size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ))}
+        {photos.length < maxPhotos && (
+          <TouchableOpacity style={styles.addButton} onPress={handleAddPhoto}>
+            <Camera size={24} color="#007AFF" />
+            <Text style={styles.addButtonText}>Add Photo</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginVertical: 8,
+  },
+  photoList: {
+    gap: 12,
+  },
+  photoItem: {
+    position: 'relative' as const,
+    width: 80,
+    height: 80,
+  },
+  photo: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  removeButton: {
+    position: 'absolute' as const,
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  addButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    borderStyle: 'dashed' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#F0F8FF',
+    gap: 4,
+  },
+  addButtonText: {
+    fontSize: 10,
+    color: '#007AFF',
+    fontWeight: '600' as const,
+  },
+});
 
 export async function pickPhoto(): Promise<string | null> {
   try {
@@ -92,6 +188,7 @@ export function showPhotoOptions(onPhotoSelected: (uri: string) => void) {
         text: 'Cancel',
         style: 'cancel',
       },
-    ]
+    ],
+    { cancelable: true }
   );
 }
