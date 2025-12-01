@@ -534,3 +534,65 @@ export interface Invoice {
   created_at: string;
   updated_at: string;
 }
+
+export type DateReminderType = 
+  | 'lease_start'
+  | 'lease_end'
+  | 'lease_renewal'
+  | 'document_expiry'
+  | 'invoice_due'
+  | 'payment_due'
+  | 'maintenance_scheduled'
+  | 'todo_due'
+  | 'warranty_expiry'
+  | 'custom';
+
+export type ReminderId = string;
+
+export interface DateReminder {
+  id: ReminderId;
+  tenant_id: TenantId;
+  type: DateReminderType;
+  title: string;
+  description?: string;
+  target_date: string;
+  reminder_days_before: number[];
+  related_to_type?: 'lease' | 'document' | 'invoice' | 'payment' | 'maintenance' | 'todo' | 'property_item' | 'business_document';
+  related_to_id?: string;
+  is_active: boolean;
+  notification_ids?: string[];
+  created_by: UserId;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationSettings {
+  id: string;
+  tenant_id: TenantId;
+  enabled: boolean;
+  lease_start_days: number[];
+  lease_end_days: number[];
+  lease_renewal_days: number[];
+  document_expiry_days: number[];
+  invoice_due_days: number[];
+  payment_due_days: number[];
+  maintenance_scheduled_days: number[];
+  todo_due_days: number[];
+  warranty_expiry_days: number[];
+  push_notifications_enabled: boolean;
+  email_notifications_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpcomingEvent {
+  id: string;
+  type: DateReminderType;
+  title: string;
+  description?: string;
+  date: string;
+  days_until: number;
+  related_to_type?: string;
+  related_to_id?: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+}
