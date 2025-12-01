@@ -8,6 +8,8 @@ import Card from '@/components/Card';
 import Modal from '@/components/Modal';
 import Input from '@/components/Input';
 import EmptyState from '@/components/EmptyState';
+import { PhotoPicker } from '@/components/PhotoPicker';
+import PhotoGallery from '@/components/PhotoGallery';
 
 
 type Tab = 'requests' | 'schedules';
@@ -42,6 +44,7 @@ export default function MaintenanceScreen() {
     category: '',
     scheduled_date: '',
     notes: '',
+    images: [] as string[],
   });
 
   const [scheduleFormData, setScheduleFormData] = useState({
@@ -70,6 +73,7 @@ export default function MaintenanceScreen() {
       category: '',
       scheduled_date: '',
       notes: '',
+      images: [],
     });
     setEditingRequest(null);
   };
@@ -114,6 +118,7 @@ export default function MaintenanceScreen() {
       category: request.category || '',
       scheduled_date: request.scheduled_date || '',
       notes: request.notes || '',
+      images: request.images || [],
     });
     setRequestModalVisible(true);
   };
@@ -155,6 +160,7 @@ export default function MaintenanceScreen() {
       reported_date: new Date().toISOString(),
       scheduled_date: requestFormData.scheduled_date || undefined,
       notes: requestFormData.notes || undefined,
+      images: requestFormData.images.length > 0 ? requestFormData.images : undefined,
     };
 
     if (editingRequest) {
@@ -262,6 +268,15 @@ export default function MaintenanceScreen() {
         <Text style={styles.requestDescription} numberOfLines={2}>
           {item.description}
         </Text>
+
+        {item.images && item.images.length > 0 && (
+          <View style={styles.photoGalleryContainer}>
+            <PhotoGallery
+              photos={item.images}
+              testID={`request-gallery-${item.id}`}
+            />
+          </View>
+        )}
 
         <View style={styles.requestDetails}>
           <Text style={styles.detailLabel}>Property: </Text>
@@ -574,6 +589,15 @@ export default function MaintenanceScreen() {
             testID="request-notes-input"
           />
 
+          <View style={styles.photoPickerContainer}>
+            <Text style={styles.photoPickerLabel}>Photos</Text>
+            <PhotoPicker
+              photos={requestFormData.images}
+              onPhotosChange={(photos) => setRequestFormData({ ...requestFormData, images: photos })}
+              maxPhotos={10}
+            />
+          </View>
+
           <Button
             title={editingRequest ? 'Update Request' : 'Add Request'}
             onPress={handleSaveRequest}
@@ -875,5 +899,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
     marginTop: 12,
+  },
+  photoGalleryContainer: {
+    marginBottom: 12,
+  },
+  photoPickerContainer: {
+    marginBottom: 16,
+  },
+  photoPickerLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 8,
   },
 });
