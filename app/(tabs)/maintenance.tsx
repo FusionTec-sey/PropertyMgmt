@@ -18,7 +18,7 @@ export default function MaintenanceScreen() {
     maintenanceSchedules,
     properties, 
     units, 
-    renters, 
+    tenantRenters, 
     addMaintenanceRequest, 
     updateMaintenanceRequest,
     addMaintenanceSchedule,
@@ -35,7 +35,7 @@ export default function MaintenanceScreen() {
   const [requestFormData, setRequestFormData] = useState({
     property_id: '',
     unit_id: '',
-    renter_id: '',
+    tenant_renter_id: '',
     title: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
@@ -63,7 +63,7 @@ export default function MaintenanceScreen() {
     setRequestFormData({
       property_id: '',
       unit_id: '',
-      renter_id: '',
+      tenant_renter_id: '',
       title: '',
       description: '',
       priority: 'medium',
@@ -107,7 +107,7 @@ export default function MaintenanceScreen() {
     setRequestFormData({
       property_id: request.property_id,
       unit_id: request.unit_id || '',
-      renter_id: request.renter_id || '',
+      tenant_renter_id: request.tenant_renter_id || '',
       title: request.title,
       description: request.description,
       priority: request.priority,
@@ -146,7 +146,7 @@ export default function MaintenanceScreen() {
     const data: Omit<MaintenanceRequest, 'id' | 'created_at' | 'updated_at' | 'tenant_id'> = {
       property_id: requestFormData.property_id,
       unit_id: requestFormData.unit_id || undefined,
-      renter_id: requestFormData.renter_id || undefined,
+      tenant_renter_id: requestFormData.tenant_renter_id || undefined,
       title: requestFormData.title,
       description: requestFormData.description,
       priority: requestFormData.priority,
@@ -239,7 +239,7 @@ export default function MaintenanceScreen() {
   const renderRequest = ({ item }: { item: MaintenanceRequest }) => {
     const property = properties.find(p => p.id === item.property_id);
     const unit = item.unit_id ? units.find(u => u.id === item.unit_id) : null;
-    const renter = item.renter_id ? renters.find(r => r.id === item.renter_id) : null;
+    const tenantRenter = item.tenant_renter_id ? tenantRenters.find(r => r.id === item.tenant_renter_id) : null;
 
     return (
       <Card style={styles.requestCard}>
@@ -271,10 +271,10 @@ export default function MaintenanceScreen() {
           </View>
         )}
 
-        {renter && (
+        {tenantRenter && (
           <View style={styles.requestDetails}>
             <Text style={styles.detailLabel}>Reported by: </Text>
-            <Text style={styles.detailValue}>{renter.first_name} {renter.last_name}</Text>
+            <Text style={styles.detailValue}>{tenantRenter.type === 'business' ? tenantRenter.business_name : `${tenantRenter.first_name} ${tenantRenter.last_name}`}</Text>
           </View>
         )}
 
@@ -502,11 +502,11 @@ export default function MaintenanceScreen() {
           />
 
           <Input
-            label="Renter (Optional)"
-            value={requestFormData.renter_id}
-            onChangeText={text => setRequestFormData({ ...requestFormData, renter_id: text })}
-            placeholder="Renter ID"
-            testID="request-renter-input"
+            label="Tenant (Optional)"
+            value={requestFormData.tenant_renter_id}
+            onChangeText={text => setRequestFormData({ ...requestFormData, tenant_renter_id: text })}
+            placeholder="Tenant ID"
+            testID="request-tenant-input"
           />
 
           <Input

@@ -91,10 +91,10 @@ export default function DashboardScreen() {
         />
         <StatCard
           icon={Users}
-          title="Renters"
-          value={dashboardStats.total_renters}
+          title="Tenants"
+          value={dashboardStats.total_tenant_renters}
           color="#FF2D55"
-          onPress={() => router.push('/(tabs)/renters')}
+          onPress={() => router.push('/(tabs)/tenants')}
         />
         <StatCard
           icon={FileText}

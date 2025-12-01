@@ -24,7 +24,7 @@ export default function TodosScreen() {
     status: 'pending' as TodoStatus,
     due_date: '',
     category: 'general' as 'general' | 'maintenance' | 'lease' | 'payment' | 'inspection' | 'other',
-    related_to_type: '' as '' | 'property' | 'unit' | 'renter' | 'lease' | 'maintenance' | 'payment',
+    related_to_type: '' as '' | 'property' | 'unit' | 'tenant_renter' | 'lease' | 'maintenance' | 'payment',
     related_to_id: '',
   });
 
@@ -358,7 +358,7 @@ export default function TodosScreen() {
             label="Related To (Type)"
             value={formData.related_to_type}
             onChangeText={text => setFormData({ ...formData, related_to_type: text as any })}
-            placeholder="property, unit, renter, lease"
+            placeholder="property, unit, tenant_renter, lease"
             testID="todo-related-type-input"
           />
 

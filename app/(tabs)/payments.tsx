@@ -12,11 +12,11 @@ import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 
 export default function PaymentsScreen() {
-  const { payments, leases, renters, addPayment, updatePayment } = useApp();
+  const { payments, leases, tenantRenters, addPayment, updatePayment } = useApp();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [formData, setFormData] = useState({
     lease_id: '',
-    renter_id: '',
+    tenant_renter_id: '',
     amount: '',
     currency: 'SCR' as PaymentCurrency,
     payment_date: '',
@@ -50,7 +50,7 @@ export default function PaymentsScreen() {
   const resetForm = () => {
     setFormData({
       lease_id: '',
-      renter_id: '',
+      tenant_renter_id: '',
       amount: '',
       currency: 'SCR',
       payment_date: new Date().toISOString().split('T')[0],
@@ -108,14 +108,14 @@ export default function PaymentsScreen() {
   };
 
   const handleSave = async () => {
-    if (!formData.lease_id || !formData.renter_id || !formData.amount || !formData.due_date) {
+    if (!formData.lease_id || !formData.tenant_renter_id || !formData.amount || !formData.due_date) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
     const paymentData = {
       lease_id: formData.lease_id,
-      renter_id: formData.renter_id,
+      tenant_renter_id: formData.tenant_renter_id,
       amount: parseFloat(formData.amount),
       currency: formData.currency,
       payment_date: formData.payment_date || new Date().toISOString().split('T')[0],
@@ -167,7 +167,7 @@ export default function PaymentsScreen() {
   };
 
   const renderPayment = ({ item }: { item: Payment }) => {
-    const renter = renters.find(r => r.id === item.renter_id);
+    const tenantRenter = tenantRenters.find((tr: any) => tr.id === item.tenant_renter_id);
     const isOverdue = item.status === 'overdue';
     const totalAmount = item.amount + (item.late_fee || 0);
     const currencySymbol = getCurrencySymbol(item.currency);
@@ -176,8 +176,8 @@ export default function PaymentsScreen() {
       <Card style={[styles.paymentCard, isOverdue && styles.overdueCard]}>
         <View style={styles.paymentHeader}>
           <View style={styles.paymentInfo}>
-            <Text style={styles.renterName}>
-              {renter ? `${renter.first_name} ${renter.last_name}` : 'Unknown'}
+            <Text style={styles.tenantRenterName}>
+              {tenantRenter ? (tenantRenter.type === 'business' ? tenantRenter.business_name : `${tenantRenter.first_name} ${tenantRenter.last_name}`) : 'Unknown'}
             </Text>
             <Text style={styles.amount}>
               {currencySymbol}{totalAmount.toLocaleString()} {item.currency}
@@ -290,7 +290,7 @@ export default function PaymentsScreen() {
         <EmptyState
           icon={DollarSign}
           title="No Payments"
-          message="Start tracking rent payments from your renters"
+          message="Start tracking rent payments from your tenants"
           actionLabel={leases.length > 0 ? "Record Payment" : undefined}
           onAction={leases.length > 0 ? handleAdd : undefined}
           testID="payments-empty"
@@ -314,12 +314,12 @@ export default function PaymentsScreen() {
         title="Record Payment"
         testID="payment-modal"
       >
-        <Text style={styles.sectionTitle}>Lease & Renter</Text>
+        <Text style={styles.sectionTitle}>Lease & Tenant</Text>
         <View style={styles.formSection}>
           <Text style={styles.label}>Lease</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
             {leases.filter(l => l.status === 'active').map(lease => {
-              const renter = renters.find(r => r.id === lease.renter_id);
+              const tenantRenter = tenantRenters.find((tr: any) => tr.id === lease.tenant_renter_id);
               return (
                 <TouchableOpacity
                   key={lease.id}
@@ -331,7 +331,7 @@ export default function PaymentsScreen() {
                     setFormData({
                       ...formData,
                       lease_id: lease.id,
-                      renter_id: lease.renter_id,
+                      tenant_renter_id: lease.tenant_renter_id,
                       amount: lease.rent_amount.toString(),
                     });
                   }}
@@ -340,7 +340,7 @@ export default function PaymentsScreen() {
                     styles.selectorText,
                     formData.lease_id === lease.id && styles.selectorTextActive
                   ]}>
-                    {renter ? `${renter.first_name} ${renter.last_name}` : 'Unknown'}
+                    {tenantRenter ? (tenantRenter.type === 'business' ? tenantRenter.business_name : `${tenantRenter.first_name} ${tenantRenter.last_name}`) : 'Unknown'}
                   </Text>
                 </TouchableOpacity>
               );
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   paymentInfo: {
     flex: 1,
   },
-  renterName: {
+  tenantRenterName: {
     fontSize: 18,
     fontWeight: '600' as const,
     color: '#1A1A1A',
