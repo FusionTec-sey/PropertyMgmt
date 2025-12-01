@@ -1368,11 +1368,13 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     gap: 8,
     marginBottom: 6,
+    flexWrap: 'wrap' as const,
   },
   invoiceNumber: {
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#007AFF',
+    flexShrink: 0,
   },
   autoTag: {
     flexDirection: 'row' as const,
@@ -1382,6 +1384,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+    flexShrink: 0,
   },
   autoTagText: {
     fontSize: 10,

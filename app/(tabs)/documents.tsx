@@ -982,6 +982,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#1A1A1A',
+    flexShrink: 1,
   },
   docActions: {
     flexDirection: 'row' as const,

@@ -581,11 +581,13 @@ const styles = StyleSheet.create({
   roleBadgeContainer: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    flexWrap: 'wrap' as const,
   },
   roleBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    maxWidth: 200,
   },
   ownerBadge: {
     backgroundColor: '#007AFF15',
@@ -597,6 +599,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#1A1A1A',
+    flexShrink: 1,
   },
   sectionHeader: {
     flexDirection: 'row' as const,

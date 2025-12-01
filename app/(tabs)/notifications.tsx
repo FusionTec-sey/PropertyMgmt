@@ -410,18 +410,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as const,
     alignItems: 'flex-start' as const,
     marginBottom: 8,
+    gap: 8,
   },
   eventTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#1A1A1A',
-    marginRight: 8,
+    flexShrink: 1,
   },
   priorityBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+    flexShrink: 0,
   },
   priorityText: {
     fontSize: 11,
