@@ -128,7 +128,7 @@ export default function ApplicationsScreen() {
     
     Alert.alert(
       'Approve Applications',
-      `Approve ${selectedApplications.length} application${selectedApplications.length > 1 ? 's' : ''}?`,
+      `Approve ${selectedApplications.length} application${selectedApplications.length > 1 ? 's' : ''}? This will automatically create tenant profiles.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

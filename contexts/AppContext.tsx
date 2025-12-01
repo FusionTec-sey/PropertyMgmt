@@ -370,12 +370,29 @@ export const [AppContext, useApp] = createContextHook(() => {
   }, [currentTenant, leases, units, payments, todos, saveData]);
 
   const updateLease = useCallback(async (id: string, updates: Partial<Lease>) => {
+    const lease = leases.find(l => l.id === id);
+    const wasTerminated = (updates.status === 'terminated' || updates.status === 'expired') && 
+                         lease && 
+                         (lease.status === 'active' || lease.status === 'draft');
+    
     const updated = leases.map(l => 
       l.id === id ? { ...l, ...updates, updated_at: new Date().toISOString() } : l
     );
     setLeases(updated);
     await saveData(STORAGE_KEYS.LEASES, updated);
-  }, [leases, saveData]);
+    
+    if (wasTerminated && lease) {
+      console.log(`[AUTOMATION] Lease ${id} terminated - Updating unit availability`);
+      
+      const updatedUnits = units.map(u => 
+        u.id === lease.unit_id ? { ...u, status: 'available' as const, updated_at: new Date().toISOString() } : u
+      );
+      setUnits(updatedUnits);
+      await saveData(STORAGE_KEYS.UNITS, updatedUnits);
+      
+      console.log(`[AUTOMATION] Unit ${lease.unit_id} marked as available`);
+    }
+  }, [leases, units, saveData]);
 
   const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
     if (!currentTenant) return;
@@ -759,12 +776,47 @@ export const [AppContext, useApp] = createContextHook(() => {
   }, [currentTenant, tenantApplications, saveData]);
 
   const updateTenantApplication = useCallback(async (id: string, updates: Partial<TenantApplication>) => {
+    const application = tenantApplications.find(a => a.id === id);
+    const wasApproved = updates.status === 'approved' && application && application.status !== 'approved';
+    
     const updated = tenantApplications.map(a => 
       a.id === id ? { ...a, ...updates, updated_at: new Date().toISOString() } : a
     );
     setTenantApplications(updated);
     await saveData(STORAGE_KEYS.TENANT_APPLICATIONS, updated);
-  }, [tenantApplications, saveData]);
+    
+    if (wasApproved && application && currentTenant) {
+      console.log(`[AUTOMATION] Application ${id} approved - Creating tenant automatically`);
+      
+      const existingTenant = tenantRenters.find(
+        t => t.email === application.applicant_email
+      );
+      
+      if (!existingTenant) {
+        const newTenantRenter: TenantRenter = {
+          id: `${Date.now()}-from-app-${application.id}`,
+          tenant_id: currentTenant.id,
+          type: application.applicant_type,
+          first_name: application.applicant_type === 'individual' ? application.applicant_first_name : undefined,
+          last_name: application.applicant_type === 'individual' ? application.applicant_last_name : undefined,
+          business_name: application.applicant_type === 'business' ? application.business_name : undefined,
+          email: application.applicant_email,
+          phone: application.applicant_phone,
+          date_of_birth: application.date_of_birth,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        const updatedTenantRenters = [...tenantRenters, newTenantRenter];
+        setTenantRenters(updatedTenantRenters);
+        await saveData(STORAGE_KEYS.TENANT_RENTERS, updatedTenantRenters);
+        
+        console.log(`[AUTOMATION] Tenant created: ${newTenantRenter.id} from application ${id}`);
+      } else {
+        console.log(`[AUTOMATION] Tenant already exists with email ${application.applicant_email}`);
+      }
+    }
+  }, [tenantApplications, tenantRenters, currentTenant, saveData]);
 
   const deleteTenantApplication = useCallback(async (id: string) => {
     const updated = tenantApplications.filter(a => a.id !== id);

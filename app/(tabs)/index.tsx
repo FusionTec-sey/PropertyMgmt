@@ -411,11 +411,17 @@ export default function DashboardScreen() {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsGrid}>
           <QuickActionCard
-            icon={Users}
+            icon={FileText}
             title="Applications"
             color="#AF52DE"
             badge={pendingApplications.length}
             onPress={() => router.push('/(tabs)/applications')}
+          />
+          <QuickActionCard
+            icon={Users}
+            title="Tenants"
+            color="#5856D6"
+            onPress={() => router.push('/(tabs)/tenants')}
           />
           <QuickActionCard
             icon={Receipt}
@@ -430,12 +436,6 @@ export default function DashboardScreen() {
             color="#FF9500"
             badge={dashboardStats.open_maintenance}
             onPress={() => router.push('/(tabs)/maintenance')}
-          />
-          <QuickActionCard
-            icon={Users}
-            title="Tenants"
-            color="#5856D6"
-            onPress={() => router.push('/(tabs)/tenants')}
           />
           <QuickActionCard
             icon={ClipboardCheck}
