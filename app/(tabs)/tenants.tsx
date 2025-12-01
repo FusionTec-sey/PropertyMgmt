@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image, RefreshControl } from 'react-native';
-import { Plus, Users, Mail, Phone, Edit, User, ClipboardCheck, Camera, CheckCircle, Circle, X, Building, FileText, Calendar, DollarSign } from 'lucide-react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image, RefreshControl, Platform } from 'react-native';
+import { Plus, Users, Mail, Phone, Edit, User, ClipboardCheck, Camera, CheckCircle, Circle, X, Building, FileText, Calendar, DollarSign, FileSignature } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { TenantRenter, MoveInChecklistItem, Unit, Lease, LeaseStatus } from '@/types';
 import Button from '@/components/Button';
@@ -10,11 +10,12 @@ import Input from '@/components/Input';
 import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 import SwipeableItem, { SwipeAction } from '@/components/SwipeableItem';
+import { generateCompleteTenancyPDF, shareCompleteTenancyPDF } from '@/utils/documentGenerator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function TenantsScreen() {
-  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease, updateLease } = useApp();
+  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease, updateLease, propertyItems } = useApp();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingTenant, setEditingTenant] = useState<TenantRenter | null>(null);
@@ -29,6 +30,9 @@ export default function TenantsScreen() {
   const [leaseModalVisible, setLeaseModalVisible] = useState<boolean>(false);
   const [selectedTenantForLease, setSelectedTenantForLease] = useState<TenantRenter | null>(null);
   const [editingLease, setEditingLease] = useState<Lease | null>(null);
+  const [agreementModalVisible, setAgreementModalVisible] = useState<boolean>(false);
+  const [selectedLeaseForAgreement, setSelectedLeaseForAgreement] = useState<Lease | null>(null);
+  const [generatingPDF, setGeneratingPDF] = useState<boolean>(false);
   
   const [leaseFormData, setLeaseFormData] = useState({
     property_id: '',
@@ -428,6 +432,67 @@ export default function TenantsScreen() {
   const handleViewDetails = (tenant: TenantRenter) => {
     setSelectedTenantForDetail(tenant);
     setDetailModalVisible(true);
+  };
+
+  const handleGenerateAgreement = (lease: Lease, tenant: TenantRenter) => {
+    setSelectedLeaseForAgreement(lease);
+    setSelectedTenantForDetail(tenant);
+    setAgreementModalVisible(true);
+  };
+
+  const handleDownloadAgreement = async () => {
+    if (!selectedLeaseForAgreement || !selectedTenantForDetail) return;
+    
+    setGeneratingPDF(true);
+    try {
+      const property = properties.find(p => p.id === selectedLeaseForAgreement.property_id);
+      const unit = units.find(u => u.id === selectedLeaseForAgreement.unit_id);
+      const checklist = moveInChecklists.find(
+        c => c.lease_id === selectedLeaseForAgreement.id
+      );
+      const inventory = propertyItems.filter(
+        i => i.property_id === selectedLeaseForAgreement.property_id && 
+            i.unit_id === selectedLeaseForAgreement.unit_id
+      );
+      
+      if (!property || !unit) {
+        Alert.alert('Error', 'Property or unit information not found');
+        return;
+      }
+      
+      if (Platform.OS === 'web') {
+        const pdfUri = await generateCompleteTenancyPDF(
+          selectedLeaseForAgreement,
+          property,
+          unit,
+          selectedTenantForDetail,
+          checklist,
+          inventory
+        );
+        
+        const link = document.createElement('a');
+        link.href = pdfUri;
+        link.download = `Tenancy_Agreement_${unit.unit_number}_${selectedTenantForDetail.type === 'business' ? selectedTenantForDetail.business_name : `${selectedTenantForDetail.first_name}_${selectedTenantForDetail.last_name}`}.pdf`;
+        link.click();
+        
+        Alert.alert('Success', 'Tenancy agreement generated successfully!');
+      } else {
+        await shareCompleteTenancyPDF(
+          selectedLeaseForAgreement,
+          property,
+          unit,
+          selectedTenantForDetail,
+          checklist,
+          inventory
+        );
+        Alert.alert('Success', 'Tenancy agreement generated and ready to share!');
+      }
+    } catch (error) {
+      console.error('Error generating agreement:', error);
+      Alert.alert('Error', 'Failed to generate tenancy agreement');
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
   const renderTenant = ({ item }: { item: TenantRenter }) => {
@@ -1033,8 +1098,116 @@ export default function TenantsScreen() {
           properties={properties}
           getTenantName={getTenantName}
           onEditLease={handleEditLease}
+          onGenerateAgreement={handleGenerateAgreement}
         />
       )}
+
+      <Modal
+        visible={agreementModalVisible}
+        onClose={() => {
+          setAgreementModalVisible(false);
+          setSelectedLeaseForAgreement(null);
+        }}
+        title="Generate Tenancy Agreement"
+        testID="agreement-modal"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {selectedLeaseForAgreement && selectedTenantForDetail && (() => {
+            const property = properties.find(p => p.id === selectedLeaseForAgreement.property_id);
+            const unit = units.find(u => u.id === selectedLeaseForAgreement.unit_id);
+            const checklist = moveInChecklists.find(c => c.lease_id === selectedLeaseForAgreement.id);
+            const inventory = propertyItems.filter(
+              i => i.property_id === selectedLeaseForAgreement.property_id && 
+                  i.unit_id === selectedLeaseForAgreement.unit_id
+            );
+            
+            return (
+              <>
+                <View style={styles.agreementPreview}>
+                  <Text style={styles.agreementTitle}>Tenancy Agreement Details</Text>
+                  
+                  <View style={styles.agreementSection}>
+                    <Text style={styles.agreementLabel}>Tenant:</Text>
+                    <Text style={styles.agreementValue}>{getTenantName(selectedTenantForDetail)}</Text>
+                  </View>
+                  
+                  <View style={styles.agreementSection}>
+                    <Text style={styles.agreementLabel}>Property:</Text>
+                    <Text style={styles.agreementValue}>{property?.name || 'N/A'}</Text>
+                  </View>
+                  
+                  <View style={styles.agreementSection}>
+                    <Text style={styles.agreementLabel}>Unit:</Text>
+                    <Text style={styles.agreementValue}>{unit?.unit_number || 'N/A'}</Text>
+                  </View>
+                  
+                  <View style={styles.agreementSection}>
+                    <Text style={styles.agreementLabel}>Lease Period:</Text>
+                    <Text style={styles.agreementValue}>
+                      {new Date(selectedLeaseForAgreement.start_date).toLocaleDateString('en-GB')} - {new Date(selectedLeaseForAgreement.end_date).toLocaleDateString('en-GB')}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.agreementSection}>
+                    <Text style={styles.agreementLabel}>Rent Amount:</Text>
+                    <Text style={styles.agreementValue}>₨{selectedLeaseForAgreement.rent_amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} SCR/month</Text>
+                  </View>
+                  
+                  <View style={styles.agreementSection}>
+                    <Text style={styles.agreementLabel}>Deposit:</Text>
+                    <Text style={styles.agreementValue}>₨{selectedLeaseForAgreement.deposit_amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} SCR</Text>
+                  </View>
+                  
+                  <View style={styles.agreementIncludesSection}>
+                    <Text style={styles.agreementIncludesTitle}>This agreement will include:</Text>
+                    <View style={styles.includesList}>
+                      <View style={styles.includesItem}>
+                        <CheckCircle size={16} color="#34C759" />
+                        <Text style={styles.includesText}>Standard tenancy agreement terms & conditions</Text>
+                      </View>
+                      {checklist && (
+                        <View style={styles.includesItem}>
+                          <CheckCircle size={16} color="#34C759" />
+                          <Text style={styles.includesText}>Schedule 1: Rental Property Condition Checklist</Text>
+                        </View>
+                      )}
+                      {inventory.length > 0 && (
+                        <View style={styles.includesItem}>
+                          <CheckCircle size={16} color="#34C759" />
+                          <Text style={styles.includesText}>Schedule 2: Property Inventory ({inventory.length} items)</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  
+                  {!checklist && (
+                    <View style={styles.warningBox}>
+                      <Text style={styles.warningText}>⚠️ No move-in checklist found. Consider completing one for Schedule 1.</Text>
+                    </View>
+                  )}
+                  
+                  {inventory.length === 0 && (
+                    <View style={styles.warningBox}>
+                      <Text style={styles.warningText}>⚠️ No inventory items found. Consider adding items for Schedule 2.</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <Button
+                  title={Platform.OS === 'web' ? 'Download Agreement PDF' : 'Generate & Share Agreement'}
+                  onPress={handleDownloadAgreement}
+                  fullWidth
+                  disabled={generatingPDF}
+                  testID="download-agreement-button"
+                />
+                {generatingPDF && (
+                  <Text style={styles.generatingText}>Generating PDF...</Text>
+                )}
+              </>
+            );
+          })()}
+        </ScrollView>
+      </Modal>
 
       <Modal
         visible={cameraVisible}
@@ -1316,6 +1489,7 @@ interface TenantDetailModalProps {
   properties: any[];
   getTenantName: (tenant: TenantRenter) => string;
   onEditLease: (lease: Lease, tenant: TenantRenter) => void;
+  onGenerateAgreement: (lease: Lease, tenant: TenantRenter) => void;
 }
 
 function TenantDetailModal({
@@ -1327,6 +1501,7 @@ function TenantDetailModal({
   properties,
   getTenantName,
   onEditLease,
+  onGenerateAgreement,
 }: TenantDetailModalProps) {
   const tenantLeases = leases.filter(l => l.tenant_renter_id === tenant.id);
 
@@ -1415,6 +1590,16 @@ function TenantDetailModal({
                         testID={`edit-lease-${lease.id}`}
                       >
                         <Edit size={16} color="#007AFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.editLeaseButton, { backgroundColor: '#E8F5E9' }]}
+                        onPress={() => {
+                          onClose();
+                          onGenerateAgreement(lease, tenant);
+                        }}
+                        testID={`generate-agreement-${lease.id}`}
+                      >
+                        <FileSignature size={16} color="#34C759" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1989,5 +2174,79 @@ const styles = StyleSheet.create({
   },
   periodButtonTextActive: {
     color: '#FFFFFF',
+  },
+  agreementPreview: {
+    marginBottom: 20,
+  },
+  agreementTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#1A1A1A',
+    marginBottom: 16,
+  },
+  agreementSection: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  agreementLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '600' as const,
+  },
+  agreementValue: {
+    fontSize: 15,
+    color: '#1A1A1A',
+    fontWeight: '500' as const,
+  },
+  agreementIncludesSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#F0F8FF',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
+  },
+  agreementIncludesTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#003366',
+    marginBottom: 12,
+  },
+  includesList: {
+    gap: 10,
+  },
+  includesItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: 10,
+  },
+  includesText: {
+    fontSize: 13,
+    color: '#333',
+    flex: 1,
+    lineHeight: 18,
+  },
+  warningBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FFC107',
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#856404',
+    lineHeight: 18,
+  },
+  generatingText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center' as const,
+    marginTop: 12,
+    fontStyle: 'italic' as const,
   },
 });
