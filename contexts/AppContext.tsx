@@ -17,7 +17,10 @@ import {
   generateMaintenanceCompletionInspectionTodo,
   generatePreventiveMaintenanceTodo,
   linkPaymentToInvoice,
-  shouldTriggerAutomation
+  shouldTriggerAutomation,
+  generateInvoiceFromPayment,
+  shouldGenerateInvoiceFromPayment,
+  generateDocumentExpiryReminder
 } from '@/utils/automationHelper';
 
 const STORAGE_KEYS = {
@@ -407,8 +410,43 @@ export const [AppContext, useApp] = createContextHook(() => {
     const updated = [...payments, newPayment];
     setPayments(updated);
     await saveData(STORAGE_KEYS.PAYMENTS, updated);
+    
+    if (shouldGenerateInvoiceFromPayment(newPayment, invoices) && currentTenant) {
+      console.log(`[AUTOMATION] Generating invoice for payment ${newPayment.id}`);
+      
+      const lease = leases.find(l => l.id === newPayment.lease_id);
+      if (lease) {
+        const property = properties.find(p => p.id === lease.property_id);
+        const unit = units.find(u => u.id === lease.unit_id);
+        
+        if (property && unit) {
+          const invoiceData = generateInvoiceFromPayment(
+            newPayment,
+            lease,
+            property,
+            unit,
+            currentTenant.id
+          );
+          
+          const newInvoice: Invoice = {
+            ...invoiceData,
+            id: `${Date.now()}-auto`,
+            tenant_id: currentTenant.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as Invoice;
+          
+          const updatedInvoices = [...invoices, newInvoice];
+          setInvoices(updatedInvoices);
+          await saveData(STORAGE_KEYS.INVOICES, updatedInvoices);
+          
+          console.log(`[AUTOMATION] Auto-generated invoice ${newInvoice.invoice_number} for payment`);
+        }
+      }
+    }
+    
     return newPayment;
-  }, [currentTenant, payments, saveData]);
+  }, [currentTenant, payments, invoices, leases, properties, units, saveData]);
 
   const updatePayment = useCallback(async (id: string, updates: Partial<Payment>) => {
     const payment = payments.find(p => p.id === id);
@@ -740,8 +778,39 @@ export const [AppContext, useApp] = createContextHook(() => {
     const updated = [...businessDocuments, newDocument];
     setBusinessDocuments(updated);
     await saveData(STORAGE_KEYS.BUSINESS_DOCUMENTS, updated);
+    
+    if (document.expiry_date && currentTenant) {
+      const expiryDate = new Date(document.expiry_date);
+      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilExpiry <= 60 && daysUntilExpiry > 0) {
+        console.log(`[AUTOMATION] Document ${newDocument.id} expires in ${daysUntilExpiry} days - Creating reminder`);
+        
+        const reminderTodo = generateDocumentExpiryReminder(
+          newDocument.id,
+          newDocument.name,
+          newDocument.expiry_date!,
+          currentTenant.id
+        );
+        
+        const newTodo: Todo = {
+          ...reminderTodo,
+          id: `${Date.now()}-doc-expiry`,
+          tenant_id: currentTenant.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        const updatedTodos = [...todos, newTodo];
+        setTodos(updatedTodos);
+        await saveData(STORAGE_KEYS.TODOS, updatedTodos);
+        
+        console.log(`[AUTOMATION] Created document expiry reminder for ${newDocument.name}`);
+      }
+    }
+    
     return newDocument;
-  }, [currentTenant, currentUser, businessDocuments, saveData]);
+  }, [currentTenant, currentUser, businessDocuments, todos, saveData]);
 
   const updateBusinessDocument = useCallback(async (id: string, updates: Partial<BusinessDocument>) => {
     const updated = businessDocuments.map(d => 

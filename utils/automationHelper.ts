@@ -298,6 +298,73 @@ export const generateInvoiceFromPayment = (
   };
 };
 
+export const shouldGenerateInvoiceFromPayment = (
+  payment: any,
+  invoices: any[]
+): boolean => {
+  const hasExistingInvoice = invoices.some(
+    inv => inv.payment_id === payment.id || 
+    (inv.lease_id === payment.lease_id && inv.due_date === payment.due_date)
+  );
+  return !hasExistingInvoice && payment.status !== 'draft';
+};
+
+export const generateMoveOutDepositDeductions = (
+  moveOutChecklist: any,
+  moveInChecklist: any,
+  lease: any
+): { totalDeductions: number; deductionItems: any[] } => {
+  const deductionItems: any[] = [];
+  let totalDeductions = 0;
+
+  if (!moveOutChecklist.items || !moveInChecklist.items) {
+    return { totalDeductions: 0, deductionItems: [] };
+  }
+
+  moveOutChecklist.items.forEach((moveOutItem: any) => {
+    const moveInItem = moveInChecklist.items.find((item: any) => item.id === moveOutItem.id);
+    if (!moveInItem) return;
+
+    const conditionDowngrade = getConditionValue(moveInItem.condition) - getConditionValue(moveOutItem.condition);
+    if (conditionDowngrade > 0 && moveOutItem.damage_cost) {
+      deductionItems.push({
+        item: moveOutItem.item,
+        reason: `Condition changed from ${moveInItem.condition} to ${moveOutItem.condition}`,
+        amount: moveOutItem.damage_cost,
+        notes: moveOutItem.notes || '',
+      });
+      totalDeductions += moveOutItem.damage_cost;
+    }
+  });
+
+  return { totalDeductions, deductionItems };
+};
+
+const getConditionValue = (condition: string): number => {
+  const values: { [key: string]: number } = {
+    excellent: 5,
+    good: 4,
+    fair: 3,
+    poor: 2,
+    damaged: 1,
+  };
+  return values[condition] || 0;
+};
+
+export const checkExpiringDocuments = (
+  documents: any[],
+  daysBeforeExpiry: number = 30
+): any[] => {
+  const today = new Date();
+  const futureDate = new Date(today.getTime() + (daysBeforeExpiry * 24 * 60 * 60 * 1000));
+  
+  return documents.filter(doc => {
+    if (!doc.expiry_date) return false;
+    const expiryDate = new Date(doc.expiry_date);
+    return expiryDate >= today && expiryDate <= futureDate;
+  });
+};
+
 export const getAutomationSuggestions = (leases: any[], existingPayments: any[], existingTodos: Todo[], maintenanceRequests?: any[], maintenanceSchedules?: any[], invoices?: any[]) => {
   const suggestions: {
     type: string;
@@ -452,6 +519,22 @@ export const getAutomationSuggestions = (leases: any[], existingPayments: any[],
         });
       }
     });
+  }
+
+  if (invoices && invoices.length > 0) {
+    const paymentsWithoutInvoices = existingPayments.filter(p => 
+      p.status !== 'draft' && !invoices.some(inv => inv.payment_id === p.id)
+    );
+    
+    if (paymentsWithoutInvoices.length > 0) {
+      suggestions.push({
+        type: 'generate_invoices',
+        title: 'Generate Missing Invoices',
+        description: `${paymentsWithoutInvoices.length} payment${paymentsWithoutInvoices.length > 1 ? 's' : ''} without invoice${paymentsWithoutInvoices.length > 1 ? 's' : ''}`,
+        action: () => {},
+        priority: 'medium',
+      });
+    }
   }
 
   return suggestions;
