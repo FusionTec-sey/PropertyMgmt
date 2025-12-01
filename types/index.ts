@@ -596,3 +596,149 @@ export interface UpcomingEvent {
   related_to_id?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
 }
+
+export type TenantApplicationId = string;
+export type TenantApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'withdrawn';
+
+export interface TenantApplication {
+  id: TenantApplicationId;
+  tenant_id: TenantId;
+  property_id: PropertyId;
+  unit_id: UnitId;
+  applicant_first_name: string;
+  applicant_last_name: string;
+  applicant_email: string;
+  applicant_phone: string;
+  current_address?: string;
+  employment_status?: string;
+  employer_name?: string;
+  monthly_income?: number;
+  previous_landlord_name?: string;
+  previous_landlord_phone?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  number_of_occupants?: number;
+  has_pets?: boolean;
+  pet_details?: string;
+  desired_move_in_date?: string;
+  additional_notes?: string;
+  status: TenantApplicationStatus;
+  reviewed_by?: UserId;
+  reviewed_at?: string;
+  review_notes?: string;
+  documents?: string[];
+  credit_check_result?: 'pass' | 'fail' | 'pending';
+  background_check_result?: 'pass' | 'fail' | 'pending';
+  reference_check_result?: 'pass' | 'fail' | 'pending';
+  created_at: string;
+  updated_at: string;
+}
+
+export type MoveOutChecklistId = string;
+
+export interface MoveOutChecklistItem {
+  id: string;
+  name: string;
+  category: 'general' | 'kitchen' | 'bathroom' | 'bedroom' | 'living' | 'other';
+  checked: boolean;
+  notes?: string;
+  condition?: 'excellent' | 'good' | 'fair' | 'poor' | 'damaged';
+  damage_cost?: number;
+  images?: string[];
+}
+
+export interface MoveOutChecklist {
+  id: MoveOutChecklistId;
+  tenant_id: TenantId;
+  tenant_renter_id: TenantRenterId;
+  unit_id: UnitId;
+  lease_id: LeaseId;
+  move_in_checklist_id?: MoveInChecklistId;
+  items: MoveOutChecklistItem[];
+  overall_condition: 'excellent' | 'good' | 'fair' | 'poor';
+  damage_images?: string[];
+  total_damage_cost?: number;
+  deposit_deductions?: number;
+  deposit_return_amount?: number;
+  completed: boolean;
+  completed_date?: string;
+  move_out_date?: string;
+  tenant_renter_signature?: string;
+  owner_signature?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LeaseRenewalId = string;
+export type LeaseRenewalStatus = 'pending' | 'offered' | 'accepted' | 'declined' | 'expired' | 'cancelled';
+
+export interface LeaseRenewal {
+  id: LeaseRenewalId;
+  tenant_id: TenantId;
+  lease_id: LeaseId;
+  property_id: PropertyId;
+  unit_id: UnitId;
+  tenant_renter_id: TenantRenterId;
+  current_end_date: string;
+  proposed_start_date: string;
+  proposed_end_date: string;
+  new_rent_amount: number;
+  rent_increase?: number;
+  rent_increase_percentage?: number;
+  new_terms?: string;
+  status: LeaseRenewalStatus;
+  offered_at?: string;
+  response_deadline?: string;
+  responded_at?: string;
+  tenant_response_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PropertyInspectionId = string;
+export type InspectionType = 'move_in' | 'move_out' | 'routine' | 'maintenance' | 'annual' | 'emergency';
+export type InspectionStatus = 'scheduled' | 'completed' | 'cancelled' | 'rescheduled';
+
+export interface PropertyInspection {
+  id: PropertyInspectionId;
+  tenant_id: TenantId;
+  property_id: PropertyId;
+  unit_id?: UnitId;
+  tenant_renter_id?: TenantRenterId;
+  lease_id?: LeaseId;
+  inspection_type: InspectionType;
+  scheduled_date: string;
+  scheduled_time?: string;
+  completed_date?: string;
+  inspector_id?: UserId;
+  status: InspectionStatus;
+  findings?: string;
+  issues_found?: string[];
+  recommendations?: string;
+  images?: string[];
+  report_pdf_uri?: string;
+  next_inspection_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TenantMessageId = string;
+
+export interface TenantMessage {
+  id: TenantMessageId;
+  tenant_id: TenantId;
+  sender_type: 'landlord' | 'tenant';
+  sender_id: UserId | TenantRenterId;
+  recipient_type: 'landlord' | 'tenant';
+  recipient_id: UserId | TenantRenterId;
+  property_id?: PropertyId;
+  unit_id?: UnitId;
+  subject: string;
+  message: string;
+  attachments?: string[];
+  is_read: boolean;
+  read_at?: string;
+  parent_message_id?: TenantMessageId;
+  created_at: string;
+}
