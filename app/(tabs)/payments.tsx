@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
-import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye, Send, RefreshCw, Receipt, TrendingDown } from 'lucide-react-native';
+import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye, Send, RefreshCw, Receipt, TrendingDown, X } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Payment, PaymentCurrency, Invoice, Expense, ExpenseCategory, ExpensePaidBy, ExpenseStatus } from '@/types';
 import * as DocumentPicker from 'expo-document-picker';
@@ -811,6 +811,32 @@ export default function PaymentsScreen() {
                       <Text style={styles.reference}>Vendor: {item.vendor_name}</Text>
                     )}
 
+                    {item.receipts && item.receipts.length > 0 && (
+                      <View style={styles.receiptsContainer}>
+                        <Text style={styles.receiptsLabel}>Proof of Expense ({item.receipts.length})</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          <View style={styles.receiptsList}>
+                            {item.receipts.map((receipt, index) => (
+                              <TouchableOpacity
+                                key={index}
+                                style={styles.receiptItem}
+                                onPress={() => Alert.alert('View Receipt', `Opening: ${receipt.name}`)}
+                              >
+                                {receipt.type === 'image' ? (
+                                  <Image source={{ uri: receipt.uri }} style={styles.receiptThumbnail} />
+                                ) : (
+                                  <View style={styles.receiptPdfThumb}>
+                                    <FileText size={24} color="#007AFF" />
+                                  </View>
+                                )}
+                                <Text style={styles.receiptName} numberOfLines={1}>{receipt.name}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </ScrollView>
+                      </View>
+                    )}
+
                     <View style={styles.paymentActions}>
                       <TouchableOpacity
                         style={styles.actionButton}
@@ -1007,6 +1033,72 @@ export default function PaymentsScreen() {
             testID="expense-notes-input"
           />
 
+          <View style={styles.formSection}>
+            <Text style={styles.label}>Proof of Expense (Photos/PDFs)</Text>
+            {expenseFormData.receipts.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsPreview}>
+                {expenseFormData.receipts.map((receipt, index) => (
+                  <View key={index} style={styles.attachmentItem}>
+                    {receipt.type === 'image' ? (
+                      <Image source={{ uri: receipt.uri }} style={styles.attachmentThumb} />
+                    ) : (
+                      <View style={styles.pdfThumb}>
+                        <FileText size={32} color="#007AFF" />
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={styles.removeAttachmentButton}
+                      onPress={() => {
+                        const updated = expenseFormData.receipts.filter((_, i) => i !== index);
+                        setExpenseFormData({ ...expenseFormData, receipts: updated });
+                      }}
+                    >
+                      <X size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    <Text style={styles.attachmentName} numberOfLines={1}>{receipt.name}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={async () => {
+                try {
+                  const result = await DocumentPicker.getDocumentAsync({
+                    type: ['image/*', 'application/pdf'],
+                    copyToCacheDirectory: true,
+                    multiple: true,
+                  });
+
+                  if (result.canceled) return;
+
+                  const newReceipts = result.assets.map(file => ({
+                    uri: file.uri,
+                    type: (file.mimeType?.startsWith('image/') ? 'image' : 'pdf') as 'image' | 'pdf',
+                    name: file.name,
+                    size: file.size,
+                  }));
+
+                  setExpenseFormData({
+                    ...expenseFormData,
+                    receipts: [...expenseFormData.receipts, ...newReceipts],
+                  });
+
+                  Alert.alert('Success', `${newReceipts.length} file(s) attached successfully`);
+                } catch (error) {
+                  console.error('Error picking documents:', error);
+                  Alert.alert('Error', 'Failed to pick documents');
+                }
+              }}
+              testID="upload-expense-proof-button"
+            >
+              <Paperclip size={20} color="#007AFF" />
+              <Text style={styles.uploadText}>
+                {expenseFormData.receipts.length > 0 ? 'Add More Attachments' : 'Attach Proof of Expense'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <Button
             title="Add Expense"
             onPress={async () => {
@@ -1030,6 +1122,10 @@ export default function PaymentsScreen() {
                 payment_method: expenseFormData.payment_method,
                 vendor_name: expenseFormData.vendor_name || undefined,
                 notes: expenseFormData.notes || undefined,
+                receipts: expenseFormData.receipts.length > 0 ? expenseFormData.receipts.map(r => ({
+                  ...r,
+                  uploadedAt: new Date().toISOString(),
+                })) : undefined,
               });
 
               Alert.alert('Success', 'Expense added successfully');
@@ -1978,5 +2074,90 @@ const styles = StyleSheet.create({
   detailActions: {
     gap: 12,
     marginTop: 12,
+  },
+  receiptsContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  receiptsLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#666',
+    marginBottom: 8,
+  },
+  receiptsList: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  receiptItem: {
+    width: 80,
+    alignItems: 'center' as const,
+  },
+  receiptThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 6,
+    backgroundColor: '#E0E0E0',
+  },
+  receiptPdfThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 6,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  receiptName: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center' as const,
+  },
+  attachmentsPreview: {
+    marginBottom: 12,
+  },
+  attachmentItem: {
+    width: 100,
+    marginRight: 12,
+    position: 'relative' as const,
+  },
+  attachmentThumb: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#E0E0E0',
+  },
+  pdfThumb: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  removeAttachmentButton: {
+    position: 'absolute' as const,
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  attachmentName: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center' as const,
   },
 });
