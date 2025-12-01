@@ -1,29 +1,35 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
-import { Plus, Users, Mail, Phone, Edit, User, ClipboardCheck, Camera, CheckCircle, Circle, X } from 'lucide-react-native';
+import { Plus, Users, Mail, Phone, Edit, User, ClipboardCheck, Camera, CheckCircle, Circle, X, Building, FileText, Calendar, DollarSign } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
-import { Renter, MoveInChecklistItem, Unit } from '@/types';
+import { TenantRenter, MoveInChecklistItem, Unit, Lease } from '@/types';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
 import Input from '@/components/Input';
+import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
-export default function RentersScreen() {
-  const { renters, addRenter, updateRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists } = useApp();
+export default function TenantsScreen() {
+  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties } = useApp();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [editingRenter, setEditingRenter] = useState<Renter | null>(null);
+  const [editingTenant, setEditingTenant] = useState<TenantRenter | null>(null);
   const [checklistModalVisible, setChecklistModalVisible] = useState<boolean>(false);
-  const [selectedRenter, setSelectedRenter] = useState<Renter | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<TenantRenter | null>(null);
   const [cameraVisible, setCameraVisible] = useState<boolean>(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [currentChecklistItemIndex, setCurrentChecklistItemIndex] = useState<number | null>(null);
   const [damagePhotos, setDamagePhotos] = useState<string[]>([]);
+  const [selectedTenantForDetail, setSelectedTenantForDetail] = useState<TenantRenter | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
+  
   const [formData, setFormData] = useState({
+    type: 'individual' as 'individual' | 'business',
     first_name: '',
     last_name: '',
+    business_name: '',
     email: '',
     phone: '',
     date_of_birth: '',
@@ -31,13 +37,19 @@ export default function RentersScreen() {
     emergency_contact_phone: '',
     id_number: '',
     id_type: '',
+    address: '',
+    island: '',
+    postal_code: '',
+    country: '',
     notes: '',
   });
 
   const resetForm = () => {
     setFormData({
+      type: 'individual',
       first_name: '',
       last_name: '',
+      business_name: '',
       email: '',
       phone: '',
       date_of_birth: '',
@@ -45,9 +57,13 @@ export default function RentersScreen() {
       emergency_contact_phone: '',
       id_number: '',
       id_type: '',
+      address: '',
+      island: '',
+      postal_code: '',
+      country: '',
       notes: '',
     });
-    setEditingRenter(null);
+    setEditingTenant(null);
   };
 
   const handleAdd = () => {
@@ -55,28 +71,34 @@ export default function RentersScreen() {
     setModalVisible(true);
   };
 
-  const handleEdit = (renter: Renter) => {
-    setEditingRenter(renter);
+  const handleEdit = (tenant: TenantRenter) => {
+    setEditingTenant(tenant);
     setFormData({
-      first_name: renter.first_name,
-      last_name: renter.last_name,
-      email: renter.email,
-      phone: renter.phone,
-      date_of_birth: renter.date_of_birth || '',
-      emergency_contact_name: renter.emergency_contact_name || '',
-      emergency_contact_phone: renter.emergency_contact_phone || '',
-      id_number: renter.id_number || '',
-      id_type: renter.id_type || '',
-      notes: renter.notes || '',
+      type: tenant.type,
+      first_name: tenant.first_name || '',
+      last_name: tenant.last_name || '',
+      business_name: tenant.business_name || '',
+      email: tenant.email,
+      phone: tenant.phone,
+      date_of_birth: tenant.date_of_birth || '',
+      emergency_contact_name: tenant.emergency_contact_name || '',
+      emergency_contact_phone: tenant.emergency_contact_phone || '',
+      id_number: tenant.id_number || '',
+      id_type: tenant.id_type || '',
+      address: tenant.address || '',
+      island: tenant.island || '',
+      postal_code: tenant.postal_code || '',
+      country: tenant.country || '',
+      notes: tenant.notes || '',
     });
     setModalVisible(true);
   };
 
-  const handleOpenChecklist = (renter: Renter) => {
-    setSelectedRenter(renter);
-    const renterLeases = leases.filter(l => l.renter_id === renter.id && l.status === 'active');
-    if (renterLeases.length === 0) {
-      Alert.alert('No Active Lease', 'This renter does not have an active lease.');
+  const handleOpenChecklist = (tenant: TenantRenter) => {
+    setSelectedTenant(tenant);
+    const tenantLeases = leases.filter(l => l.tenant_renter_id === tenant.id && l.status === 'active');
+    if (tenantLeases.length === 0) {
+      Alert.alert('No Active Lease', 'This tenant does not have an active lease.');
       return;
     }
     setChecklistModalVisible(true);
@@ -104,14 +126,14 @@ export default function RentersScreen() {
   ];
 
   const handleSaveChecklist = async (items: MoveInChecklistItem[], unitId: string, overallCondition: 'excellent' | 'good' | 'fair' | 'poor') => {
-    if (!selectedRenter) return;
+    if (!selectedTenant) return;
 
-    const renterLeases = leases.filter(l => l.renter_id === selectedRenter.id && l.status === 'active');
-    if (renterLeases.length === 0) return;
+    const tenantLeases = leases.filter(l => l.tenant_renter_id === selectedTenant.id && l.status === 'active');
+    if (tenantLeases.length === 0) return;
 
-    const lease = renterLeases[0];
+    const lease = tenantLeases[0];
 
-    const existingChecklist = moveInChecklists.find(c => c.renter_id === selectedRenter.id && c.unit_id === unitId);
+    const existingChecklist = moveInChecklists.find(c => c.tenant_renter_id === selectedTenant.id && c.unit_id === unitId);
 
     if (existingChecklist) {
       await updateMoveInChecklist(existingChecklist.id, {
@@ -123,7 +145,7 @@ export default function RentersScreen() {
       });
     } else {
       await addMoveInChecklist({
-        renter_id: selectedRenter.id,
+        tenant_renter_id: selectedTenant.id,
         unit_id: unitId,
         lease_id: lease.id,
         items,
@@ -137,7 +159,7 @@ export default function RentersScreen() {
     Alert.alert('Success', 'Move-in checklist saved successfully!');
     setChecklistModalVisible(false);
     setDamagePhotos([]);
-    setSelectedRenter(null);
+    setSelectedTenant(null);
   };
 
   const handleTakePicture = async (camera: any, itemIndex: number | null = null) => {
@@ -207,14 +229,26 @@ export default function RentersScreen() {
   };
 
   const handleSave = async () => {
-    if (!formData.first_name || !formData.last_name || !formData.email || !formData.phone) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    if (!formData.email || !formData.phone) {
+      Alert.alert('Error', 'Please fill in email and phone');
       return;
     }
 
-    const renterData = {
-      first_name: formData.first_name,
-      last_name: formData.last_name,
+    if (formData.type === 'individual' && (!formData.first_name || !formData.last_name)) {
+      Alert.alert('Error', 'Please fill in first and last name for individual');
+      return;
+    }
+
+    if (formData.type === 'business' && !formData.business_name) {
+      Alert.alert('Error', 'Please fill in business name');
+      return;
+    }
+
+    const tenantData = {
+      type: formData.type,
+      first_name: formData.type === 'individual' ? formData.first_name : undefined,
+      last_name: formData.type === 'individual' ? formData.last_name : undefined,
+      business_name: formData.type === 'business' ? formData.business_name : undefined,
       email: formData.email,
       phone: formData.phone,
       date_of_birth: formData.date_of_birth || undefined,
@@ -222,66 +256,87 @@ export default function RentersScreen() {
       emergency_contact_phone: formData.emergency_contact_phone || undefined,
       id_number: formData.id_number || undefined,
       id_type: formData.id_type || undefined,
+      address: formData.address || undefined,
+      island: formData.island || undefined,
+      postal_code: formData.postal_code || undefined,
+      country: formData.country || undefined,
       notes: formData.notes || undefined,
     };
 
-    if (editingRenter) {
-      await updateRenter(editingRenter.id, renterData);
+    if (editingTenant) {
+      await updateTenantRenter(editingTenant.id, tenantData);
     } else {
-      await addRenter(renterData);
+      await addTenantRenter(tenantData);
     }
 
     setModalVisible(false);
     resetForm();
   };
 
-  const renderRenter = ({ item }: { item: Renter }) => {
-    const renterLeases = leases.filter(l => l.renter_id === item.id);
-    const activeLeases = renterLeases.filter(l => l.status === 'active');
+  const getTenantName = (tenant: TenantRenter) => {
+    if (tenant.type === 'business') {
+      return tenant.business_name || 'Unnamed Business';
+    }
+    return `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed';
+  };
+
+  const handleViewDetails = (tenant: TenantRenter) => {
+    setSelectedTenantForDetail(tenant);
+    setDetailModalVisible(true);
+  };
+
+  const renderTenant = ({ item }: { item: TenantRenter }) => {
+    const tenantLeases = leases.filter(l => l.tenant_renter_id === item.id);
+    const activeLeases = tenantLeases.filter(l => l.status === 'active');
 
     return (
-      <Card style={styles.renterCard}>
-        <View style={styles.renterHeader}>
-          <View style={styles.avatarContainer}>
-            <User size={24} color="#007AFF" />
+      <Card style={styles.tenantCard}>
+        <TouchableOpacity onPress={() => handleViewDetails(item)}>
+          <View style={styles.tenantHeader}>
+            <View style={styles.avatarContainer}>
+              {item.type === 'business' ? (
+                <Building size={24} color="#007AFF" />
+              ) : (
+                <User size={24} color="#007AFF" />
+              )}
+            </View>
+            <View style={styles.tenantInfo}>
+              <Text style={styles.tenantName}>{getTenantName(item)}</Text>
+              <Text style={styles.tenantType}>{item.type === 'business' ? 'Business' : 'Individual'}</Text>
+              {activeLeases.length > 0 && (
+                <Text style={styles.leaseStatus}>
+                  {activeLeases.length} Active Lease{activeLeases.length > 1 ? 's' : ''}
+                </Text>
+              )}
+            </View>
           </View>
-          <View style={styles.renterInfo}>
-            <Text style={styles.renterName}>
-              {item.first_name} {item.last_name}
-            </Text>
-            {activeLeases.length > 0 && (
-              <Text style={styles.leaseStatus}>
-                {activeLeases.length} Active Lease{activeLeases.length > 1 ? 's' : ''}
+
+          <View style={styles.contactInfo}>
+            <View style={styles.contactRow}>
+              <Mail size={14} color="#666" />
+              <Text style={styles.contactText}>{item.email}</Text>
+            </View>
+            <View style={styles.contactRow}>
+              <Phone size={14} color="#666" />
+              <Text style={styles.contactText}>{item.phone}</Text>
+            </View>
+          </View>
+
+          {item.notes && (
+            <View style={styles.tenantNotesSection}>
+              <Text style={styles.notesLabel}>Notes:</Text>
+              <Text style={styles.notesText} numberOfLines={2}>
+                {item.notes}
               </Text>
-            )}
-          </View>
-        </View>
+            </View>
+          )}
+        </TouchableOpacity>
 
-        <View style={styles.contactInfo}>
-          <View style={styles.contactRow}>
-            <Mail size={14} color="#666" />
-            <Text style={styles.contactText}>{item.email}</Text>
-          </View>
-          <View style={styles.contactRow}>
-            <Phone size={14} color="#666" />
-            <Text style={styles.contactText}>{item.phone}</Text>
-          </View>
-        </View>
-
-        {item.notes && (
-          <View style={styles.renterNotesSection}>
-            <Text style={styles.notesLabel}>Notes:</Text>
-            <Text style={styles.notesText} numberOfLines={2}>
-              {item.notes}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.renterActions}>
+        <View style={styles.tenantActions}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleEdit(item)}
-            testID={`edit-renter-${item.id}`}
+            testID={`edit-tenant-${item.id}`}
           >
             <Edit size={16} color="#007AFF" />
             <Text style={styles.actionText}>Edit</Text>
@@ -289,7 +344,7 @@ export default function RentersScreen() {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleOpenChecklist(item)}
-            testID={`checklist-renter-${item.id}`}
+            testID={`checklist-tenant-${item.id}`}
           >
             <ClipboardCheck size={16} color="#34C759" />
             <Text style={[styles.actionText, { color: '#34C759' }]}>Checklist</Text>
@@ -302,29 +357,29 @@ export default function RentersScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Renters ({renters.length})</Text>
+        <Text style={styles.headerTitle}>Tenants ({tenantRenters.length})</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={handleAdd}
-          testID="add-renter-button"
+          testID="add-tenant-button"
         >
           <Plus size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      {renters.length === 0 ? (
+      {tenantRenters.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No Renters"
-          message="Start by adding your first renter to the system"
-          actionLabel="Add Renter"
+          title="No Tenants"
+          message="Start by adding your first tenant to the system"
+          actionLabel="Add Tenant"
           onAction={handleAdd}
-          testID="renters-empty"
+          testID="tenants-empty"
         />
       ) : (
         <FlatList
-          data={renters}
-          renderItem={renderRenter}
+          data={tenantRenters}
+          renderItem={renderTenant}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -337,77 +392,151 @@ export default function RentersScreen() {
           setModalVisible(false);
           resetForm();
         }}
-        title={editingRenter ? 'Edit Renter' : 'Add Renter'}
-        testID="renter-modal"
+        title={editingTenant ? 'Edit Tenant' : 'Add Tenant'}
+        testID="tenant-modal"
       >
-        <Text style={styles.sectionTitle}>Personal Information</Text>
-        <View style={styles.row}>
-          <Input
-            label="First Name"
-            value={formData.first_name}
-            onChangeText={text => setFormData({ ...formData, first_name: text })}
-            placeholder="John"
-            required
-            containerStyle={styles.halfInput}
-            testID="renter-firstname-input"
-          />
-          <Input
-            label="Last Name"
-            value={formData.last_name}
-            onChangeText={text => setFormData({ ...formData, last_name: text })}
-            placeholder="Doe"
-            required
-            containerStyle={styles.halfInput}
-            testID="renter-lastname-input"
-          />
+        <Text style={styles.sectionTitle}>Tenant Type</Text>
+        <View style={styles.typeSelector}>
+          <TouchableOpacity
+            style={[styles.typeButton, formData.type === 'individual' && styles.typeButtonActive]}
+            onPress={() => setFormData({ ...formData, type: 'individual' })}
+          >
+            <User size={20} color={formData.type === 'individual' ? '#FFFFFF' : '#666'} />
+            <Text style={[styles.typeButtonText, formData.type === 'individual' && styles.typeButtonTextActive]}>Individual</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.typeButton, formData.type === 'business' && styles.typeButtonActive]}
+            onPress={() => setFormData({ ...formData, type: 'business' })}
+          >
+            <Building size={20} color={formData.type === 'business' ? '#FFFFFF' : '#666'} />
+            <Text style={[styles.typeButtonText, formData.type === 'business' && styles.typeButtonTextActive]}>Business</Text>
+          </TouchableOpacity>
         </View>
 
+        {formData.type === 'individual' ? (
+          <>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
+            <View style={styles.row}>
+              <Input
+                label="First Name"
+                value={formData.first_name}
+                onChangeText={text => setFormData({ ...formData, first_name: text })}
+                placeholder="John"
+                required
+                containerStyle={styles.halfInput}
+                testID="tenant-firstname-input"
+              />
+              <Input
+                label="Last Name"
+                value={formData.last_name}
+                onChangeText={text => setFormData({ ...formData, last_name: text })}
+                placeholder="Doe"
+                required
+                containerStyle={styles.halfInput}
+                testID="tenant-lastname-input"
+              />
+            </View>
+
+            <Input
+              label="Date of Birth"
+              value={formData.date_of_birth}
+              onChangeText={text => setFormData({ ...formData, date_of_birth: text })}
+              placeholder="YYYY-MM-DD"
+              testID="tenant-dob-input"
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>Business Information</Text>
+            <Input
+              label="Business Name"
+              value={formData.business_name}
+              onChangeText={text => setFormData({ ...formData, business_name: text })}
+              placeholder="ABC Company Ltd"
+              required
+              testID="tenant-business-name-input"
+            />
+          </>
+        )}
+
+        <Text style={styles.sectionTitle}>Contact Information</Text>
         <Input
           label="Email"
           value={formData.email}
           onChangeText={text => setFormData({ ...formData, email: text })}
-          placeholder="john.doe@example.com"
+          placeholder="email@example.com"
           keyboardType="email-address"
           autoCapitalize="none"
           required
-          testID="renter-email-input"
+          testID="tenant-email-input"
         />
 
         <Input
           label="Phone"
           value={formData.phone}
           onChangeText={text => setFormData({ ...formData, phone: text })}
-          placeholder="(555) 123-4567"
+          placeholder="+248 xxx xxxx"
           keyboardType="phone-pad"
           required
-          testID="renter-phone-input"
+          testID="tenant-phone-input"
         />
 
         <Input
-          label="Date of Birth"
-          value={formData.date_of_birth}
-          onChangeText={text => setFormData({ ...formData, date_of_birth: text })}
-          placeholder="YYYY-MM-DD"
-          testID="renter-dob-input"
+          label="Address"
+          value={formData.address}
+          onChangeText={text => setFormData({ ...formData, address: text })}
+          placeholder="Street Address"
+          testID="tenant-address-input"
         />
 
-        <Text style={styles.sectionTitle}>Emergency Contact</Text>
-        <Input
-          label="Contact Name"
-          value={formData.emergency_contact_name}
-          onChangeText={text => setFormData({ ...formData, emergency_contact_name: text })}
-          placeholder="Jane Doe"
-          testID="renter-emergency-name-input"
-        />
+        <View style={styles.row}>
+          <Input
+            label="Island"
+            value={formData.island}
+            onChangeText={text => setFormData({ ...formData, island: text })}
+            placeholder="Mahe"
+            containerStyle={styles.halfInput}
+            testID="tenant-island-input"
+          />
+          <Input
+            label="Postal Code"
+            value={formData.postal_code}
+            onChangeText={text => setFormData({ ...formData, postal_code: text })}
+            placeholder="12345"
+            containerStyle={styles.halfInput}
+            testID="tenant-postal-code-input"
+          />
+        </View>
 
         <Input
-          label="Contact Phone"
-          value={formData.emergency_contact_phone}
-          onChangeText={text => setFormData({ ...formData, emergency_contact_phone: text })}
-          placeholder="(555) 987-6543"
-          keyboardType="phone-pad"
-          testID="renter-emergency-phone-input"
+          label="Country"
+          value={formData.country}
+          onChangeText={text => setFormData({ ...formData, country: text })}
+          placeholder="Seychelles"
+          testID="tenant-country-input"
         />
+
+        {formData.type === 'individual' && (
+          <>
+            <Text style={styles.sectionTitle}>Emergency Contact</Text>
+            <Input
+              label="Contact Name"
+              value={formData.emergency_contact_name}
+              onChangeText={text => setFormData({ ...formData, emergency_contact_name: text })}
+              placeholder="Jane Doe"
+              testID="tenant-emergency-name-input"
+            />
+
+            <Input
+              label="Contact Phone"
+              value={formData.emergency_contact_phone}
+              onChangeText={text => setFormData({ ...formData, emergency_contact_phone: text })}
+              placeholder="+248 xxx xxxx"
+              keyboardType="phone-pad"
+              testID="tenant-emergency-phone-input"
+            />
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>Identification</Text>
         <View style={styles.row}>
@@ -415,9 +544,9 @@ export default function RentersScreen() {
             label="ID Type"
             value={formData.id_type}
             onChangeText={text => setFormData({ ...formData, id_type: text })}
-            placeholder="Driver's License"
+            placeholder="Passport"
             containerStyle={styles.halfInput}
-            testID="renter-id-type-input"
+            testID="tenant-id-type-input"
           />
           <Input
             label="ID Number"
@@ -425,7 +554,7 @@ export default function RentersScreen() {
             onChangeText={text => setFormData({ ...formData, id_number: text })}
             placeholder="ABC123456"
             containerStyle={styles.halfInput}
-            testID="renter-id-number-input"
+            testID="tenant-id-number-input"
           />
         </View>
 
@@ -433,29 +562,29 @@ export default function RentersScreen() {
           label="Notes"
           value={formData.notes}
           onChangeText={text => setFormData({ ...formData, notes: text })}
-          placeholder="Additional notes about the renter"
+          placeholder="Additional notes about the tenant"
           multiline
           numberOfLines={3}
-          testID="renter-notes-input"
+          testID="tenant-notes-input"
         />
 
         <Button
-          title={editingRenter ? 'Update Renter' : 'Add Renter'}
+          title={editingTenant ? 'Update Tenant' : 'Add Tenant'}
           onPress={handleSave}
           fullWidth
-          testID="save-renter-button"
+          testID="save-tenant-button"
         />
       </Modal>
 
-      {selectedRenter && (
+      {selectedTenant && (
         <ChecklistModal
           visible={checklistModalVisible}
           onClose={() => {
             setChecklistModalVisible(false);
-            setSelectedRenter(null);
+            setSelectedTenant(null);
             setDamagePhotos([]);
           }}
-          renter={selectedRenter}
+          tenant={selectedTenant}
           leases={leases}
           units={units}
           moveInChecklists={moveInChecklists}
@@ -464,6 +593,22 @@ export default function RentersScreen() {
           damagePhotos={damagePhotos}
           setDamagePhotos={setDamagePhotos}
           getDefaultItems={getDefaultChecklistItems}
+          getTenantName={getTenantName}
+        />
+      )}
+
+      {selectedTenantForDetail && (
+        <TenantDetailModal
+          visible={detailModalVisible}
+          onClose={() => {
+            setDetailModalVisible(false);
+            setSelectedTenantForDetail(null);
+          }}
+          tenant={selectedTenantForDetail}
+          leases={leases}
+          units={units}
+          properties={properties}
+          getTenantName={getTenantName}
         />
       )}
 
@@ -505,7 +650,7 @@ export default function RentersScreen() {
 interface ChecklistModalProps {
   visible: boolean;
   onClose: () => void;
-  renter: Renter;
+  tenant: TenantRenter;
   leases: any[];
   units: Unit[];
   moveInChecklists: any[];
@@ -514,12 +659,13 @@ interface ChecklistModalProps {
   damagePhotos: string[];
   setDamagePhotos: (photos: string[]) => void;
   getDefaultItems: () => MoveInChecklistItem[];
+  getTenantName: (tenant: TenantRenter) => string;
 }
 
 function ChecklistModal({
   visible,
   onClose,
-  renter,
+  tenant,
   leases,
   units,
   moveInChecklists,
@@ -528,12 +674,13 @@ function ChecklistModal({
   damagePhotos,
   setDamagePhotos,
   getDefaultItems,
+  getTenantName,
 }: ChecklistModalProps) {
-  const renterLeases = leases.filter(l => l.renter_id === renter.id && l.status === 'active');
-  const lease = renterLeases[0];
+  const tenantLeases = leases.filter(l => l.tenant_renter_id === tenant.id && l.status === 'active');
+  const lease = tenantLeases[0];
   const unit = units.find(u => u.id === lease?.unit_id);
   
-  const existingChecklist = moveInChecklists.find(c => c.renter_id === renter.id && c.unit_id === unit?.id);
+  const existingChecklist = moveInChecklists.find(c => c.tenant_renter_id === tenant.id && c.unit_id === unit?.id);
   
   const [checklistItems, setChecklistItems] = useState<MoveInChecklistItem[]>(
     existingChecklist?.items || getDefaultItems()
@@ -560,8 +707,6 @@ function ChecklistModal({
     updated[index] = { ...updated[index], notes: itemNotes };
     setChecklistItems(updated);
   };
-
-
 
   const handleSaveInternal = () => {
     if (!unit) return;
@@ -598,7 +743,7 @@ function ChecklistModal({
     <Modal
       visible={visible}
       onClose={onClose}
-      title={`Move-In Checklist - ${renter.first_name} ${renter.last_name}`}
+      title={`Move-In Checklist - ${getTenantName(tenant)}`}
       testID="checklist-modal"
     >
       <ScrollView style={styles.checklistScroll} showsVerticalScrollIndicator={false}>
@@ -738,6 +883,139 @@ function ChecklistModal({
   );
 }
 
+interface TenantDetailModalProps {
+  visible: boolean;
+  onClose: () => void;
+  tenant: TenantRenter;
+  leases: Lease[];
+  units: Unit[];
+  properties: any[];
+  getTenantName: (tenant: TenantRenter) => string;
+}
+
+function TenantDetailModal({
+  visible,
+  onClose,
+  tenant,
+  leases,
+  units,
+  properties,
+  getTenantName,
+}: TenantDetailModalProps) {
+  const tenantLeases = leases.filter(l => l.tenant_renter_id === tenant.id);
+
+  const getStatusVariant = (status: string): 'success' | 'warning' | 'danger' | 'info' | 'default' => {
+    switch (status) {
+      case 'active':
+        return 'success';
+      case 'draft':
+        return 'warning';
+      case 'expired':
+      case 'terminated':
+        return 'danger';
+      case 'renewed':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      onClose={onClose}
+      title={getTenantName(tenant)}
+      testID="tenant-detail-modal"
+    >
+      <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.detailSection}>
+          <Text style={styles.detailSectionTitle}>Contact Information</Text>
+          <View style={styles.detailRow}>
+            <Mail size={16} color="#666" />
+            <Text style={styles.detailText}>{tenant.email}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Phone size={16} color="#666" />
+            <Text style={styles.detailText}>{tenant.phone}</Text>
+          </View>
+          {tenant.address && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Address:</Text>
+              <Text style={styles.detailText}>{tenant.address}</Text>
+            </View>
+          )}
+          {tenant.island && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Island:</Text>
+              <Text style={styles.detailText}>{tenant.island}</Text>
+            </View>
+          )}
+          {tenant.postal_code && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Postal Code:</Text>
+              <Text style={styles.detailText}>{tenant.postal_code}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.detailSection}>
+          <Text style={styles.detailSectionTitle}>Leases ({tenantLeases.length})</Text>
+          {tenantLeases.length === 0 ? (
+            <Text style={styles.noDataText}>No leases found</Text>
+          ) : (
+            tenantLeases.map((lease) => {
+              const property = properties.find(p => p.id === lease.property_id);
+              const unit = units.find(u => u.id === lease.unit_id);
+              
+              return (
+                <Card key={lease.id} style={styles.leaseCard}>
+                  <View style={styles.leaseCardHeader}>
+                    <View>
+                      <Text style={styles.leasePropertyName}>{property?.name || 'Unknown'}</Text>
+                      <Text style={styles.leaseUnitNumber}>Unit {unit?.unit_number || 'N/A'}</Text>
+                    </View>
+                    <Badge label={lease.status} variant={getStatusVariant(lease.status)} />
+                  </View>
+
+                  <View style={styles.leaseDates}>
+                    <View style={styles.leaseDateItem}>
+                      <Calendar size={14} color="#666" />
+                      <Text style={styles.leaseDateText}>{formatDate(lease.start_date)}</Text>
+                    </View>
+                    <Text style={styles.dateSeparator}>→</Text>
+                    <View style={styles.leaseDateItem}>
+                      <Calendar size={14} color="#666" />
+                      <Text style={styles.leaseDateText}>{formatDate(lease.end_date)}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.leaseRentInfo}>
+                    <DollarSign size={16} color="#34C759" />
+                    <Text style={styles.leaseRentAmount}>${lease.rent_amount.toLocaleString()}/month</Text>
+                  </View>
+                </Card>
+              );
+            })
+          )}
+        </View>
+        
+        {tenant.notes && (
+          <View style={styles.detailSection}>
+            <Text style={styles.detailSectionTitle}>Notes</Text>
+            <Text style={styles.detailNotes}>{tenant.notes}</Text>
+          </View>
+        )}
+
+        <View style={{ height: 20 }} />
+      </ScrollView>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -768,10 +1046,10 @@ const styles = StyleSheet.create({
   list: {
     padding: 16,
   },
-  renterCard: {
+  tenantCard: {
     marginBottom: 16,
   },
-  renterHeader: {
+  tenantHeader: {
     flexDirection: 'row' as const,
     marginBottom: 12,
   },
@@ -784,14 +1062,19 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     marginRight: 12,
   },
-  renterInfo: {
+  tenantInfo: {
     flex: 1,
     justifyContent: 'center' as const,
   },
-  renterName: {
+  tenantName: {
     fontSize: 18,
     fontWeight: '600' as const,
     color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  tenantType: {
+    fontSize: 12,
+    color: '#999',
     marginBottom: 4,
   },
   leaseStatus: {
@@ -812,7 +1095,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  renterNotesSection: {
+  tenantNotesSection: {
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
@@ -828,7 +1111,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  renterActions: {
+  tenantActions: {
     flexDirection: 'row' as const,
     gap: 12,
     paddingTop: 12,
@@ -856,6 +1139,35 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginTop: 8,
     marginBottom: 12,
+  },
+  typeSelector: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    marginBottom: 16,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    gap: 8,
+  },
+  typeButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  typeButtonTextActive: {
+    color: '#FFFFFF',
   },
   row: {
     flexDirection: 'row' as const,
@@ -1036,5 +1348,95 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     borderWidth: 4,
     borderColor: '#FFFFFF',
+  },
+  detailScroll: {
+    maxHeight: 600,
+  },
+  detailSection: {
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  detailSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#1A1A1A',
+  },
+  detailNotes: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic' as const,
+    textAlign: 'center' as const,
+    paddingVertical: 20,
+  },
+  leaseCard: {
+    marginBottom: 12,
+  },
+  leaseCardHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 12,
+  },
+  leasePropertyName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  leaseUnitNumber: {
+    fontSize: 14,
+    color: '#666',
+  },
+  leaseDates: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+    gap: 8,
+  },
+  leaseDateItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+  },
+  leaseDateText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  dateSeparator: {
+    fontSize: 14,
+    color: '#999',
+  },
+  leaseRentInfo: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+  leaseRentAmount: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#34C759',
   },
 });

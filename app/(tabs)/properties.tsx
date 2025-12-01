@@ -23,8 +23,8 @@ export default function PropertiesScreen() {
     name: '',
     address: '',
     city: '',
-    state: '',
-    zip_code: '',
+    island: '',
+    postal_code: '',
     country: 'Seychelles',
     property_type: 'building' as PropertyType,
     total_units: '0',
@@ -53,8 +53,8 @@ export default function PropertiesScreen() {
       name: '',
       address: '',
       city: '',
-      state: '',
-      zip_code: '',
+      island: '',
+      postal_code: '',
       country: 'Seychelles',
       property_type: 'building',
       total_units: '0',
@@ -89,8 +89,8 @@ export default function PropertiesScreen() {
       name: property.name,
       address: property.address,
       city: property.city,
-      state: property.state,
-      zip_code: property.zip_code,
+      island: property.island,
+      postal_code: property.postal_code,
       country: property.country,
       property_type: property.property_type,
       total_units: property.total_units.toString(),
@@ -313,7 +313,7 @@ export default function PropertiesScreen() {
               <View style={styles.locationRow}>
                 <MapPin size={14} color="#666" />
                 <Text style={styles.locationText}>
-                  {item.city}, {item.state}
+                  {item.city}, {item.island}
                 </Text>
               </View>
             </View>
@@ -489,21 +489,20 @@ export default function PropertiesScreen() {
         />
         <View style={styles.row}>
           <Input
-            label="State"
-            value={formData.state}
-            onChangeText={text => setFormData({ ...formData, state: text })}
-            placeholder="State"
+            label="Island"
+            value={formData.island}
+            onChangeText={text => setFormData({ ...formData, island: text })}
+            placeholder="Mahe"
             containerStyle={styles.halfInput}
-            testID="property-state-input"
+            testID="property-island-input"
           />
           <Input
-            label="ZIP Code"
-            value={formData.zip_code}
-            onChangeText={text => setFormData({ ...formData, zip_code: text })}
-            placeholder="ZIP"
-            keyboardType="number-pad"
+            label="Postal Code"
+            value={formData.postal_code}
+            onChangeText={text => setFormData({ ...formData, postal_code: text })}
+            placeholder="12345"
             containerStyle={styles.halfInput}
-            testID="property-zip-input"
+            testID="property-postal-code-input"
           />
         </View>
         <Input
@@ -707,7 +706,7 @@ export default function PropertiesScreen() {
                         {spot.notes && (
                           <Text style={styles.parkingSpotNotes}>{spot.notes}</Text>
                         )}
-                        {spot.assigned_to_renter_id && (
+                        {spot.assigned_to_tenant_renter_id && (
                           <Badge label="Assigned" variant="info" />
                         )}
                       </View>

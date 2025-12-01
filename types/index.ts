@@ -2,7 +2,7 @@ export type TenantId = string;
 export type UserId = string;
 export type PropertyId = string;
 export type UnitId = string;
-export type RenterId = string;
+export type TenantRenterId = string;
 export type LeaseId = string;
 export type PaymentId = string;
 export type MaintenanceRequestId = string;
@@ -88,7 +88,7 @@ export type PropertyType = 'unit' | 'building' | 'house' | 'office';
 export interface ParkingSpot {
   id: string;
   spot_number: string;
-  assigned_to_renter_id?: RenterId;
+  assigned_to_tenant_renter_id?: TenantRenterId;
   notes?: string;
 }
 
@@ -98,8 +98,8 @@ export interface Property {
   name: string;
   address: string;
   city: string;
-  state: string;
-  zip_code: string;
+  island: string;
+  postal_code: string;
   country: string;
   property_type: PropertyType;
   total_units: number;
@@ -129,11 +129,15 @@ export interface Unit {
   updated_at: string;
 }
 
-export interface Renter {
-  id: RenterId;
+export type TenantRenterType = 'individual' | 'business';
+
+export interface TenantRenter {
+  id: TenantRenterId;
   tenant_id: TenantId;
-  first_name: string;
-  last_name: string;
+  type: TenantRenterType;
+  first_name?: string;
+  last_name?: string;
+  business_name?: string;
   email: string;
   phone: string;
   date_of_birth?: string;
@@ -141,6 +145,10 @@ export interface Renter {
   emergency_contact_phone?: string;
   id_number?: string;
   id_type?: string;
+  address?: string;
+  island?: string;
+  postal_code?: string;
+  country?: string;
   notes?: string;
   avatar?: string;
   created_at: string;
@@ -152,7 +160,7 @@ export interface Lease {
   tenant_id: TenantId;
   property_id: PropertyId;
   unit_id: UnitId;
-  renter_id: RenterId;
+  tenant_renter_id: TenantRenterId;
   start_date: string;
   end_date: string;
   rent_amount: number;
@@ -179,7 +187,7 @@ export interface Payment {
   id: PaymentId;
   tenant_id: TenantId;
   lease_id: LeaseId;
-  renter_id: RenterId;
+  tenant_renter_id: TenantRenterId;
   amount: number;
   currency: PaymentCurrency;
   payment_date: string;
@@ -199,7 +207,7 @@ export interface MaintenanceRequest {
   tenant_id: TenantId;
   property_id: PropertyId;
   unit_id?: UnitId;
-  renter_id?: RenterId;
+  tenant_renter_id?: TenantRenterId;
   assigned_to?: UserId;
   title: string;
   description: string;
@@ -224,7 +232,7 @@ export interface Document {
   category: 'lease' | 'id' | 'insurance' | 'inspection' | 'receipt' | 'other';
   url: string;
   size?: number;
-  related_to_type?: 'property' | 'unit' | 'renter' | 'lease' | 'payment' | 'maintenance';
+  related_to_type?: 'property' | 'unit' | 'tenant_renter' | 'lease' | 'payment' | 'maintenance';
   related_to_id?: string;
   uploaded_by: UserId;
   created_at: string;
@@ -287,7 +295,7 @@ export interface DashboardStats {
   total_units: number;
   occupied_units: number;
   available_units: number;
-  total_renters: number;
+  total_tenant_renters: number;
   active_leases: number;
   pending_payments: number;
   overdue_payments: number;
@@ -308,7 +316,7 @@ export interface MoveInChecklistItem {
 export interface MoveInChecklist {
   id: MoveInChecklistId;
   tenant_id: TenantId;
-  renter_id: RenterId;
+  tenant_renter_id: TenantRenterId;
   unit_id: UnitId;
   lease_id?: LeaseId;
   items: MoveInChecklistItem[];
@@ -316,7 +324,7 @@ export interface MoveInChecklist {
   damage_images?: string[];
   completed: boolean;
   completed_date?: string;
-  renter_signature?: string;
+  tenant_renter_signature?: string;
   owner_signature?: string;
   notes?: string;
   created_at: string;
@@ -381,7 +389,7 @@ export interface Todo {
   due_date?: string;
   completed_date?: string;
   category?: 'general' | 'maintenance' | 'lease' | 'payment' | 'inspection' | 'other';
-  related_to_type?: 'property' | 'unit' | 'renter' | 'lease' | 'maintenance' | 'payment';
+  related_to_type?: 'property' | 'unit' | 'tenant_renter' | 'lease' | 'maintenance' | 'payment';
   related_to_id?: string;
   created_at: string;
   updated_at: string;

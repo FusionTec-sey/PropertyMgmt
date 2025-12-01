@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  Tenant, User, Property, Unit, Renter, Lease, Payment,
+  Tenant, User, Property, Unit, TenantRenter, Lease, Payment,
   MaintenanceRequest, Notification,
   ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo
@@ -15,7 +15,7 @@ const STORAGE_KEYS = {
   USERS: '@app/users',
   PROPERTIES: '@app/properties',
   UNITS: '@app/units',
-  RENTERS: '@app/renters',
+  TENANT_RENTERS: '@app/tenant_renters',
   LEASES: '@app/leases',
   PAYMENTS: '@app/payments',
   MAINTENANCE: '@app/maintenance',
@@ -37,7 +37,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [renters, setRenters] = useState<Renter[]>([]);
+  const [tenantRenters, setTenantRenters] = useState<TenantRenter[]>([]);
   const [leases, setLeases] = useState<Lease[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
@@ -56,7 +56,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedTenants,
         savedProperties,
         savedUnits,
-        savedRenters,
+        savedTenantRenters,
         savedLeases,
         savedPayments,
         savedMaintenance,
@@ -72,7 +72,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.TENANTS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTIES),
         AsyncStorage.getItem(STORAGE_KEYS.UNITS),
-        AsyncStorage.getItem(STORAGE_KEYS.RENTERS),
+        AsyncStorage.getItem(STORAGE_KEYS.TENANT_RENTERS),
         AsyncStorage.getItem(STORAGE_KEYS.LEASES),
         AsyncStorage.getItem(STORAGE_KEYS.PAYMENTS),
         AsyncStorage.getItem(STORAGE_KEYS.MAINTENANCE),
@@ -89,7 +89,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedTenants) setTenants(JSON.parse(savedTenants));
       if (savedProperties) setProperties(JSON.parse(savedProperties));
       if (savedUnits) setUnits(JSON.parse(savedUnits));
-      if (savedRenters) setRenters(JSON.parse(savedRenters));
+      if (savedTenantRenters) setTenantRenters(JSON.parse(savedTenantRenters));
       if (savedLeases) setLeases(JSON.parse(savedLeases));
       if (savedPayments) setPayments(JSON.parse(savedPayments));
       if (savedMaintenance) setMaintenanceRequests(JSON.parse(savedMaintenance));
@@ -236,29 +236,29 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.UNITS, updated);
   }, [units, saveData]);
 
-  const addRenter = useCallback(async (renter: Omit<Renter, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+  const addTenantRenter = useCallback(async (tenantRenter: Omit<TenantRenter, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
     if (!currentTenant) return;
     
-    const newRenter: Renter = {
-      ...renter,
+    const newTenantRenter: TenantRenter = {
+      ...tenantRenter,
       id: Date.now().toString(),
       tenant_id: currentTenant.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const updated = [...renters, newRenter];
-    setRenters(updated);
-    await saveData(STORAGE_KEYS.RENTERS, updated);
-    return newRenter;
-  }, [currentTenant, renters, saveData]);
+    const updated = [...tenantRenters, newTenantRenter];
+    setTenantRenters(updated);
+    await saveData(STORAGE_KEYS.TENANT_RENTERS, updated);
+    return newTenantRenter;
+  }, [currentTenant, tenantRenters, saveData]);
 
-  const updateRenter = useCallback(async (id: string, updates: Partial<Renter>) => {
-    const updated = renters.map(r => 
+  const updateTenantRenter = useCallback(async (id: string, updates: Partial<TenantRenter>) => {
+    const updated = tenantRenters.map(r => 
       r.id === id ? { ...r, ...updates, updated_at: new Date().toISOString() } : r
     );
-    setRenters(updated);
-    await saveData(STORAGE_KEYS.RENTERS, updated);
-  }, [renters, saveData]);
+    setTenantRenters(updated);
+    await saveData(STORAGE_KEYS.TENANT_RENTERS, updated);
+  }, [tenantRenters, saveData]);
 
   const addLease = useCallback(async (lease: Omit<Lease, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
     if (!currentTenant) return;
@@ -478,9 +478,9 @@ export const [AppContext, useApp] = createContextHook(() => {
     [units, currentTenant]
   );
 
-  const tenantRenters = useMemo(() => 
-    renters.filter(r => r.tenant_id === currentTenant?.id),
-    [renters, currentTenant]
+  const filteredTenantRenters = useMemo(() => 
+    tenantRenters.filter(r => r.tenant_id === currentTenant?.id),
+    [tenantRenters, currentTenant]
   );
 
   const tenantLeases = useMemo(() => 
@@ -548,14 +548,14 @@ export const [AppContext, useApp] = createContextHook(() => {
       total_units: tenantUnits.length,
       occupied_units: occupiedUnits,
       available_units: availableUnits,
-      total_renters: tenantRenters.length,
+      total_tenant_renters: filteredTenantRenters.length,
       active_leases: activeLeases,
       pending_payments: pendingPayments,
       overdue_payments: overduePayments,
       total_revenue_month: totalRevenueMonth,
       open_maintenance: openMaintenance,
     };
-  }, [tenantProperties, tenantUnits, tenantLeases, tenantPayments, tenantMaintenance, tenantRenters]);
+  }, [tenantProperties, tenantUnits, tenantLeases, tenantPayments, tenantMaintenance, filteredTenantRenters]);
 
   return {
     isLoading,
@@ -567,7 +567,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     addTenant,
     properties: tenantProperties,
     units: tenantUnits,
-    renters: tenantRenters,
+    tenantRenters: filteredTenantRenters,
     leases: tenantLeases,
     payments: tenantPayments,
     maintenanceRequests: tenantMaintenance,
@@ -583,8 +583,8 @@ export const [AppContext, useApp] = createContextHook(() => {
     addUnit,
     updateUnit,
     deleteUnit,
-    addRenter,
-    updateRenter,
+    addTenantRenter,
+    updateTenantRenter,
     addLease,
     updateLease,
     addPayment,
