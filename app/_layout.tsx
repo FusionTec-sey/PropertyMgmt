@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import AppErrorBoundary from "@/components/AppErrorBoundary";
 import { AppContext } from "@/contexts/AppContext";
 import { NotificationContext } from "@/contexts/NotificationContext";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -41,7 +42,9 @@ export default function RootLayout() {
         <NotificationContext>
           <AppContext>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootLayoutNav />
+              <AppErrorBoundary>
+                <RootLayoutNav />
+              </AppErrorBoundary>
             </GestureHandlerRootView>
           </AppContext>
         </NotificationContext>
