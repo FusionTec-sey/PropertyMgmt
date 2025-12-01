@@ -16,7 +16,7 @@ type RoomSection = {
 
 type ChecklistItemTemplate = {
   name: string;
-  category: 'living_room' | 'kitchen' | 'dining_room' | 'bathroom' | 'bedroom' | 'balcony' | 'keys';
+  category: 'general' | 'kitchen' | 'bathroom' | 'bedroom' | 'living' | 'other';
 };
 
 const CHECKLIST_TEMPLATE: RoomSection[] = [
@@ -24,21 +24,21 @@ const CHECKLIST_TEMPLATE: RoomSection[] = [
     id: 'living_room',
     name: 'Living Room',
     items: [
-      { name: 'Floor & Floor Covering', category: 'living_room' },
-      { name: 'Walls & Ceiling', category: 'living_room' },
-      { name: 'Door(s)', category: 'living_room' },
-      { name: 'Door Locks & Hardware', category: 'living_room' },
-      { name: 'Lighting Fixtures', category: 'living_room' },
-      { name: 'Sliding Door & Lock Mechanism', category: 'living_room' },
-      { name: 'Sliding Door Coverings', category: 'living_room' },
-      { name: 'Smoke Alarm', category: 'living_room' },
-      { name: 'Air Conditioning + Remote', category: 'living_room' },
-      { name: 'TV Unit', category: 'living_room' },
-      { name: 'Desk Unit', category: 'living_room' },
-      { name: 'Fan + Remote', category: 'living_room' },
-      { name: 'Light Switches / Sockets', category: 'living_room' },
-      { name: 'Sofa Set', category: 'living_room' },
-      { name: 'TV + Remote', category: 'living_room' },
+      { name: 'Floor & Floor Covering', category: 'living' },
+      { name: 'Walls & Ceiling', category: 'living' },
+      { name: 'Door(s)', category: 'living' },
+      { name: 'Door Locks & Hardware', category: 'living' },
+      { name: 'Lighting Fixtures', category: 'living' },
+      { name: 'Sliding Door & Lock Mechanism', category: 'living' },
+      { name: 'Sliding Door Coverings', category: 'living' },
+      { name: 'Smoke Alarm', category: 'living' },
+      { name: 'Air Conditioning + Remote', category: 'living' },
+      { name: 'TV Unit', category: 'living' },
+      { name: 'Desk Unit', category: 'living' },
+      { name: 'Fan + Remote', category: 'living' },
+      { name: 'Light Switches / Sockets', category: 'living' },
+      { name: 'Sofa Set', category: 'living' },
+      { name: 'TV + Remote', category: 'living' },
     ],
   },
   {
@@ -68,11 +68,11 @@ const CHECKLIST_TEMPLATE: RoomSection[] = [
     id: 'dining_room',
     name: 'Dining Room',
     items: [
-      { name: 'Floor & Floor Covering', category: 'dining_room' },
-      { name: 'Walls & Ceiling', category: 'dining_room' },
-      { name: 'Lighting Fixtures', category: 'dining_room' },
-      { name: 'Air Conditioning + Remote', category: 'dining_room' },
-      { name: 'Dining Table & Chairs', category: 'dining_room' },
+      { name: 'Floor & Floor Covering', category: 'general' },
+      { name: 'Walls & Ceiling', category: 'general' },
+      { name: 'Lighting Fixtures', category: 'general' },
+      { name: 'Air Conditioning + Remote', category: 'general' },
+      { name: 'Dining Table & Chairs', category: 'general' },
     ],
   },
   {
@@ -124,22 +124,22 @@ const CHECKLIST_TEMPLATE: RoomSection[] = [
     id: 'balcony',
     name: 'Balcony',
     items: [
-      { name: 'Floor & Floor Covering', category: 'balcony' },
-      { name: 'Walls & Ceiling', category: 'balcony' },
-      { name: 'Aluminium Railings', category: 'balcony' },
-      { name: 'Lighting Fixtures', category: 'balcony' },
-      { name: 'Sofa Set / Furniture', category: 'balcony' },
+      { name: 'Floor & Floor Covering', category: 'other' },
+      { name: 'Walls & Ceiling', category: 'other' },
+      { name: 'Aluminium Railings', category: 'other' },
+      { name: 'Lighting Fixtures', category: 'other' },
+      { name: 'Sofa Set / Furniture', category: 'other' },
     ],
   },
   {
     id: 'keys',
     name: 'Keys & Accessories',
     items: [
-      { name: 'Main Door Keys', category: 'keys' },
-      { name: 'Bedroom Keys', category: 'keys' },
-      { name: 'Bathroom Keys', category: 'keys' },
-      { name: 'Gate Remote', category: 'keys' },
-      { name: 'Mailbox Keys', category: 'keys' },
+      { name: 'Main Door Keys', category: 'other' },
+      { name: 'Bedroom Keys', category: 'other' },
+      { name: 'Bathroom Keys', category: 'other' },
+      { name: 'Gate Remote', category: 'other' },
+      { name: 'Mailbox Keys', category: 'other' },
     ],
   },
 ];
@@ -286,7 +286,7 @@ export default function ChecklistScreen() {
                     onPress: async () => {
                       const itemsToAdd = checklistItems.filter(item => 
                         item.checked && 
-                        item.category !== 'keys' &&
+                        !item.name.toLowerCase().includes('key') &&
                         !item.name.toLowerCase().includes('wall') &&
                         !item.name.toLowerCase().includes('floor') &&
                         !item.name.toLowerCase().includes('ceiling') &&
@@ -301,7 +301,7 @@ export default function ChecklistScreen() {
                           category: item.category.includes('kitchen') ? 'appliance' : 
                                    item.category.includes('bedroom') || item.category.includes('living') ? 'furniture' : 'other',
                           quantity: 1,
-                          condition: item.condition,
+                          condition: item.condition === 'damaged' ? 'poor' : (item.condition || 'good'),
                           notes: item.notes || `From move-in checklist: ${new Date().toLocaleDateString('en-GB')}`,
                           images: item.images,
                         });
@@ -357,7 +357,7 @@ export default function ChecklistScreen() {
             onPress: async () => {
               const itemsToAdd = checklistItems.filter(item => 
                 item.checked && 
-                item.category !== 'keys' &&
+                !item.name.toLowerCase().includes('key') &&
                 !item.name.toLowerCase().includes('wall') &&
                 !item.name.toLowerCase().includes('floor') &&
                 !item.name.toLowerCase().includes('ceiling') &&
@@ -372,7 +372,7 @@ export default function ChecklistScreen() {
                   category: item.category.includes('kitchen') ? 'appliance' : 
                            item.category.includes('bedroom') || item.category.includes('living') ? 'furniture' : 'other',
                   quantity: 1,
-                  condition: item.condition,
+                  condition: item.condition === 'damaged' ? 'poor' : (item.condition || 'good'),
                   notes: item.notes || `From move-in checklist: ${new Date().toLocaleDateString('en-GB')}`,
                   images: item.images,
                 });

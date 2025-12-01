@@ -40,7 +40,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <NotificationContext>
           <AppContext>
-            <GestureHandlerRootView>
+            <GestureHandlerRootView style={{ flex: 1 }}>
               <RootLayoutNav />
             </GestureHandlerRootView>
           </AppContext>
