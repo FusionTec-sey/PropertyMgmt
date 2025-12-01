@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, 
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import { TenantRenter, SignedDocument } from '@/types';
-import { Building, User, Calendar, FileText, Download, Upload, Camera, Trash, CheckCircle, Edit2, FileStack } from 'lucide-react-native';
+import { Building, User, Calendar, FileText, Download, Upload, Camera, Trash, CheckCircle, Edit2, FileStack, LogOut } from 'lucide-react-native';
 import Button from '@/components/Button';
 import Badge from '@/components/Badge';
 import * as Print from 'expo-print';
@@ -786,6 +786,13 @@ export default function LeaseDetailScreen() {
 
         {lease.status === 'active' && (
           <View style={styles.actionsSection}>
+            <Button
+              title="Start Move-Out Process"
+              onPress={() => router.push(`/moveout/${lease.id}` as any)}
+              icon={<LogOut size={20} color="#FFFFFF" />}
+              fullWidth
+              variant="outline"
+            />
             <Button
               title="Renew Lease"
               onPress={handleRenewLease}
