@@ -13,7 +13,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function TenantsScreen() {
-  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease } = useApp();
+  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease, updateLease } = useApp();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingTenant, setEditingTenant] = useState<TenantRenter | null>(null);
   const [checklistModalVisible, setChecklistModalVisible] = useState<boolean>(false);
@@ -26,6 +26,7 @@ export default function TenantsScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
   const [leaseModalVisible, setLeaseModalVisible] = useState<boolean>(false);
   const [selectedTenantForLease, setSelectedTenantForLease] = useState<TenantRenter | null>(null);
+  const [editingLease, setEditingLease] = useState<Lease | null>(null);
   
   const [leaseFormData, setLeaseFormData] = useState({
     property_id: '',
@@ -111,6 +112,7 @@ export default function TenantsScreen() {
 
   const handleAddLease = (tenant: TenantRenter) => {
     setSelectedTenantForLease(tenant);
+    setEditingLease(null);
     setLeaseFormData({
       property_id: '',
       unit_id: '',
@@ -122,6 +124,29 @@ export default function TenantsScreen() {
       status: 'draft',
       terms: '',
       lease_period_months: 12,
+    });
+    setLeaseModalVisible(true);
+  };
+
+  const handleEditLease = (lease: Lease, tenant: TenantRenter) => {
+    setSelectedTenantForLease(tenant);
+    setEditingLease(lease);
+    const startDate = new Date(lease.start_date);
+    const endDate = new Date(lease.end_date);
+    const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+    const leasePeriod = [6, 12, 24].includes(monthsDiff) ? monthsDiff : 12;
+    
+    setLeaseFormData({
+      property_id: lease.property_id,
+      unit_id: lease.unit_id,
+      start_date: lease.start_date,
+      end_date: lease.end_date,
+      rent_amount: lease.rent_amount.toString(),
+      deposit_amount: lease.deposit_amount.toString(),
+      payment_due_day: lease.payment_due_day.toString(),
+      status: lease.status,
+      terms: lease.terms || '',
+      lease_period_months: leasePeriod,
     });
     setLeaseModalVisible(true);
   };
@@ -148,22 +173,38 @@ export default function TenantsScreen() {
       return;
     }
 
-    await addLease({
-      property_id: leaseFormData.property_id,
-      unit_id: leaseFormData.unit_id,
-      tenant_renter_id: selectedTenantForLease.id,
-      start_date: leaseFormData.start_date,
-      end_date: leaseFormData.end_date,
-      rent_amount: rentAmount,
-      deposit_amount: depositAmount,
-      payment_due_day: paymentDueDay,
-      status: leaseFormData.status,
-      terms: leaseFormData.terms || undefined,
-    });
+    if (editingLease) {
+      await updateLease(editingLease.id, {
+        property_id: leaseFormData.property_id,
+        unit_id: leaseFormData.unit_id,
+        start_date: leaseFormData.start_date,
+        end_date: leaseFormData.end_date,
+        rent_amount: rentAmount,
+        deposit_amount: depositAmount,
+        payment_due_day: paymentDueDay,
+        status: leaseFormData.status,
+        terms: leaseFormData.terms || undefined,
+      });
+      Alert.alert('Success', 'Lease updated successfully!');
+    } else {
+      await addLease({
+        property_id: leaseFormData.property_id,
+        unit_id: leaseFormData.unit_id,
+        tenant_renter_id: selectedTenantForLease.id,
+        start_date: leaseFormData.start_date,
+        end_date: leaseFormData.end_date,
+        rent_amount: rentAmount,
+        deposit_amount: depositAmount,
+        payment_due_day: paymentDueDay,
+        status: leaseFormData.status,
+        terms: leaseFormData.terms || undefined,
+      });
+      Alert.alert('Success', 'Lease created successfully!');
+    }
 
-    Alert.alert('Success', 'Lease created successfully!');
     setLeaseModalVisible(false);
     setSelectedTenantForLease(null);
+    setEditingLease(null);
   };
 
   const handleOpenChecklist = (tenant: TenantRenter) => {
@@ -682,8 +723,9 @@ export default function TenantsScreen() {
         onClose={() => {
           setLeaseModalVisible(false);
           setSelectedTenantForLease(null);
+          setEditingLease(null);
         }}
-        title="Add Lease"
+        title={editingLease ? 'Edit Lease' : 'Add Lease'}
         testID="lease-modal"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -901,7 +943,7 @@ export default function TenantsScreen() {
           />
 
           <Button
-            title="Create Lease"
+            title={editingLease ? 'Update Lease' : 'Create Lease'}
             onPress={handleSaveLease}
             fullWidth
             testID="save-lease-button"
@@ -922,6 +964,7 @@ export default function TenantsScreen() {
           units={units}
           properties={properties}
           getTenantName={getTenantName}
+          onEditLease={handleEditLease}
         />
       )}
 
@@ -1204,6 +1247,7 @@ interface TenantDetailModalProps {
   units: Unit[];
   properties: any[];
   getTenantName: (tenant: TenantRenter) => string;
+  onEditLease: (lease: Lease, tenant: TenantRenter) => void;
 }
 
 function TenantDetailModal({
@@ -1214,6 +1258,7 @@ function TenantDetailModal({
   units,
   properties,
   getTenantName,
+  onEditLease,
 }: TenantDetailModalProps) {
   const tenantLeases = leases.filter(l => l.tenant_renter_id === tenant.id);
 
@@ -1291,7 +1336,19 @@ function TenantDetailModal({
                       <Text style={styles.leasePropertyName}>{property?.name || 'Unknown'}</Text>
                       <Text style={styles.leaseUnitNumber}>Unit {unit?.unit_number || 'N/A'}</Text>
                     </View>
-                    <Badge label={lease.status} variant={getStatusVariant(lease.status)} />
+                    <View style={styles.leaseCardHeaderRight}>
+                      <Badge label={lease.status} variant={getStatusVariant(lease.status)} />
+                      <TouchableOpacity
+                        style={styles.editLeaseButton}
+                        onPress={() => {
+                          onClose();
+                          onEditLease(lease, tenant);
+                        }}
+                        testID={`edit-lease-${lease.id}`}
+                      >
+                        <Edit size={16} color="#007AFF" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <View style={styles.leaseDates}>
@@ -1713,6 +1770,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as const,
     alignItems: 'flex-start' as const,
     marginBottom: 12,
+  },
+  leaseCardHeaderRight: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  editLeaseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   leasePropertyName: {
     fontSize: 16,
