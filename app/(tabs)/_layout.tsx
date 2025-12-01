@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, Building2, Users, DollarSign, MoreHorizontal, FileText } from "lucide-react-native";
+import { Home, Building2, Users, DollarSign, MoreHorizontal } from "lucide-react-native";
 import React from "react";
 import { useApp } from "@/contexts/AppContext";
 
@@ -88,6 +88,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="applications"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="inspections"
         options={{
           href: null,
         }}

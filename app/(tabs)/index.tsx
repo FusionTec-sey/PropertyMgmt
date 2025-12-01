@@ -18,6 +18,7 @@ import {
   Wrench,
   Receipt,
   Package,
+  ClipboardCheck,
 } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'expo-router';
@@ -36,7 +37,7 @@ Notifications.setNotificationHandler({
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo, payments } = useApp();
+  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo } = useApp();
   const [requestingNotificationPermission, setRequestingNotificationPermission] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -423,6 +424,12 @@ export default function DashboardScreen() {
                 Alert.alert('No Properties', 'Add a property first to manage inventory');
               }
             }}
+          />
+          <QuickActionCard
+            icon={ClipboardCheck}
+            title="Inspections"
+            color="#5856D6"
+            onPress={() => router.push('/(tabs)/inspections')}
           />
         </View>
       </View>

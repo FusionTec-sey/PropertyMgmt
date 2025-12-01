@@ -7,7 +7,7 @@ import type {
   ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo, UserPermissions,
   InventoryHistory, Invoice, BusinessDocument,
-  TenantApplication, TenantOnboarding
+  TenantApplication, TenantOnboarding, PropertyInspection
 } from '@/types';
 
 const STORAGE_KEYS = {
@@ -35,6 +35,7 @@ const STORAGE_KEYS = {
   BUSINESS_DOCUMENTS: '@app/business_documents',
   TENANT_APPLICATIONS: '@app/tenant_applications',
   TENANT_ONBOARDINGS: '@app/tenant_onboardings',
+  PROPERTY_INSPECTIONS: '@app/property_inspections',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -61,6 +62,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [businessDocuments, setBusinessDocuments] = useState<BusinessDocument[]>([]);
   const [tenantApplications, setTenantApplications] = useState<TenantApplication[]>([]);
   const [tenantOnboardings, setTenantOnboardings] = useState<TenantOnboarding[]>([]);
+  const [propertyInspections, setPropertyInspections] = useState<PropertyInspection[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -106,6 +108,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_DOCUMENTS),
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
+        AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -127,12 +130,14 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedInventoryHistory) setInventoryHistory(JSON.parse(savedInventoryHistory));
       if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
       if (savedBusinessDocuments) setBusinessDocuments(JSON.parse(savedBusinessDocuments));
-      const [savedTenantApplications, savedTenantOnboardings] = await Promise.all([
+      const [savedTenantApplications, savedTenantOnboardings, savedPropertyInspections] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
+        AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
       ]);
       if (savedTenantApplications) setTenantApplications(JSON.parse(savedTenantApplications));
       if (savedTenantOnboardings) setTenantOnboardings(JSON.parse(savedTenantOnboardings));
+      if (savedPropertyInspections) setPropertyInspections(JSON.parse(savedPropertyInspections));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -656,6 +661,36 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.TENANT_ONBOARDINGS, updated);
   }, [tenantOnboardings, saveData]);
 
+  const addPropertyInspection = useCallback(async (inspection: Omit<PropertyInspection, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    if (!currentTenant) return;
+    
+    const newInspection: PropertyInspection = {
+      ...inspection,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...propertyInspections, newInspection];
+    setPropertyInspections(updated);
+    await saveData(STORAGE_KEYS.PROPERTY_INSPECTIONS, updated);
+    return newInspection;
+  }, [currentTenant, propertyInspections, saveData]);
+
+  const updatePropertyInspection = useCallback(async (id: string, updates: Partial<PropertyInspection>) => {
+    const updated = propertyInspections.map(i => 
+      i.id === id ? { ...i, ...updates, updated_at: new Date().toISOString() } : i
+    );
+    setPropertyInspections(updated);
+    await saveData(STORAGE_KEYS.PROPERTY_INSPECTIONS, updated);
+  }, [propertyInspections, saveData]);
+
+  const deletePropertyInspection = useCallback(async (id: string) => {
+    const updated = propertyInspections.filter(i => i.id !== id);
+    setPropertyInspections(updated);
+    await saveData(STORAGE_KEYS.PROPERTY_INSPECTIONS, updated);
+  }, [propertyInspections, saveData]);
+
   const addStaffUser = useCallback(async (user: Omit<User, 'id' | 'created_at' | 'tenant_id'>) => {
     if (!currentTenant || !currentUser) return;
     
@@ -812,6 +847,11 @@ export const [AppContext, useApp] = createContextHook(() => {
     [tenantOnboardings, currentTenant]
   );
 
+  const tenantPropertyInspections = useMemo(() => 
+    propertyInspections.filter(i => i.tenant_id === currentTenant?.id),
+    [propertyInspections, currentTenant]
+  );
+
   const tenantStaffUsers = useMemo(() => 
     staffUsers.filter(u => u.tenant_id === currentTenant?.id),
     [staffUsers, currentTenant]
@@ -928,5 +968,9 @@ export const [AppContext, useApp] = createContextHook(() => {
     addTenantOnboarding,
     updateTenantOnboarding,
     deleteTenantOnboarding,
+    propertyInspections: tenantPropertyInspections,
+    addPropertyInspection,
+    updatePropertyInspection,
+    deletePropertyInspection,
   };
 });
