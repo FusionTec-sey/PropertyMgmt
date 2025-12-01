@@ -166,6 +166,7 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     }
 
     return newReminder;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reminders, saveReminders, permissionsGranted, settings]);
 
   const updateReminder = useCallback(async (id: string, updates: Partial<DateReminder>) => {
@@ -187,6 +188,7 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
         await scheduleNotificationsForReminder(reminder);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reminders, saveReminders, permissionsGranted, settings]);
 
   const deleteReminder = useCallback(async (id: string) => {
@@ -202,7 +204,7 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     await saveReminders(updated);
   }, [reminders, saveReminders]);
 
-  const scheduleNotificationsForReminder = async (reminder: DateReminder): Promise<string[]> => {
+  const scheduleNotificationsForReminder = useCallback(async (reminder: DateReminder): Promise<string[]> => {
     if (Platform.OS === 'web') return [];
 
     const notificationIds: string[] = [];
@@ -216,8 +218,6 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
 
       if (notificationDate > now) {
         try {
-          const secondsUntilNotification = Math.floor((notificationDate.getTime() - now.getTime()) / 1000);
-          
           const id = await Notifications.scheduleNotificationAsync({
             content: {
               title: reminder.title,
@@ -229,7 +229,7 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
                 relatedToId: reminder.related_to_id,
               },
             },
-            trigger: secondsUntilNotification,
+            trigger: notificationDate as any,
           });
           notificationIds.push(id);
         } catch (error) {
@@ -238,10 +238,16 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
       }
     }
 
-    await updateReminder(reminder.id, { notification_ids: notificationIds });
+    if (notificationIds.length > 0) {
+      const updated = reminders.map(r => 
+        r.id === reminder.id ? { ...r, notification_ids: notificationIds, updated_at: new Date().toISOString() } : r
+      );
+      setReminders(updated);
+      await saveReminders(updated);
+    }
 
     return notificationIds;
-  };
+  }, [reminders, saveReminders]);
 
   const syncRemindersFromData = useCallback(async (
     tenantId: TenantId,
@@ -460,7 +466,8 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
         }
       }
     }
-  }, [reminders, settings, saveReminders, permissionsGranted, updateReminder]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminders, settings, saveReminders, permissionsGranted]);
 
   const getUpcomingEvents = useCallback((daysAhead: number = 30): UpcomingEvent[] => {
     const now = new Date();

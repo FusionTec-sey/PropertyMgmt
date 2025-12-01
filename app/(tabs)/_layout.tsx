@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, Building2, Users, DollarSign, Settings, Wrench, CheckSquare, FileText } from "lucide-react-native";
+import { Home, Building2, Users, DollarSign, Settings, Wrench, CheckSquare } from "lucide-react-native";
 import React from "react";
 import { useApp } from "@/contexts/AppContext";
 
@@ -76,9 +76,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="documents"
         options={{
-          title: "Documents",
-          tabBarIcon: ({ color }) => <FileText size={24} color={color} />,
-          href: isOwner ? undefined : null,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
