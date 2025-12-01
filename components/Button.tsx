@@ -1,16 +1,17 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
+import React, { ReactNode } from 'react';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, View } from 'react-native';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger' | 'success';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'outline';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
   style?: ViewStyle;
   testID?: string;
+  icon?: ReactNode;
 }
 
 export default function Button({
@@ -23,9 +24,11 @@ export default function Button({
   fullWidth = false,
   style,
   testID,
+  icon,
 }: ButtonProps) {
   const getBackgroundColor = () => {
     if (disabled) return '#CCCCCC';
+    if (variant === 'outline') return 'transparent';
     switch (variant) {
       case 'primary':
         return '#007AFF';
@@ -40,8 +43,16 @@ export default function Button({
     }
   };
 
+  const getBorderColor = () => {
+    if (variant === 'outline') {
+      return disabled ? '#CCCCCC' : '#007AFF';
+    }
+    return 'transparent';
+  };
+
   const getTextColor = () => {
     if (disabled) return '#999999';
+    if (variant === 'outline') return '#007AFF';
     return variant === 'secondary' ? '#1A1A1A' : '#FFFFFF';
   };
 
@@ -77,6 +88,8 @@ export default function Button({
         styles.button,
         {
           backgroundColor: getBackgroundColor(),
+          borderWidth: variant === 'outline' ? 2 : 0,
+          borderColor: getBorderColor(),
           ...getPadding(),
           width: fullWidth ? '100%' : undefined,
         },
@@ -89,9 +102,12 @@ export default function Button({
       {loading ? (
         <ActivityIndicator color={getTextColor()} />
       ) : (
-        <Text style={[styles.text, { color: getTextColor(), fontSize: getFontSize() }]}>
-          {title}
-        </Text>
+        <View style={styles.buttonContent}>
+          {icon && <View style={styles.iconContainer}>{icon}</View>}
+          <Text style={[styles.text, { color: getTextColor(), fontSize: getFontSize() }]}>
+            {title}
+          </Text>
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -102,6 +118,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+  },
+  buttonContent: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  iconContainer: {
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   text: {
     fontWeight: '600' as const,

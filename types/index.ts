@@ -155,6 +155,14 @@ export interface TenantRenter {
   updated_at: string;
 }
 
+export interface SignedDocument {
+  uri: string;
+  type: 'image' | 'pdf';
+  name: string;
+  size?: number;
+  uploadedAt: string;
+}
+
 export interface Lease {
   id: LeaseId;
   tenant_id: TenantId;
@@ -169,6 +177,9 @@ export interface Lease {
   status: LeaseStatus;
   terms?: string;
   signed_date?: string;
+  pdf_generated_uri?: string;
+  pdf_generated_at?: string;
+  signed_agreement?: SignedDocument;
   created_at: string;
   updated_at: string;
 }

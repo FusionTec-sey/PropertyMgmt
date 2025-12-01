@@ -31,7 +31,7 @@ Notifications.setNotificationHandler({
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { dashboardStats, currentTenant, properties, leases, maintenanceRequests, todos, updateTodo } = useApp();
+  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo } = useApp();
   const [requestingNotificationPermission, setRequestingNotificationPermission] = useState<boolean>(false);
 
   const StatCard = ({
@@ -64,7 +64,8 @@ export default function DashboardScreen() {
     return `₨${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
   };
 
-  const recentLeases = leases.slice(-3).reverse();
+  const draftLeases = leases.filter((l) => l.status === 'draft');
+  const recentLeases = leases.filter((l) => l.status !== 'draft').slice(-3).reverse();
   const urgentMaintenance = maintenanceRequests.filter(
     (m) => m.priority === 'urgent' || m.priority === 'high'
   ).slice(0, 3);
@@ -364,6 +365,70 @@ export default function DashboardScreen() {
               </View>
             )}
           </View>
+        </View>
+      )}
+
+      {draftLeases.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FileText size={20} color="#FF9500" />
+            <Text style={styles.sectionTitle}>Draft Leases</Text>
+          </View>
+          {draftLeases.map((lease) => {
+            const property = properties.find((p) => p.id === lease.property_id);
+            const unit = units.find((u) => u.id === lease.unit_id);
+            const tenant = tenantRenters.find((t) => t.id === lease.tenant_renter_id);
+            const tenantName = tenant
+              ? tenant.type === 'business'
+                ? tenant.business_name || 'Unnamed Business'
+                : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+              : 'Unknown';
+            
+            const hasGeneratedPDF = !!lease.pdf_generated_uri;
+            const hasSignedDoc = !!lease.signed_agreement;
+
+            return (
+              <TouchableOpacity
+                key={lease.id}
+                style={styles.draftLeaseCard}
+                onPress={() => router.push(`/lease/${lease.id}`)}
+              >
+                <View style={styles.leaseInfo}>
+                  <Text style={styles.leaseProperty}>{property?.name || 'Unknown'}</Text>
+                  <Text style={styles.leaseDetails}>
+                    {tenantName} • Unit {unit?.unit_number || 'N/A'}
+                  </Text>
+                  <Text style={styles.leaseAmount}>
+                    ₨{lease.rent_amount.toLocaleString()} SCR/month
+                  </Text>
+                </View>
+                <View style={styles.draftProgress}>
+                  <View style={styles.progressSteps}>
+                    <View style={[styles.progressStep, styles.progressStepComplete]}>
+                      <CheckCircle size={16} color="#34C759" />
+                    </View>
+                    <View style={[styles.progressStep, hasGeneratedPDF && styles.progressStepComplete]}>
+                      {hasGeneratedPDF ? (
+                        <CheckCircle size={16} color="#34C759" />
+                      ) : (
+                        <Circle size={16} color="#999" />
+                      )}
+                    </View>
+                    <View style={[styles.progressStep, hasSignedDoc && styles.progressStepComplete]}>
+                      {hasSignedDoc ? (
+                        <CheckCircle size={16} color="#34C759" />
+                      ) : (
+                        <Circle size={16} color="#999" />
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.progressText}>
+                    {hasSignedDoc ? 'Ready to finalize' : hasGeneratedPDF ? 'Upload signed copy' : 'Generate PDF'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
 
@@ -763,6 +828,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#FFF',
+  },
+  draftLeaseCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9500',
+  },
+  leaseAmount: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#34C759',
+    marginTop: 4,
+  },
+  draftProgress: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  progressSteps: {
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    gap: 16,
+    marginBottom: 8,
+  },
+  progressStep: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8F9FA',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  progressStepComplete: {
+    backgroundColor: '#E8F5E9',
+  },
+  progressText: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center' as const,
+    fontWeight: '500' as const,
   },
   addTaskButton: {
     marginLeft: 'auto' as const,
