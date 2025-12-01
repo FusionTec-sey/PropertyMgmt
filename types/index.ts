@@ -599,37 +599,93 @@ export interface UpcomingEvent {
 
 export type TenantApplicationId = string;
 export type TenantApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'withdrawn';
+export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed';
+
+export interface ApplicationDocument {
+  id: string;
+  type: 'id_document' | 'proof_of_income' | 'reference_letter' | 'bank_statement' | 'other';
+  name: string;
+  uri: string;
+  uploaded_at: string;
+}
 
 export interface TenantApplication {
   id: TenantApplicationId;
   tenant_id: TenantId;
   property_id: PropertyId;
-  unit_id: UnitId;
-  applicant_first_name: string;
-  applicant_last_name: string;
+  unit_id?: UnitId;
+  applicant_type: 'individual' | 'business';
+  applicant_first_name?: string;
+  applicant_last_name?: string;
+  business_name?: string;
   applicant_email: string;
   applicant_phone: string;
+  date_of_birth?: string;
+  id_type?: string;
+  id_number?: string;
   current_address?: string;
-  employment_status?: string;
+  employment_status?: 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'student';
   employer_name?: string;
+  job_title?: string;
+  employment_duration?: string;
   monthly_income?: number;
+  previous_address?: string;
   previous_landlord_name?: string;
   previous_landlord_phone?: string;
+  previous_landlord_email?: string;
+  reason_for_moving?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
+  emergency_contact_relationship?: string;
   number_of_occupants?: number;
+  occupant_names?: string[];
   has_pets?: boolean;
+  pet_type?: string;
+  pet_count?: number;
   pet_details?: string;
   desired_move_in_date?: string;
+  lease_duration_preference?: string;
   additional_notes?: string;
   status: TenantApplicationStatus;
   reviewed_by?: UserId;
   reviewed_at?: string;
   review_notes?: string;
-  documents?: string[];
-  credit_check_result?: 'pass' | 'fail' | 'pending';
-  background_check_result?: 'pass' | 'fail' | 'pending';
-  reference_check_result?: 'pass' | 'fail' | 'pending';
+  rejection_reason?: string;
+  documents: ApplicationDocument[];
+  credit_check_result?: 'pass' | 'fail' | 'pending' | 'not_required';
+  background_check_result?: 'pass' | 'fail' | 'pending' | 'not_required';
+  reference_check_result?: 'pass' | 'fail' | 'pending' | 'not_required';
+  credit_score?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingTask {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  completed_at?: string;
+  required: boolean;
+}
+
+export interface TenantOnboarding {
+  id: string;
+  tenant_id: TenantId;
+  application_id: TenantApplicationId;
+  tenant_renter_id?: TenantRenterId;
+  lease_id?: LeaseId;
+  status: OnboardingStatus;
+  tasks: OnboardingTask[];
+  documents_signed: boolean;
+  deposit_paid: boolean;
+  keys_handed_over: boolean;
+  orientation_completed: boolean;
+  utilities_setup: boolean;
+  insurance_verified: boolean;
+  welcome_kit_provided: boolean;
+  started_at: string;
+  completed_at?: string;
   created_at: string;
   updated_at: string;
 }
