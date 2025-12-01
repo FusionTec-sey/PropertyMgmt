@@ -4,7 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Tenant, User, Property, Unit, Renter, Lease, Payment,
   MaintenanceRequest, Document, Notification, TenantSettings,
-  ActivityLog, DashboardStats, TenantId
+  ActivityLog, DashboardStats, TenantId, MoveInChecklist,
+  PropertyItem, MaintenanceSchedule, Todo
 } from '@/types';
 
 const STORAGE_KEYS = {
@@ -22,6 +23,10 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: '@app/notifications',
   SETTINGS: '@app/settings',
   ACTIVITY_LOGS: '@app/activity_logs',
+  MOVE_IN_CHECKLISTS: '@app/move_in_checklists',
+  PROPERTY_ITEMS: '@app/property_items',
+  MAINTENANCE_SCHEDULES: '@app/maintenance_schedules',
+  TODOS: '@app/todos',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -41,6 +46,10 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettings] = useState<TenantSettings[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [moveInChecklists, setMoveInChecklists] = useState<MoveInChecklist[]>([]);
+  const [propertyItems, setPropertyItems] = useState<PropertyItem[]>([]);
+  const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -59,6 +68,10 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedNotifications,
         savedSettings,
         savedLogs,
+        savedMoveInChecklists,
+        savedPropertyItems,
+        savedMaintenanceSchedules,
+        savedTodos,
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
@@ -74,6 +87,10 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.SETTINGS),
         AsyncStorage.getItem(STORAGE_KEYS.ACTIVITY_LOGS),
+        AsyncStorage.getItem(STORAGE_KEYS.MOVE_IN_CHECKLISTS),
+        AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_ITEMS),
+        AsyncStorage.getItem(STORAGE_KEYS.MAINTENANCE_SCHEDULES),
+        AsyncStorage.getItem(STORAGE_KEYS.TODOS),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -90,6 +107,10 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
       if (savedSettings) setSettings(JSON.parse(savedSettings));
       if (savedLogs) setActivityLogs(JSON.parse(savedLogs));
+      if (savedMoveInChecklists) setMoveInChecklists(JSON.parse(savedMoveInChecklists));
+      if (savedPropertyItems) setPropertyItems(JSON.parse(savedPropertyItems));
+      if (savedMaintenanceSchedules) setMaintenanceSchedules(JSON.parse(savedMaintenanceSchedules));
+      if (savedTodos) setTodos(JSON.parse(savedTodos));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -300,7 +321,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.PAYMENTS, updated);
   }, [payments, saveData]);
 
-  const addMaintenanceRequest = useCallback(async (request: Omit<MaintenanceRequest, 'id' | 'created_at' | 'updated_at'>) => {
+  const addMaintenanceRequest = useCallback(async (request: Omit<MaintenanceRequest, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
     if (!currentTenant) return;
     
     const newRequest: MaintenanceRequest = {
@@ -339,6 +360,120 @@ export const [AppContext, useApp] = createContextHook(() => {
     return newNotification;
   }, [currentTenant, notifications, saveData]);
 
+  const addMoveInChecklist = useCallback(async (checklist: Omit<MoveInChecklist, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    if (!currentTenant) return;
+    
+    const newChecklist: MoveInChecklist = {
+      ...checklist,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...moveInChecklists, newChecklist];
+    setMoveInChecklists(updated);
+    await saveData(STORAGE_KEYS.MOVE_IN_CHECKLISTS, updated);
+    return newChecklist;
+  }, [currentTenant, moveInChecklists, saveData]);
+
+  const updateMoveInChecklist = useCallback(async (id: string, updates: Partial<MoveInChecklist>) => {
+    const updated = moveInChecklists.map(c => 
+      c.id === id ? { ...c, ...updates, updated_at: new Date().toISOString() } : c
+    );
+    setMoveInChecklists(updated);
+    await saveData(STORAGE_KEYS.MOVE_IN_CHECKLISTS, updated);
+  }, [moveInChecklists, saveData]);
+
+  const addPropertyItem = useCallback(async (item: Omit<PropertyItem, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    if (!currentTenant) return;
+    
+    const newItem: PropertyItem = {
+      ...item,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...propertyItems, newItem];
+    setPropertyItems(updated);
+    await saveData(STORAGE_KEYS.PROPERTY_ITEMS, updated);
+    return newItem;
+  }, [currentTenant, propertyItems, saveData]);
+
+  const updatePropertyItem = useCallback(async (id: string, updates: Partial<PropertyItem>) => {
+    const updated = propertyItems.map(i => 
+      i.id === id ? { ...i, ...updates, updated_at: new Date().toISOString() } : i
+    );
+    setPropertyItems(updated);
+    await saveData(STORAGE_KEYS.PROPERTY_ITEMS, updated);
+  }, [propertyItems, saveData]);
+
+  const deletePropertyItem = useCallback(async (id: string) => {
+    const updated = propertyItems.filter(i => i.id !== id);
+    setPropertyItems(updated);
+    await saveData(STORAGE_KEYS.PROPERTY_ITEMS, updated);
+  }, [propertyItems, saveData]);
+
+  const addMaintenanceSchedule = useCallback(async (schedule: Omit<MaintenanceSchedule, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    if (!currentTenant) return;
+    
+    const newSchedule: MaintenanceSchedule = {
+      ...schedule,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...maintenanceSchedules, newSchedule];
+    setMaintenanceSchedules(updated);
+    await saveData(STORAGE_KEYS.MAINTENANCE_SCHEDULES, updated);
+    return newSchedule;
+  }, [currentTenant, maintenanceSchedules, saveData]);
+
+  const updateMaintenanceSchedule = useCallback(async (id: string, updates: Partial<MaintenanceSchedule>) => {
+    const updated = maintenanceSchedules.map(s => 
+      s.id === id ? { ...s, ...updates, updated_at: new Date().toISOString() } : s
+    );
+    setMaintenanceSchedules(updated);
+    await saveData(STORAGE_KEYS.MAINTENANCE_SCHEDULES, updated);
+  }, [maintenanceSchedules, saveData]);
+
+  const deleteMaintenanceSchedule = useCallback(async (id: string) => {
+    const updated = maintenanceSchedules.filter(s => s.id !== id);
+    setMaintenanceSchedules(updated);
+    await saveData(STORAGE_KEYS.MAINTENANCE_SCHEDULES, updated);
+  }, [maintenanceSchedules, saveData]);
+
+  const addTodo = useCallback(async (todo: Omit<Todo, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    if (!currentTenant) return;
+    
+    const newTodo: Todo = {
+      ...todo,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...todos, newTodo];
+    setTodos(updated);
+    await saveData(STORAGE_KEYS.TODOS, updated);
+    return newTodo;
+  }, [currentTenant, todos, saveData]);
+
+  const updateTodo = useCallback(async (id: string, updates: Partial<Todo>) => {
+    const updated = todos.map(t => 
+      t.id === id ? { ...t, ...updates, updated_at: new Date().toISOString() } : t
+    );
+    setTodos(updated);
+    await saveData(STORAGE_KEYS.TODOS, updated);
+  }, [todos, saveData]);
+
+  const deleteTodo = useCallback(async (id: string) => {
+    const updated = todos.filter(t => t.id !== id);
+    setTodos(updated);
+    await saveData(STORAGE_KEYS.TODOS, updated);
+  }, [todos, saveData]);
+
   const tenantProperties = useMemo(() => 
     properties.filter(p => p.tenant_id === currentTenant?.id),
     [properties, currentTenant]
@@ -372,6 +507,26 @@ export const [AppContext, useApp] = createContextHook(() => {
   const tenantNotifications = useMemo(() => 
     notifications.filter(n => n.tenant_id === currentTenant?.id),
     [notifications, currentTenant]
+  );
+
+  const tenantMoveInChecklists = useMemo(() => 
+    moveInChecklists.filter(c => c.tenant_id === currentTenant?.id),
+    [moveInChecklists, currentTenant]
+  );
+
+  const tenantPropertyItems = useMemo(() => 
+    propertyItems.filter(i => i.tenant_id === currentTenant?.id),
+    [propertyItems, currentTenant]
+  );
+
+  const tenantMaintenanceSchedules = useMemo(() => 
+    maintenanceSchedules.filter(s => s.tenant_id === currentTenant?.id),
+    [maintenanceSchedules, currentTenant]
+  );
+
+  const tenantTodos = useMemo(() => 
+    todos.filter(t => t.tenant_id === currentTenant?.id),
+    [todos, currentTenant]
   );
 
   const dashboardStats = useMemo((): DashboardStats => {
@@ -423,6 +578,10 @@ export const [AppContext, useApp] = createContextHook(() => {
     payments: tenantPayments,
     maintenanceRequests: tenantMaintenance,
     notifications: tenantNotifications,
+    moveInChecklists: tenantMoveInChecklists,
+    propertyItems: tenantPropertyItems,
+    maintenanceSchedules: tenantMaintenanceSchedules,
+    todos: tenantTodos,
     dashboardStats,
     addProperty,
     updateProperty,
@@ -438,5 +597,16 @@ export const [AppContext, useApp] = createContextHook(() => {
     addMaintenanceRequest,
     updateMaintenanceRequest,
     addNotification,
+    addMoveInChecklist,
+    updateMoveInChecklist,
+    addPropertyItem,
+    updatePropertyItem,
+    deletePropertyItem,
+    addMaintenanceSchedule,
+    updateMaintenanceSchedule,
+    deleteMaintenanceSchedule,
+    addTodo,
+    updateTodo,
+    deleteTodo,
   };
 });

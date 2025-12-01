@@ -1,6 +1,6 @@
 // template
 import { Tabs } from "expo-router";
-import { Home, Building2, Users, DollarSign, Settings, Home as HomeIcon, FileText } from "lucide-react-native";
+import { Home, Building2, Users, DollarSign, Settings, Home as HomeIcon, FileText, Wrench, CheckSquare } from "lucide-react-native";
 import React from "react";
 
 export default function TabLayout() {
@@ -56,6 +56,20 @@ export default function TabLayout() {
         options={{
           title: "Payments",
           tabBarIcon: ({ color }) => <DollarSign size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="maintenance"
+        options={{
+          title: "Maintenance",
+          tabBarIcon: ({ color }) => <Wrench size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="todos"
+        options={{
+          title: "To-Do",
+          tabBarIcon: ({ color }) => <CheckSquare size={24} color={color} />,
         }}
       />
       <Tabs.Screen

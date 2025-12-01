@@ -11,6 +11,10 @@ export type NotificationId = string;
 export type RoleId = string;
 export type PermissionId = string;
 export type SubscriptionId = string;
+export type MoveInChecklistId = string;
+export type PropertyItemId = string;
+export type MaintenanceScheduleId = string;
+export type TodoId = string;
 
 export type UserRole = 'owner' | 'manager' | 'accountant' | 'maintenance' | 'viewer';
 
@@ -278,4 +282,96 @@ export interface DashboardStats {
   overdue_payments: number;
   total_revenue_month: number;
   open_maintenance: number;
+}
+
+export interface MoveInChecklistItem {
+  id: string;
+  name: string;
+  category: 'general' | 'kitchen' | 'bathroom' | 'bedroom' | 'living' | 'other';
+  checked: boolean;
+  notes?: string;
+  condition?: 'excellent' | 'good' | 'fair' | 'poor' | 'damaged';
+  images?: string[];
+}
+
+export interface MoveInChecklist {
+  id: MoveInChecklistId;
+  tenant_id: TenantId;
+  renter_id: RenterId;
+  unit_id: UnitId;
+  lease_id?: LeaseId;
+  items: MoveInChecklistItem[];
+  overall_condition: 'excellent' | 'good' | 'fair' | 'poor';
+  damage_images?: string[];
+  completed: boolean;
+  completed_date?: string;
+  renter_signature?: string;
+  owner_signature?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PropertyItem {
+  id: PropertyItemId;
+  tenant_id: TenantId;
+  property_id: PropertyId;
+  unit_id?: UnitId;
+  name: string;
+  category: 'appliance' | 'furniture' | 'fixture' | 'accessory' | 'other';
+  quantity: number;
+  condition: 'new' | 'excellent' | 'good' | 'fair' | 'poor';
+  purchase_date?: string;
+  warranty_expiry?: string;
+  value?: number;
+  serial_number?: string;
+  model_number?: string;
+  images?: string[];
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MaintenanceScheduleFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'semi-annual' | 'annual';
+
+export interface MaintenanceSchedule {
+  id: MaintenanceScheduleId;
+  tenant_id: TenantId;
+  property_id: PropertyId;
+  unit_id?: UnitId;
+  asset_name: string;
+  asset_type: 'hvac' | 'plumbing' | 'electrical' | 'appliance' | 'structure' | 'other';
+  task_description: string;
+  frequency: MaintenanceScheduleFrequency;
+  last_service_date?: string;
+  next_service_date: string;
+  assigned_to?: UserId;
+  service_provider?: string;
+  estimated_cost?: number;
+  priority: 'low' | 'medium' | 'high';
+  is_active: boolean;
+  reminder_days_before?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TodoPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface Todo {
+  id: TodoId;
+  tenant_id: TenantId;
+  user_id?: UserId;
+  title: string;
+  description?: string;
+  priority: TodoPriority;
+  status: TodoStatus;
+  due_date?: string;
+  completed_date?: string;
+  category?: 'general' | 'maintenance' | 'lease' | 'payment' | 'inspection' | 'other';
+  related_to_type?: 'property' | 'unit' | 'renter' | 'lease' | 'maintenance' | 'payment';
+  related_to_id?: string;
+  created_at: string;
+  updated_at: string;
 }
