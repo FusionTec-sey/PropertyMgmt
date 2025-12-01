@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
-import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye, Send, RefreshCw, Receipt } from 'lucide-react-native';
+import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye, Send, RefreshCw, Receipt, TrendingDown } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
-import { Payment, PaymentCurrency, Invoice } from '@/types';
+import { Payment, PaymentCurrency, Invoice, Expense, ExpenseCategory, ExpensePaidBy, ExpenseStatus } from '@/types';
 import * as DocumentPicker from 'expo-document-picker';
 import { CURRENCIES, DEFAULT_CURRENCY, getCurrencySymbol } from '@/constants/currencies';
 import { generateInvoiceNumber, generateInvoiceData, generateMonthlyInvoiceDate, shouldGenerateInvoice, shareInvoicePDF } from '@/utils/invoiceGenerator';
@@ -32,7 +32,7 @@ export default function PaymentsScreen() {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [invoiceModalVisible, setInvoiceModalVisible] = useState<boolean>(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [activeTab, setActiveTab] = useState<'payments' | 'invoices'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'invoices' | 'expenses'>('payments');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [formData, setFormData] = useState({
     lease_id: '',
@@ -596,6 +596,14 @@ export default function PaymentsScreen() {
         >
           <Receipt size={20} color={activeTab === 'invoices' ? '#007AFF' : '#666'} />
           <Text style={[styles.tabText, activeTab === 'invoices' && styles.tabTextActive]}>Invoices</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'expenses' && styles.tabActive]}
+          onPress={() => setActiveTab('expenses')}
+          testID="tab-expenses"
+        >
+          <TrendingDown size={20} color={activeTab === 'expenses' ? '#007AFF' : '#666'} />
+          <Text style={[styles.tabText, activeTab === 'expenses' && styles.tabTextActive]}>Expenses</Text>
         </TouchableOpacity>
       </View>
 

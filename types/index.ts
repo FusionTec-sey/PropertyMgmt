@@ -807,6 +807,7 @@ export interface PropertyInspection {
 
 export type TenantMessageId = string;
 export type ReceiptId = string;
+export type ExpenseId = string;
 
 export interface TenantMessage {
   id: TenantMessageId;
@@ -844,4 +845,59 @@ export interface Receipt {
   auto_generated: boolean;
   generated_at: string;
   created_at: string;
+}
+
+export type ExpenseCategory = 
+  | 'maintenance'
+  | 'repairs'
+  | 'utilities'
+  | 'insurance'
+  | 'taxes'
+  | 'legal'
+  | 'marketing'
+  | 'cleaning'
+  | 'landscaping'
+  | 'supplies'
+  | 'tenant_reimbursement'
+  | 'other';
+
+export type ExpensePaidBy = 'landlord' | 'tenant' | 'deducted_from_deposit';
+export type ExpenseStatus = 'pending' | 'approved' | 'paid' | 'reimbursed' | 'rejected';
+
+export interface ExpenseAttachment {
+  uri: string;
+  type: 'image' | 'pdf';
+  name: string;
+  size?: number;
+  uploadedAt: string;
+}
+
+export interface Expense {
+  id: ExpenseId;
+  tenant_id: TenantId;
+  property_id: PropertyId;
+  unit_id?: UnitId;
+  tenant_renter_id?: TenantRenterId;
+  lease_id?: LeaseId;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  currency: PaymentCurrency;
+  expense_date: string;
+  paid_by: ExpensePaidBy;
+  status: ExpenseStatus;
+  payment_method?: 'cash' | 'cheque' | 'bank_transfer' | 'credit_card';
+  reference_number?: string;
+  vendor_name?: string;
+  vendor_contact?: string;
+  notes?: string;
+  is_recurring?: boolean;
+  recurring_frequency?: 'monthly' | 'quarterly' | 'annually';
+  next_occurrence?: string;
+  receipts?: ExpenseAttachment[];
+  reimbursement_status?: 'pending' | 'completed';
+  reimbursement_date?: string;
+  created_by: UserId;
+  created_at: string;
+  updated_at: string;
 }
