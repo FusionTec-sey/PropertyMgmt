@@ -49,12 +49,14 @@ const STORAGE_KEYS = {
   TENANT_APPLICATIONS: '@app/tenant_applications',
   TENANT_ONBOARDINGS: '@app/tenant_onboardings',
   PROPERTY_INSPECTIONS: '@app/property_inspections',
+  BUSINESS_LOGO: '@app/business_logo',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [staffUsers, setStaffUsers] = useState<User[]>([]);
@@ -143,14 +145,16 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedInventoryHistory) setInventoryHistory(JSON.parse(savedInventoryHistory));
       if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
       if (savedBusinessDocuments) setBusinessDocuments(JSON.parse(savedBusinessDocuments));
-      const [savedTenantApplications, savedTenantOnboardings, savedPropertyInspections] = await Promise.all([
+      const [savedTenantApplications, savedTenantOnboardings, savedPropertyInspections, savedBusinessLogo] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
+        AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_LOGO),
       ]);
       if (savedTenantApplications) setTenantApplications(JSON.parse(savedTenantApplications));
       if (savedTenantOnboardings) setTenantOnboardings(JSON.parse(savedTenantOnboardings));
       if (savedPropertyInspections) setPropertyInspections(JSON.parse(savedPropertyInspections));
+      if (savedBusinessLogo) setBusinessLogo(savedBusinessLogo);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -1029,6 +1033,15 @@ export const [AppContext, useApp] = createContextHook(() => {
     }
   }, [staffUsers, currentTenant, currentUser, activityLogs, saveData]);
 
+  const updateBusinessLogo = useCallback(async (logoUri: string | null) => {
+    setBusinessLogo(logoUri);
+    if (logoUri) {
+      await saveData(STORAGE_KEYS.BUSINESS_LOGO, logoUri);
+    } else {
+      await AsyncStorage.removeItem(STORAGE_KEYS.BUSINESS_LOGO);
+    }
+  }, [saveData]);
+
   const tenantProperties = useMemo(() => 
     properties.filter(p => p.tenant_id === currentTenant?.id),
     [properties, currentTenant]
@@ -1234,5 +1247,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     addPropertyInspection,
     updatePropertyInspection,
     deletePropertyInspection,
+    businessLogo,
+    updateBusinessLogo,
   };
 });

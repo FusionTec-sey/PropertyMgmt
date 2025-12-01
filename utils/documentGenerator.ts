@@ -300,9 +300,10 @@ export async function generateCompleteTenancyPDF(
   unit: Unit,
   tenant: TenantRenter,
   checklist?: MoveInChecklist,
-  inventoryItems?: PropertyItem[]
+  inventoryItems?: PropertyItem[],
+  businessLogo?: string | null
 ): Promise<string> {
-  const html = generateCompleteTenancyDocument(lease, property, unit, tenant, checklist, inventoryItems);
+  const html = generateCompleteTenancyDocument(lease, property, unit, tenant, checklist, inventoryItems, businessLogo);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   return uri;
 }
@@ -313,9 +314,10 @@ export async function shareCompleteTenancyPDF(
   unit: Unit,
   tenant: TenantRenter,
   checklist?: MoveInChecklist,
-  inventoryItems?: PropertyItem[]
+  inventoryItems?: PropertyItem[],
+  businessLogo?: string | null
 ): Promise<void> {
-  const pdfUri = await generateCompleteTenancyPDF(lease, property, unit, tenant, checklist, inventoryItems);
+  const pdfUri = await generateCompleteTenancyPDF(lease, property, unit, tenant, checklist, inventoryItems, businessLogo);
   
   if (Platform.OS !== 'web') {
     const isAvailable = await Sharing.isAvailableAsync();
@@ -335,7 +337,8 @@ export function generateCompleteTenancyDocument(
   unit: Unit,
   tenant: TenantRenter,
   checklist?: MoveInChecklist,
-  inventoryItems?: PropertyItem[]
+  inventoryItems?: PropertyItem[],
+  businessLogo?: string | null
 ): string {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', { 
@@ -485,6 +488,12 @@ export function generateCompleteTenancyDocument(
   const inventoryHTML = inventoryItems && inventoryItems.length > 0 
     ? generateInventoryHTML(inventoryItems) 
     : '';
+
+  const logoHTML = businessLogo ? `
+    <div style="text-align: center; margin-bottom: 30px;">
+      <img src="${businessLogo}" style="max-width: 200px; max-height: 100px; object-fit: contain;" alt="Business Logo" />
+    </div>
+  ` : '';
 
   return `
     <!DOCTYPE html>
@@ -673,6 +682,7 @@ export function generateCompleteTenancyDocument(
         </style>
       </head>
       <body>
+        ${logoHTML}
         ${agreementText}
         ${checklistHTML}
         ${inventoryHTML}

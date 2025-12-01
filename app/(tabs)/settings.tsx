@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
-import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image } from 'react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import type { UserRole, UserPermissions } from '@/types';
 import Modal from '@/components/Modal';
+import { showPhotoOptions } from '@/components/PhotoPicker';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { currentTenant, currentUser, logout, staffUsers, addStaffUser, updateStaffUser, deleteStaffUser } = useApp();
+  const { currentTenant, currentUser, logout, staffUsers, addStaffUser, updateStaffUser, deleteStaffUser, businessLogo, updateBusinessLogo } = useApp();
   
   const [showAddStaffModal, setShowAddStaffModal] = useState<boolean>(false);
   const [showEditStaffModal, setShowEditStaffModal] = useState<boolean>(false);
@@ -138,6 +139,70 @@ export default function SettingsScreen() {
       <View style={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Business Information</Text>
+          
+          <View style={styles.card}>
+            <Text style={styles.label}>Business Logo</Text>
+            {businessLogo ? (
+              <View style={styles.logoContainer}>
+                <Image source={{ uri: businessLogo }} style={styles.logoImage} />
+                <View style={styles.logoActions}>
+                  <TouchableOpacity
+                    style={styles.changeLogoButton}
+                    onPress={() => {
+                      showPhotoOptions((uri: string) => {
+                        updateBusinessLogo(uri);
+                        Alert.alert('Success', 'Business logo updated successfully');
+                      });
+                    }}
+                    testID="change-logo-button"
+                  >
+                    <Upload size={16} color="#007AFF" />
+                    <Text style={styles.changeLogoText}>Change</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeLogoButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'Remove Logo',
+                        'Are you sure you want to remove the business logo?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Remove',
+                            style: 'destructive',
+                            onPress: () => {
+                              updateBusinessLogo(null);
+                              Alert.alert('Success', 'Business logo removed');
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    testID="remove-logo-button"
+                  >
+                    <X size={16} color="#FF3B30" />
+                    <Text style={styles.removeLogoText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.uploadLogoButton}
+                onPress={() => {
+                  showPhotoOptions((uri: string) => {
+                    updateBusinessLogo(uri);
+                    Alert.alert('Success', 'Business logo added successfully');
+                  });
+                }}
+                testID="upload-logo-button"
+              >
+                <Upload size={24} color="#007AFF" />
+                <Text style={styles.uploadLogoText}>Upload Logo</Text>
+                <Text style={styles.uploadLogoSubtext}>Add your business logo to appear on documents</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           <View style={styles.card}>
             <Text style={styles.label}>Business Name</Text>
             <Text style={styles.value}>{currentTenant?.name || 'N/A'}</Text>
@@ -831,5 +896,69 @@ const styles = StyleSheet.create({
   managementSubtitle: {
     fontSize: 13,
     color: '#666',
+  },
+  logoContainer: {
+    marginTop: 12,
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    marginBottom: 12,
+  },
+  logoActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  changeLogoButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#007AFF15',
+    borderRadius: 6,
+  },
+  changeLogoText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  removeLogoButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FF3B3015',
+    borderRadius: 6,
+  },
+  removeLogoText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#FF3B30',
+  },
+  uploadLogoButton: {
+    marginTop: 12,
+    padding: 24,
+    borderWidth: 2,
+    borderStyle: 'dashed' as const,
+    borderColor: '#007AFF',
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    backgroundColor: '#F0F8FF',
+  },
+  uploadLogoText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+    marginTop: 8,
+  },
+  uploadLogoSubtext: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center' as const,
   },
 });

@@ -161,12 +161,18 @@ export function formatInvoiceHTML(
   tenantRenter: TenantRenter,
   property: Property,
   unit: Unit,
-  landlordInfo: { name: string; address?: string; email?: string; phone?: string }
+  landlordInfo: { name: string; address?: string; email?: string; phone?: string; logo?: string | null }
 ): string {
   const currencySymbol = getCurrencySymbol(invoice.currency);
   const tenantName = tenantRenter.type === 'business' 
     ? tenantRenter.business_name 
     : `${tenantRenter.first_name} ${tenantRenter.last_name}`;
+
+  const logoHTML = landlordInfo.logo ? `
+    <div style="text-align: center; margin-bottom: 20px;">
+      <img src="${landlordInfo.logo}" style="max-width: 150px; max-height: 80px; object-fit: contain;" alt="Logo" />
+    </div>
+  ` : '';
 
   return `
 <!DOCTYPE html>
@@ -209,6 +215,7 @@ export function formatInvoiceHTML(
 </head>
 <body>
   <div class="invoice">
+    ${logoHTML}
     <div class="header">
       <div>
         <h1>INVOICE</h1>
@@ -350,7 +357,7 @@ export async function generateInvoicePDF(
   tenantRenter: TenantRenter,
   property: Property,
   unit: Unit,
-  landlordInfo: { name: string; address?: string; email?: string; phone?: string }
+  landlordInfo: { name: string; address?: string; email?: string; phone?: string; logo?: string | null }
 ): Promise<string> {
   const htmlContent = formatInvoiceHTML(invoice, tenantRenter, property, unit, landlordInfo);
   
@@ -375,7 +382,7 @@ export async function shareInvoicePDF(
   tenantRenter: TenantRenter,
   property: Property,
   unit: Unit,
-  landlordInfo: { name: string; address?: string; email?: string; phone?: string }
+  landlordInfo: { name: string; address?: string; email?: string; phone?: string; logo?: string | null }
 ): Promise<void> {
   try {
     const pdfUri = await generateInvoicePDF(invoice, tenantRenter, property, unit, landlordInfo);
