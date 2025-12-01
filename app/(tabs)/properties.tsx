@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle } from 'lucide-react-native';
+import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Property, Unit, PropertyType, ParkingSpot } from '@/types';
 import Button from '@/components/Button';
@@ -9,16 +9,20 @@ import Modal from '@/components/Modal';
 import Input from '@/components/Input';
 import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
+import PhotoGallery from '@/components/PhotoGallery';
+import { showPhotoOptions } from '@/components/PhotoPicker';
 
 export default function PropertiesScreen() {
   const { properties, units, addProperty, updateProperty, deleteProperty, addUnit, updateUnit } = useApp();
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [unitModalVisible, setUnitModalVisible] = useState<boolean>(false);
   const [parkingModalVisible, setParkingModalVisible] = useState<boolean>(false);
+  const [photosModalVisible, setPhotosModalVisible] = useState<boolean>(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
+  const [editingPhotosFor, setEditingPhotosFor] = useState<'property' | 'unit' | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -197,6 +201,50 @@ export default function PropertiesScreen() {
     setParkingModalVisible(true);
   };
 
+  const handleManagePropertyPhotos = (property: Property) => {
+    setEditingProperty(property);
+    setEditingPhotosFor('property');
+    setPhotosModalVisible(true);
+  };
+
+  const handleManageUnitPhotos = (unit: Unit) => {
+    setEditingUnit(unit);
+    setEditingPhotosFor('unit');
+    setPhotosModalVisible(true);
+  };
+
+  const handleAddPhoto = () => {
+    showPhotoOptions((uri: string) => {
+      if (editingPhotosFor === 'property' && editingProperty) {
+        const currentPhotos = editingProperty.images || [];
+        updateProperty(editingProperty.id, {
+          images: [...currentPhotos, uri],
+        });
+      } else if (editingPhotosFor === 'unit' && editingUnit) {
+        const currentPhotos = editingUnit.images || [];
+        updateUnit(editingUnit.id, {
+          images: [...currentPhotos, uri],
+        });
+      }
+    });
+  };
+
+  const handleDeletePhoto = (index: number) => {
+    if (editingPhotosFor === 'property' && editingProperty) {
+      const currentPhotos = editingProperty.images || [];
+      const updatedPhotos = currentPhotos.filter((_, i) => i !== index);
+      updateProperty(editingProperty.id, {
+        images: updatedPhotos,
+      });
+    } else if (editingPhotosFor === 'unit' && editingUnit) {
+      const currentPhotos = editingUnit.images || [];
+      const updatedPhotos = currentPhotos.filter((_, i) => i !== index);
+      updateUnit(editingUnit.id, {
+        images: updatedPhotos,
+      });
+    }
+  };
+
   const handleAddParkingSpot = () => {
     if (!parkingFormData.spot_number) {
       Alert.alert('Error', 'Please enter a spot number');
@@ -276,7 +324,22 @@ export default function PropertiesScreen() {
         </Text>
       </View>
 
+      {unit.images && unit.images.length > 0 && (
+        <View style={styles.unitPhotosPreview}>
+          <ImageIcon size={14} color="#666" />
+          <Text style={styles.unitPhotosText}>{unit.images.length} photo{unit.images.length > 1 ? 's' : ''}</Text>
+        </View>
+      )}
+
       <View style={styles.unitActions}>
+        <TouchableOpacity
+          style={styles.unitActionButton}
+          onPress={() => handleManageUnitPhotos(unit)}
+          testID={`photos-unit-${unit.id}`}
+        >
+          <ImageIcon size={16} color="#007AFF" />
+          <Text style={styles.unitActionText}>Photos</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.unitActionButton}
           onPress={() => handleEditUnit(unit)}
@@ -354,6 +417,14 @@ export default function PropertiesScreen() {
               >
                 <Plus size={16} color="#007AFF" />
                 <Text style={styles.actionText}>Add Unit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleManagePropertyPhotos(item)}
+                testID={`photos-property-${item.id}`}
+              >
+                <ImageIcon size={16} color="#007AFF" />
+                <Text style={styles.actionText}>Photos</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
@@ -729,6 +800,45 @@ export default function PropertiesScreen() {
           </View>
         </ScrollView>
       </Modal>
+
+      <Modal
+        visible={photosModalVisible}
+        onClose={() => {
+          setPhotosModalVisible(false);
+          setEditingPhotosFor(null);
+          setEditingProperty(null);
+          setEditingUnit(null);
+        }}
+        title={editingPhotosFor === 'property' 
+          ? `Photos - ${editingProperty?.name}` 
+          : `Photos - Unit ${editingUnit?.unit_number}`}
+        testID="photos-modal"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <PhotoGallery
+            photos={editingPhotosFor === 'property' 
+              ? (editingProperty?.images || []) 
+              : (editingUnit?.images || [])}
+            onAddPhoto={handleAddPhoto}
+            onDeletePhoto={handleDeletePhoto}
+            editable
+            maxPhotos={20}
+            testID="property-photo-gallery"
+          />
+          
+          {((editingPhotosFor === 'property' && (!editingProperty?.images || editingProperty.images.length === 0)) ||
+            (editingPhotosFor === 'unit' && (!editingUnit?.images || editingUnit.images.length === 0))) && (
+            <EmptyState
+              icon={ImageIcon}
+              title="No Photos"
+              message="Add photos to showcase this space"
+              actionLabel="Add Photo"
+              onAction={handleAddPhoto}
+              testID="photos-empty"
+            />
+          )}
+        </ScrollView>
+      </Modal>
     </View>
   );
 }
@@ -1027,5 +1137,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     marginTop: 8,
+  },
+  unitPhotosPreview: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    marginBottom: 8,
+  },
+  unitPhotosText: {
+    fontSize: 13,
+    color: '#666',
   },
 });

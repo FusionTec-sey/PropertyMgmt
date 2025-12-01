@@ -137,6 +137,7 @@ export interface Unit {
   description?: string;
   amenities?: string[];
   assigned_parking?: string[];
+  images?: string[];
   created_at: string;
   updated_at: string;
 }
