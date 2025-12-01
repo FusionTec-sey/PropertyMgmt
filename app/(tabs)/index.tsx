@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { 
   Building2, 
   Home, 
@@ -13,6 +13,11 @@ import {
   Clock,
   Bell,
   Plus,
+  TrendingUp,
+  ArrowRight,
+  Wrench,
+  Receipt,
+  Package,
 } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'expo-router';
@@ -31,32 +36,36 @@ Notifications.setNotificationHandler({
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo } = useApp();
+  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo, payments } = useApp();
   const [requestingNotificationPermission, setRequestingNotificationPermission] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const StatCard = ({
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setRefreshing(false);
+  };
+
+  const QuickActionCard = ({
     icon: Icon,
     title,
-    value,
     color,
     onPress,
   }: {
     icon: any;
     title: string;
-    value: string | number;
     color: string;
-    onPress?: () => void;
+    onPress: () => void;
   }) => (
     <TouchableOpacity
-      style={styles.statCard}
+      style={styles.quickAction}
       onPress={onPress}
-      disabled={!onPress}
+      activeOpacity={0.7}
     >
-      <View style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
+      <View style={[styles.quickActionIcon, { backgroundColor: `${color}20` }]}>
         <Icon size={24} color={color} />
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statTitle}>{title}</Text>
+      <Text style={styles.quickActionTitle}>{title}</Text>
     </TouchableOpacity>
   );
 
@@ -260,7 +269,16 @@ export default function DashboardScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#007AFF"
+        />
+      }
+    >
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Welcome back</Text>
@@ -268,73 +286,175 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <View style={styles.statsGrid}>
-        <StatCard
-          icon={Building2}
-          title="Properties"
-          value={dashboardStats.total_properties}
-          color="#007AFF"
-          onPress={() => router.push('/(tabs)/properties')}
-        />
-        <StatCard
-          icon={Home}
-          title="Total Units"
-          value={dashboardStats.total_units}
-          color="#34C759"
-        />
-        <StatCard
-          icon={Home}
-          title="Occupied"
-          value={dashboardStats.occupied_units}
-          color="#5856D6"
-        />
-        <StatCard
-          icon={Home}
-          title="Available"
-          value={dashboardStats.available_units}
-          color="#FF9500"
-        />
-        <StatCard
-          icon={Users}
-          title="Tenants"
-          value={dashboardStats.total_tenant_renters}
-          color="#FF2D55"
-          onPress={() => router.push('/(tabs)/tenants')}
-        />
-        <StatCard
-          icon={FileText}
-          title="Active Leases"
-          value={dashboardStats.active_leases}
-          color="#00C7BE"
-        />
-      </View>
+      <View style={styles.metricsSection}>
+        <View style={styles.metricRow}>
+          <TouchableOpacity 
+            style={[styles.metricCard, styles.primaryMetric]}
+            onPress={() => router.push('/(tabs)/properties')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.metricHeader}>
+              <View style={styles.metricIconContainer}>
+                <Building2 size={28} color="#007AFF" />
+              </View>
+              <TrendingUp size={18} color="#34C759" />
+            </View>
+            <Text style={styles.metricValue}>{dashboardStats.total_properties}</Text>
+            <Text style={styles.metricLabel}>Properties</Text>
+            <View style={styles.metricDetails}>
+              <View style={styles.metricDetailItem}>
+                <Home size={14} color="#666" />
+                <Text style={styles.metricDetailText}>{dashboardStats.total_units} units</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <DollarSign size={20} color="#007AFF" />
-          <Text style={styles.sectionTitle}>Revenue</Text>
-        </View>
-        <View style={styles.revenueCard}>
-          <Text style={styles.revenueLabel}>This Month</Text>
-          <Text style={styles.revenueValue}>
-            {formatCurrency(dashboardStats.total_revenue_month)}
-          </Text>
-          <View style={styles.paymentStats}>
-            <View style={styles.paymentStat}>
-              <View style={[styles.dot, { backgroundColor: '#FF9500' }]} />
-              <Text style={styles.paymentStatText}>
-                Pending: {dashboardStats.pending_payments}
-              </Text>
-            </View>
-            <View style={styles.paymentStat}>
-              <View style={[styles.dot, { backgroundColor: '#FF3B30' }]} />
-              <Text style={styles.paymentStatText}>
-                Overdue: {dashboardStats.overdue_payments}
-              </Text>
-            </View>
+          <View style={styles.metricColumn}>
+            <TouchableOpacity 
+              style={[styles.metricCard, styles.secondaryMetric]}
+              activeOpacity={0.8}
+            >
+              <View style={styles.metricIconContainer}>
+                <Home size={22} color="#34C759" />
+              </View>
+              <Text style={styles.metricValue}>{dashboardStats.occupied_units}</Text>
+              <Text style={styles.metricLabel}>Occupied</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.metricCard, styles.secondaryMetric]}
+              activeOpacity={0.8}
+            >
+              <View style={styles.metricIconContainer}>
+                <Home size={22} color="#FF9500" />
+              </View>
+              <Text style={styles.metricValue}>{dashboardStats.available_units}</Text>
+              <Text style={styles.metricLabel}>Available</Text>
+            </TouchableOpacity>
           </View>
         </View>
+
+        <View style={styles.metricRow}>
+          <TouchableOpacity 
+            style={[styles.metricCard, styles.wideMetric]}
+            onPress={() => router.push('/(tabs)/tenants')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.metricIconContainer}>
+              <Users size={24} color="#5856D6" />
+            </View>
+            <Text style={styles.metricValue}>{dashboardStats.total_tenant_renters}</Text>
+            <Text style={styles.metricLabel}>Active Tenants</Text>
+            <View style={styles.metricFooter}>
+              <Text style={styles.metricSubtext}>{dashboardStats.active_leases} leases</Text>
+              <ArrowRight size={14} color="#5856D6" />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.metricCard, styles.wideMetric]}
+            onPress={() => router.push('/(tabs)/payments')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.metricIconContainer}>
+              <DollarSign size={24} color="#34C759" />
+            </View>
+            <Text style={styles.metricValue}>{formatCurrency(dashboardStats.total_revenue_month)}</Text>
+            <Text style={styles.metricLabel}>This Month</Text>
+            <View style={styles.metricFooter}>
+              <Text style={styles.metricSubtext}>Revenue</Text>
+              <ArrowRight size={14} color="#34C759" />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <View style={styles.quickActionsSection}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickActionsGrid}>
+          <QuickActionCard
+            icon={Plus}
+            title="Add Property"
+            color="#007AFF"
+            onPress={() => router.push('/(tabs)/properties')}
+          />
+          <QuickActionCard
+            icon={Users}
+            title="Add Tenant"
+            color="#5856D6"
+            onPress={() => router.push('/(tabs)/tenants')}
+          />
+          <QuickActionCard
+            icon={Wrench}
+            title="Maintenance"
+            color="#FF9500"
+            onPress={() => router.push('/(tabs)/maintenance')}
+          />
+          <QuickActionCard
+            icon={Receipt}
+            title="Payments"
+            color="#34C759"
+            onPress={() => router.push('/(tabs)/payments')}
+          />
+          <QuickActionCard
+            icon={FileText}
+            title="Documents"
+            color="#FF2D55"
+            onPress={() => router.push('/(tabs)/documents')}
+          />
+          <QuickActionCard
+            icon={Package}
+            title="Inventory"
+            color="#00C7BE"
+            onPress={() => {
+              if (properties.length > 0) {
+                router.push(`/inventory/${properties[0].id}` as any);
+              } else {
+                Alert.alert('No Properties', 'Add a property first to manage inventory');
+              }
+            }}
+          />
+        </View>
+      </View>
+
+      {(dashboardStats.pending_payments > 0 || dashboardStats.overdue_payments > 0) && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <AlertCircle size={20} color="#FF9500" />
+            <Text style={styles.sectionTitle}>Payment Alerts</Text>
+          </View>
+          <View style={styles.alertsContainer}>
+            {dashboardStats.overdue_payments > 0 && (
+              <TouchableOpacity 
+                style={[styles.alertBanner, styles.urgentAlert]}
+                onPress={() => router.push('/(tabs)/payments')}
+                activeOpacity={0.8}
+              >
+                <AlertCircle size={20} color="#FF3B30" />
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertTitle}>{dashboardStats.overdue_payments} Overdue Payment{dashboardStats.overdue_payments > 1 ? 's' : ''}</Text>
+                  <Text style={styles.alertSubtext}>Requires immediate attention</Text>
+                </View>
+                <ArrowRight size={20} color="#FF3B30" />
+              </TouchableOpacity>
+            )}
+            {dashboardStats.pending_payments > 0 && (
+              <TouchableOpacity 
+                style={[styles.alertBanner, styles.warningAlert]}
+                onPress={() => router.push('/(tabs)/payments')}
+                activeOpacity={0.8}
+              >
+                <Clock size={20} color="#FF9500" />
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertTitle}>{dashboardStats.pending_payments} Pending Payment{dashboardStats.pending_payments > 1 ? 's' : ''}</Text>
+                  <Text style={styles.alertSubtext}>Awaiting processing</Text>
+                </View>
+                <ArrowRight size={20} color="#FF9500" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {dashboardStats.open_maintenance > 0 && (
         <View style={styles.section}>
@@ -601,44 +721,133 @@ const getStatusColor = (status: string) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     padding: 20,
     paddingTop: 16,
+    paddingBottom: 24,
     backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   greeting: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 15,
+    color: '#8E8E93',
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
   tenantName: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700' as const,
     color: '#1A1A1A',
   },
-  statsGrid: {
+  metricsSection: {
+    padding: 16,
+    gap: 12,
+  },
+  metricRow: {
+    flexDirection: 'row' as const,
+    gap: 12,
+  },
+  metricCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  primaryMetric: {
+    flex: 1.2,
+  },
+  secondaryMetric: {
+    flex: 1,
+    marginBottom: 12,
+  },
+  wideMetric: {
+    flex: 1,
+  },
+  metricColumn: {
+    flex: 1,
+    gap: 12,
+  },
+  metricHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 12,
+  },
+  metricIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F8F9FA',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  metricValue: {
+    fontSize: 32,
+    fontWeight: '700' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  metricLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '500' as const,
+  },
+  metricDetails: {
+    flexDirection: 'row' as const,
+    marginTop: 8,
+    gap: 12,
+  },
+  metricDetailItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+  },
+  metricDetailText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  metricFooter: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  metricSubtext: {
+    fontSize: 13,
+    color: '#8E8E93',
+    fontWeight: '500' as const,
+  },
+  quickActionsSection: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  quickActionsGrid: {
     flexDirection: 'row' as const,
     flexWrap: 'wrap' as const,
-    padding: 12,
+    gap: 12,
   },
-  statCard: {
+  quickAction: {
     width: '31%' as const,
     backgroundColor: '#FFF',
     borderRadius: 12,
-    padding: 12,
-    margin: '1%' as const,
+    padding: 16,
     alignItems: 'center' as const,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  iconContainer: {
+  quickActionIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -646,19 +855,15 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     marginBottom: 8,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  statTitle: {
+  quickActionTitle: {
     fontSize: 12,
-    color: '#666',
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
     textAlign: 'center' as const,
   },
   section: {
     padding: 16,
+    paddingTop: 8,
   },
   sectionHeader: {
     flexDirection: 'row' as const,
@@ -668,47 +873,46 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#1A1A1A',
-  },
-  revenueCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  revenueLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  revenueValue: {
-    fontSize: 32,
     fontWeight: '700' as const,
     color: '#1A1A1A',
-    marginBottom: 16,
+    flex: 1,
   },
-  paymentStats: {
-    flexDirection: 'row' as const,
-    gap: 16,
+  alertsContainer: {
+    gap: 12,
   },
-  paymentStat: {
+  alertBanner: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 6,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  urgentAlert: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF3B30',
   },
-  paymentStatText: {
-    fontSize: 14,
-    color: '#666',
+  warningAlert: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9500',
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  alertSubtext: {
+    fontSize: 13,
+    color: '#8E8E93',
   },
   alertCard: {
     backgroundColor: '#FFF',
