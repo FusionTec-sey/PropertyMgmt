@@ -1,0 +1,582 @@
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { Plus, DollarSign, Calendar, AlertCircle } from 'lucide-react-native';
+import { useApp } from '@/contexts/AppContext';
+import { Payment } from '@/types';
+import Button from '@/components/Button';
+import Card from '@/components/Card';
+import Modal from '@/components/Modal';
+import Input from '@/components/Input';
+import Badge from '@/components/Badge';
+import EmptyState from '@/components/EmptyState';
+
+export default function PaymentsScreen() {
+  const { payments, leases, renters, addPayment, updatePayment } = useApp();
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [formData, setFormData] = useState({
+    lease_id: '',
+    renter_id: '',
+    amount: '',
+    payment_date: '',
+    due_date: '',
+    status: 'pending' as 'pending' | 'paid' | 'overdue' | 'partial' | 'cancelled',
+    payment_method: 'bank_transfer' as 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'other',
+    reference_number: '',
+    notes: '',
+    late_fee: '',
+  });
+
+  const overduePayments = useMemo(() => {
+    return payments.filter(p => p.status === 'overdue').length;
+  }, [payments]);
+
+  const pendingPayments = useMemo(() => {
+    return payments.filter(p => p.status === 'pending').length;
+  }, [payments]);
+
+  const paidThisMonth = useMemo(() => {
+    const now = new Date();
+    return payments.filter(p => {
+      const paymentDate = new Date(p.payment_date);
+      return p.status === 'paid' && 
+             paymentDate.getMonth() === now.getMonth() && 
+             paymentDate.getFullYear() === now.getFullYear();
+    }).reduce((sum, p) => sum + p.amount, 0);
+  }, [payments]);
+
+  const resetForm = () => {
+    setFormData({
+      lease_id: '',
+      renter_id: '',
+      amount: '',
+      payment_date: new Date().toISOString().split('T')[0],
+      due_date: '',
+      status: 'pending',
+      payment_method: 'bank_transfer',
+      reference_number: '',
+      notes: '',
+      late_fee: '',
+    });
+  };
+
+  const handleAdd = () => {
+    if (leases.length === 0) {
+      Alert.alert('No Leases', 'Please create a lease first before recording payments');
+      return;
+    }
+    resetForm();
+    setModalVisible(true);
+  };
+
+  const handleMarkPaid = (payment: Payment) => {
+    updatePayment(payment.id, { 
+      status: 'paid',
+      payment_date: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  const handleSave = async () => {
+    if (!formData.lease_id || !formData.renter_id || !formData.amount || !formData.due_date) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    const paymentData = {
+      lease_id: formData.lease_id,
+      renter_id: formData.renter_id,
+      amount: parseFloat(formData.amount),
+      payment_date: formData.payment_date || new Date().toISOString().split('T')[0],
+      due_date: formData.due_date,
+      status: formData.status,
+      payment_method: formData.payment_method,
+      reference_number: formData.reference_number || undefined,
+      notes: formData.notes || undefined,
+      late_fee: formData.late_fee ? parseFloat(formData.late_fee) : undefined,
+    };
+
+    await addPayment(paymentData);
+    setModalVisible(false);
+    resetForm();
+  };
+
+  const getStatusVariant = (status: string): 'success' | 'warning' | 'danger' | 'info' | 'default' => {
+    switch (status) {
+      case 'paid':
+        return 'success';
+      case 'pending':
+        return 'info';
+      case 'overdue':
+        return 'danger';
+      case 'partial':
+        return 'warning';
+      case 'cancelled':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const renderPayment = ({ item }: { item: Payment }) => {
+    const renter = renters.find(r => r.id === item.renter_id);
+    const isOverdue = item.status === 'overdue';
+    const totalAmount = item.amount + (item.late_fee || 0);
+
+    return (
+      <Card style={[styles.paymentCard, isOverdue && styles.overdueCard]}>
+        <View style={styles.paymentHeader}>
+          <View style={styles.paymentInfo}>
+            <Text style={styles.renterName}>
+              {renter ? `${renter.first_name} ${renter.last_name}` : 'Unknown'}
+            </Text>
+            <Text style={styles.amount}>${totalAmount.toLocaleString()}</Text>
+          </View>
+          <Badge label={item.status} variant={getStatusVariant(item.status)} />
+        </View>
+
+        <View style={styles.datesRow}>
+          <View style={styles.dateItem}>
+            <Calendar size={14} color="#666" />
+            <Text style={styles.dateLabel}>Due:</Text>
+            <Text style={styles.dateText}>{formatDate(item.due_date)}</Text>
+          </View>
+          {item.status === 'paid' && (
+            <View style={styles.dateItem}>
+              <Calendar size={14} color="#34C759" />
+              <Text style={styles.dateLabel}>Paid:</Text>
+              <Text style={styles.dateText}>{formatDate(item.payment_date)}</Text>
+            </View>
+          )}
+        </View>
+
+        {item.late_fee && item.late_fee > 0 && (
+          <View style={styles.lateFeeRow}>
+            <AlertCircle size={14} color="#FF9500" />
+            <Text style={styles.lateFeeText}>Late Fee: ${item.late_fee.toLocaleString()}</Text>
+          </View>
+        )}
+
+        {item.payment_method && (
+          <Text style={styles.paymentMethod}>
+            Method: {item.payment_method.replace('_', ' ')}
+          </Text>
+        )}
+
+        {item.reference_number && (
+          <Text style={styles.reference}>Ref: {item.reference_number}</Text>
+        )}
+
+        {item.status !== 'paid' && item.status !== 'cancelled' && (
+          <View style={styles.paymentActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleMarkPaid(item)}
+              testID={`mark-paid-${item.id}`}
+            >
+              <DollarSign size={16} color="#34C759" />
+              <Text style={[styles.actionText, { color: '#34C759' }]}>Mark as Paid</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </Card>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.statsBar}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>${paidThisMonth.toLocaleString()}</Text>
+          <Text style={styles.statLabel}>This Month</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: '#FF9500' }]}>{pendingPayments}</Text>
+          <Text style={styles.statLabel}>Pending</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: '#FF3B30' }]}>{overduePayments}</Text>
+          <Text style={styles.statLabel}>Overdue</Text>
+        </View>
+      </View>
+
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Payments ({payments.length})</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleAdd}
+          testID="add-payment-button"
+        >
+          <Plus size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      {payments.length === 0 ? (
+        <EmptyState
+          icon={DollarSign}
+          title="No Payments"
+          message="Start tracking rent payments from your renters"
+          actionLabel={leases.length > 0 ? "Record Payment" : undefined}
+          onAction={leases.length > 0 ? handleAdd : undefined}
+          testID="payments-empty"
+        />
+      ) : (
+        <FlatList
+          data={payments.sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())}
+          renderItem={renderPayment}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      <Modal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          resetForm();
+        }}
+        title="Record Payment"
+        testID="payment-modal"
+      >
+        <Text style={styles.sectionTitle}>Lease & Renter</Text>
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Lease</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+            {leases.filter(l => l.status === 'active').map(lease => {
+              const renter = renters.find(r => r.id === lease.renter_id);
+              return (
+                <TouchableOpacity
+                  key={lease.id}
+                  style={[
+                    styles.selectorItem,
+                    formData.lease_id === lease.id && styles.selectorItemActive
+                  ]}
+                  onPress={() => {
+                    setFormData({
+                      ...formData,
+                      lease_id: lease.id,
+                      renter_id: lease.renter_id,
+                      amount: lease.rent_amount.toString(),
+                    });
+                  }}
+                >
+                  <Text style={[
+                    styles.selectorText,
+                    formData.lease_id === lease.id && styles.selectorTextActive
+                  ]}>
+                    {renter ? `${renter.first_name} ${renter.last_name}` : 'Unknown'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <Text style={styles.sectionTitle}>Payment Details</Text>
+        <View style={styles.row}>
+          <Input
+            label="Amount"
+            value={formData.amount}
+            onChangeText={text => setFormData({ ...formData, amount: text })}
+            placeholder="1200"
+            keyboardType="decimal-pad"
+            required
+            containerStyle={styles.halfInput}
+            testID="payment-amount-input"
+          />
+          <Input
+            label="Late Fee"
+            value={formData.late_fee}
+            onChangeText={text => setFormData({ ...formData, late_fee: text })}
+            placeholder="0"
+            keyboardType="decimal-pad"
+            containerStyle={styles.halfInput}
+            testID="payment-late-fee-input"
+          />
+        </View>
+
+        <View style={styles.row}>
+          <Input
+            label="Due Date"
+            value={formData.due_date}
+            onChangeText={text => setFormData({ ...formData, due_date: text })}
+            placeholder="YYYY-MM-DD"
+            required
+            containerStyle={styles.halfInput}
+            testID="payment-due-date-input"
+          />
+          <Input
+            label="Payment Date"
+            value={formData.payment_date}
+            onChangeText={text => setFormData({ ...formData, payment_date: text })}
+            placeholder="YYYY-MM-DD"
+            containerStyle={styles.halfInput}
+            testID="payment-date-input"
+          />
+        </View>
+
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Status</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+            {['pending', 'paid', 'overdue', 'partial', 'cancelled'].map(status => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.selectorItem,
+                  formData.status === status && styles.selectorItemActive
+                ]}
+                onPress={() => setFormData({ ...formData, status: status as any })}
+              >
+                <Text style={[
+                  styles.selectorText,
+                  formData.status === status && styles.selectorTextActive
+                ]}>
+                  {status}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Payment Method</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+            {['cash', 'check', 'bank_transfer', 'credit_card', 'other'].map(method => (
+              <TouchableOpacity
+                key={method}
+                style={[
+                  styles.selectorItem,
+                  formData.payment_method === method && styles.selectorItemActive
+                ]}
+                onPress={() => setFormData({ ...formData, payment_method: method as any })}
+              >
+                <Text style={[
+                  styles.selectorText,
+                  formData.payment_method === method && styles.selectorTextActive
+                ]}>
+                  {method.replace('_', ' ')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <Input
+          label="Reference Number"
+          value={formData.reference_number}
+          onChangeText={text => setFormData({ ...formData, reference_number: text })}
+          placeholder="Check #, Transaction ID, etc."
+          testID="payment-reference-input"
+        />
+
+        <Input
+          label="Notes"
+          value={formData.notes}
+          onChangeText={text => setFormData({ ...formData, notes: text })}
+          placeholder="Additional notes"
+          multiline
+          numberOfLines={2}
+          testID="payment-notes-input"
+        />
+
+        <Button
+          title="Record Payment"
+          onPress={handleSave}
+          fullWidth
+          testID="save-payment-button"
+        />
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  statsBar: {
+    flexDirection: 'row' as const,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    paddingVertical: 16,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center' as const,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '700' as const,
+    color: '#34C759',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  header: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#1A1A1A',
+  },
+  addButton: {
+    backgroundColor: '#007AFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  list: {
+    padding: 16,
+  },
+  paymentCard: {
+    marginBottom: 16,
+  },
+  overdueCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF3B30',
+  },
+  paymentHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 12,
+  },
+  paymentInfo: {
+    flex: 1,
+  },
+  renterName: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  amount: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#34C759',
+  },
+  datesRow: {
+    flexDirection: 'row' as const,
+    gap: 16,
+    marginBottom: 8,
+  },
+  dateItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+  },
+  dateLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500' as const,
+  },
+  lateFeeRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    marginBottom: 8,
+  },
+  lateFeeText: {
+    fontSize: 14,
+    color: '#FF9500',
+    fontWeight: '600' as const,
+  },
+  paymentMethod: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+    textTransform: 'capitalize' as const,
+  },
+  reference: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 8,
+  },
+  paymentActions: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    gap: 6,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  formSection: {
+    marginBottom: 16,
+  },
+  selectorScroll: {
+    marginBottom: 8,
+  },
+  selectorItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+    marginRight: 8,
+  },
+  selectorItemActive: {
+    backgroundColor: '#007AFF',
+  },
+  selectorText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666',
+    textTransform: 'capitalize' as const,
+  },
+  selectorTextActive: {
+    color: '#FFFFFF',
+  },
+  row: {
+    flexDirection: 'row' as const,
+    gap: 12,
+  },
+  halfInput: {
+    flex: 1,
+  },
+});
