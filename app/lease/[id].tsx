@@ -437,6 +437,28 @@ export default function LeaseDetailScreen() {
     }, 100);
   };
 
+  const handleRenewLease = () => {
+    Alert.alert(
+      'Renew Lease',
+      'Would you like to renew this lease? The current lease will be marked as renewed and a new lease will be created.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Renew',
+          onPress: () => {
+            const monthsDiff = Math.round(
+              (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) / 
+              (1000 * 60 * 60 * 24 * 30)
+            );
+            const leasePeriod = [6, 12, 24].includes(monthsDiff) ? monthsDiff : 12;
+            
+            router.push(`/renewLease/${lease.id}?leasePeriod=${leasePeriod}` as any);
+          },
+        },
+      ]
+    );
+  };
+
   const getStatusVariant = (status: string): 'success' | 'warning' | 'danger' | 'info' | 'default' => {
     switch (status) {
       case 'active':
@@ -630,6 +652,17 @@ export default function LeaseDetailScreen() {
               onPress={handleDeleteDraft}
               variant="outline"
               style={styles.deleteButton}
+              fullWidth
+            />
+          </View>
+        )}
+
+        {lease.status === 'active' && (
+          <View style={styles.actionsSection}>
+            <Button
+              title="Renew Lease"
+              onPress={handleRenewLease}
+              icon={<FileText size={20} color="#FFFFFF" />}
               fullWidth
             />
           </View>
