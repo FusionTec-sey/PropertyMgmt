@@ -412,28 +412,74 @@ export function generateCompleteTenancyDocument(
 
   let agreementText = fillTenancyAgreementTemplate(TENANCY_AGREEMENT_TEMPLATE, agreementData);
   
-  agreementText = agreementText
-    .split('\n')
-    .map(line => {
-      if (line.startsWith('# ')) {
-        return `<h1 class="main-title">${line.substring(2)}</h1>`;
-      } else if (line.startsWith('## ')) {
-        return `<h2 class="section-title">${line.substring(3)}</h2>`;
-      } else if (line.startsWith('### ')) {
-        return `<h3 class="subsection-title">${line.substring(4)}</h3>`;
-      } else if (line.startsWith('- ')) {
-        return `<li>${line.substring(2)}</li>`;
-      } else if (line.startsWith('**') && line.endsWith('**')) {
-        return `<p class="bold-text">${line.substring(2, line.length - 2)}</p>`;
-      } else if (line.trim() === '---') {
-        return '<hr class="separator" />';
-      } else if (line.trim() === '') {
-        return '<br />';
+  const convertMarkdownToHTML = (text: string): string => {
+    const lines = text.split('\n');
+    const htmlLines: string[] = [];
+    let inList = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine.startsWith('# ')) {
+        if (inList) {
+          htmlLines.push('</ul>');
+          inList = false;
+        }
+        htmlLines.push(`<h1 class="main-title">${trimmedLine.substring(2)}</h1>`);
+      } else if (trimmedLine.startsWith('## ')) {
+        if (inList) {
+          htmlLines.push('</ul>');
+          inList = false;
+        }
+        htmlLines.push(`<h2 class="section-title">${trimmedLine.substring(3)}</h2>`);
+      } else if (trimmedLine.startsWith('### ')) {
+        if (inList) {
+          htmlLines.push('</ul>');
+          inList = false;
+        }
+        htmlLines.push(`<h3 class="subsection-title">${trimmedLine.substring(4)}</h3>`);
+      } else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('• ')) {
+        if (!inList) {
+          htmlLines.push('<ul class="agreement-list">');
+          inList = true;
+        }
+        const content = trimmedLine.substring(2).trim();
+        const processedContent = processBoldText(content);
+        htmlLines.push(`<li>${processedContent}</li>`);
+      } else if (trimmedLine === '---') {
+        if (inList) {
+          htmlLines.push('</ul>');
+          inList = false;
+        }
+        htmlLines.push('<hr class="separator" />');
+      } else if (trimmedLine === '') {
+        if (inList) {
+          htmlLines.push('</ul>');
+          inList = false;
+        }
       } else {
-        return `<p>${line}</p>`;
+        if (inList) {
+          htmlLines.push('</ul>');
+          inList = false;
+        }
+        const processedLine = processBoldText(trimmedLine);
+        htmlLines.push(`<p class="agreement-paragraph">${processedLine}</p>`);
       }
-    })
-    .join('\n');
+    }
+    
+    if (inList) {
+      htmlLines.push('</ul>');
+    }
+    
+    return htmlLines.join('\n');
+  };
+  
+  const processBoldText = (text: string): string => {
+    return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  };
+  
+  agreementText = convertMarkdownToHTML(agreementText);
 
   const checklistHTML = checklist ? generateChecklistHTML(checklist) : '';
   const inventoryHTML = inventoryItems && inventoryItems.length > 0 
@@ -453,8 +499,8 @@ export function generateCompleteTenancyDocument(
           }
           
           body {
-            font-family: 'Georgia', serif;
-            line-height: 1.6;
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.7;
             color: #1A1A1A;
             font-size: 11pt;
             margin: 0;
@@ -463,49 +509,61 @@ export function generateCompleteTenancyDocument(
           
           .main-title {
             text-align: center;
-            font-size: 24pt;
+            font-size: 22pt;
             font-weight: bold;
             color: #003366;
-            margin: 20px 0 30px 0;
+            margin: 0 0 35px 0;
             text-transform: uppercase;
             letter-spacing: 2px;
             border-bottom: 3px solid #003366;
-            padding-bottom: 15px;
+            padding-bottom: 20px;
           }
           
           .section-title {
-            font-size: 14pt;
+            font-size: 13pt;
             font-weight: bold;
             color: #003366;
-            margin: 25px 0 15px 0;
+            margin: 30px 0 15px 0;
             page-break-after: avoid;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
           
           .subsection-title {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: bold;
-            color: #333;
-            margin: 15px 0 10px 0;
+            color: #003366;
+            margin: 20px 0 12px 0;
+            page-break-after: avoid;
           }
           
-          p {
+          .agreement-paragraph {
+            margin: 10px 0;
+            text-align: justify;
+            line-height: 1.8;
+          }
+          
+          .agreement-list {
+            margin: 10px 0 15px 30px;
+            padding: 0;
+            list-style-type: disc;
+          }
+          
+          .agreement-list li {
             margin: 8px 0;
+            line-height: 1.7;
             text-align: justify;
           }
           
-          .bold-text {
+          strong {
             font-weight: bold;
-            margin: 10px 0;
-          }
-          
-          li {
-            margin: 5px 0 5px 20px;
+            color: #000;
           }
           
           hr.separator {
             border: none;
-            border-top: 1px solid #ccc;
-            margin: 20px 0;
+            border-top: 1px solid #CCCCCC;
+            margin: 25px 0;
           }
           
           .schedule-title {

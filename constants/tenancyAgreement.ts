@@ -1,13 +1,17 @@
 export const TENANCY_AGREEMENT_TEMPLATE = `
 # TENANCY AGREEMENT
 
-This Tenancy Agreement is made in duplicate on the date: {{agreement_date}}
+This Tenancy Agreement is made in duplicate on: **{{agreement_date}}**
 
-## BETWEEN
+---
+
+## BETWEEN:
 
 **Landlord/Property Manager:** {{landlord_name}}, having its registered office at {{landlord_address}}, represented by {{landlord_representative}} (hereinafter referred to as the "Landlord"), of the one part;
 
-## AND
+---
+
+## AND:
 
 **Tenant:** {{tenant_name}} {{passport_details}}, residing at {{tenant_address}} (hereinafter referred to as the "Tenant"), of the other part.
 
@@ -22,11 +26,11 @@ Unless the context requires otherwise, the following terms shall have the meanin
 - **"Property"** – {{property_description}}
 - **"Demised Premises"** – The property together with all fixtures, fittings, and the land on which it is built.
 
-WHEREAS the Landlord is the absolute owner of the property and desires to rent it;
+**WHEREAS** the Landlord is the absolute owner of the property and desires to rent it;
 
-WHEREAS the Tenant agrees to occupy the demised premises for residential purposes on the terms below;
+**WHEREAS** the Tenant agrees to occupy the demised premises for residential purposes on the terms below;
 
-Now therefore, both parties hereby agree as follows:
+**NOW THEREFORE**, both parties hereby agree as follows:
 
 ---
 
@@ -38,24 +42,29 @@ The Landlord rents and the Tenant accepts the demised premises, including all fi
 
 ## 3. RENT
 
-**3.1** The monthly rent is **{{rent_amount}} {{currency}}**, payable in advance on the **{{payment_due_day}}** day of each calendar month.
+**3.1 Monthly Rent:** The monthly rent is **{{rent_amount}} {{currency}}**, payable in advance on the **{{payment_due_day}}** day of each calendar month.
 
-**3.2** Handover of possession shall occur only after both parties complete and sign the Rental Unit Condition Report.
+**3.2 Handover:** Handover of possession shall occur only after both parties complete and sign the Rental Unit Condition Report.
 
 ---
 
 ## 4. SECURITY DEPOSIT
 
-The Landlord acknowledges receipt of a security deposit of **{{deposit_amount}} {{currency}}** on: {{deposit_received_date}}.
+**4.1 Deposit Amount:** The Landlord acknowledges receipt of a security deposit of **{{deposit_amount}} {{currency}}** on: {{deposit_received_date}}.
 
-### Conditions:
+**4.2 Deposit Conditions:**
 
 {{deposit_conditions}}
 
+**4.3 Keys and Access:**
+
 - All keys/remotes/key cards must be returned at lease termination.
-  - Missing Key: {{key_replacement_cost}} per key
-  - Missing Remote: {{remote_replacement_cost}} per remote
-  - Missing Key Card: {{keycard_replacement_cost}} per card
+- Missing Key: {{key_replacement_cost}} per key
+- Missing Remote: {{remote_replacement_cost}} per remote
+- Missing Key Card: {{keycard_replacement_cost}} per card
+
+**4.4 Additional Conditions:**
+
 - Tenant must notify Landlord in writing for absences exceeding 3 weeks.
 - Annual inspection will be conducted jointly using the Rental Unit Condition Report.
 - No pets allowed (unless specified): {{pets_allowed}}
@@ -84,15 +93,20 @@ Any dispute between the parties may be referred to the Rent Board for mediation 
 
 ## 8. TENANT CARE OBLIGATIONS
 
-**8.1** The Tenant must maintain ordinary cleanliness, replace burnt bulbs, remove waste, and repair any damage caused by negligence of themselves or visitors (excluding normal wear and tear).
+**8.1 Maintenance:** The Tenant must maintain ordinary cleanliness, replace burnt bulbs, remove waste, and repair any damage caused by negligence of themselves or visitors (excluding normal wear and tear).
 
-**8.2** The Tenant must not store flammable materials or use petrol/kerosene/oil-based appliances.
+**8.2 Safety:** The Tenant must not store flammable materials or use petrol/kerosene/oil-based appliances.
 
 ---
 
-## 9. BEHAVIOUR
+## 9. TENANT BEHAVIOUR
+
+**9.1 General Conduct:**
 
 - The Tenant and guests shall not cause nuisance or disturbance to neighbours or staff.
+
+**9.2 Parking:**
+
 - Vehicles must be parked in the designated common car park. Blocking other tenants' spaces is prohibited.
 {{parking_details}}
 
@@ -117,11 +131,13 @@ Entry is permitted anytime with the Tenant's consent.
 
 ---
 
-## 12. LATE PAYMENT
+## 12. LATE PAYMENT PENALTIES
 
-- Rent not paid by the {{payment_due_day}} of the month incurs a late fee of {{late_fee_first_day}} for the first day.
-- A further penalty of {{late_fee_additional}} per additional day the rent remains unpaid.
-- Dishonoured cheque or failed automatic transfer: {{dishonour_fee}} per occurrence.
+**12.1** Rent not paid by the {{payment_due_day}} of the month incurs a late fee of {{late_fee_first_day}} for the first day.
+
+**12.2** A further penalty of {{late_fee_additional}} per additional day the rent remains unpaid.
+
+**12.3** Dishonoured cheque or failed automatic transfer: {{dishonour_fee}} per occurrence.
 
 ---
 
@@ -153,11 +169,12 @@ The tenancy will automatically renew for another one-year term unless either par
 
 ## 16. TERMINATION
 
-**16.1** Either party may terminate the tenancy by giving one (1) month written notice.
+**16.1 Notice Period:** Either party may terminate the tenancy by giving one (1) month written notice.
 
-**16.2** The Tenant must pay rent during the notice period. The security deposit may be applied toward final rent if mutually agreed.
+**16.2 Payment During Notice:** The Tenant must pay rent during the notice period. The security deposit may be applied toward final rent if mutually agreed.
 
-**16.3** The Landlord may issue a 3-day termination notice if the Tenant:
+**16.3 Immediate Termination:** The Landlord may issue a 3-day termination notice if the Tenant:
+
 - Repeatedly violates behaviour rules (Clause 9), or
 - Fails to pay rent (Clause 3.1)
 
@@ -186,29 +203,34 @@ This agreement includes the following schedules which form an integral part of t
 
 **Date of Agreement:** {{agreement_date}}
 
-### Landlord/Representative:
-Name: {{landlord_signature_name}}  
-For & on behalf of {{landlord_entity}}  
-Signature: _____________________________  
-Date: _____________
+---
+
+### Landlord/Landlord's Representative:
+
+**Name:** {{landlord_signature_name}}  
+**For and on behalf of:** {{landlord_entity}}  
+**Signature:** _____________________________  
+**Date:** _____________
 
 ---
 
 ### Tenant:
-Name: {{tenant_signature_name}}  
-Signature: _____________________________  
-Date: _____________
+
+**Name:** {{tenant_signature_name}}  
+**Signature:** _____________________________  
+**Date:** _____________
 
 ---
 
 ### Witness:
-Name: _____________________________  
-Signature: _____________________________  
-Date: _____________
+
+**Name:** _____________________________  
+**Signature:** _____________________________  
+**Date:** _____________
 
 ---
 
-*Generated on {{generation_date}}*  
+*Generated on: {{generation_date}}*  
 *This document is a legally binding agreement between the parties*
 `;
 
