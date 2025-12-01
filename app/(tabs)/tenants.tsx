@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image, RefreshControl } from 'react-native';
 import { Plus, Users, Mail, Phone, Edit, User, ClipboardCheck, Camera, CheckCircle, Circle, X, Building, FileText, Calendar, DollarSign } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { TenantRenter, MoveInChecklistItem, Unit, Lease, LeaseStatus } from '@/types';
@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 export default function TenantsScreen() {
   const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease, updateLease } = useApp();
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingTenant, setEditingTenant] = useState<TenantRenter | null>(null);
   const [checklistModalVisible, setChecklistModalVisible] = useState<boolean>(false);
@@ -60,6 +61,12 @@ export default function TenantsScreen() {
     country: '',
     notes: '',
   });
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setRefreshing(false);
+  };
 
   const resetForm = () => {
     setFormData({
@@ -558,6 +565,13 @@ export default function TenantsScreen() {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#007AFF"
+            />
+          }
         />
       )}
 

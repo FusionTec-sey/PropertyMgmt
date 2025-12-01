@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
 import { Plus, Wrench, Calendar, AlertCircle, Building2, ChevronRight, ChevronDown, User } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { MaintenanceRequest, MaintenanceSchedule, Property, Unit } from '@/types';
@@ -32,6 +32,7 @@ export default function MaintenanceScreen() {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<Tab>('requests');
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
   const [requestModalVisible, setRequestModalVisible] = useState<boolean>(false);
   const [scheduleModalVisible, setScheduleModalVisible] = useState<boolean>(false);
@@ -80,6 +81,12 @@ export default function MaintenanceScreen() {
       images: [],
     });
     setEditingRequest(null);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setRefreshing(false);
   };
 
   const resetScheduleForm = () => {
@@ -603,6 +610,13 @@ export default function MaintenanceScreen() {
           <ScrollView
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#007AFF"
+              />
+            }
           >
             {properties.map(property => renderPropertySection(property))}
           </ScrollView>
@@ -624,6 +638,13 @@ export default function MaintenanceScreen() {
             keyExtractor={item => item.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#007AFF"
+              />
+            }
           />
         )
       )}

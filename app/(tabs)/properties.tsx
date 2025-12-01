@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench, User } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 export default function PropertiesScreen() {
   const { properties, units, addProperty, updateProperty, deleteProperty, addUnit, updateUnit, leases, tenantRenters, maintenanceRequests } = useApp();
   const router = useRouter();
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [unitModalVisible, setUnitModalVisible] = useState<boolean>(false);
   const [parkingModalVisible, setParkingModalVisible] = useState<boolean>(false);
@@ -219,6 +220,12 @@ export default function PropertiesScreen() {
 
   const handleManageInventory = (property: Property, unit?: Unit) => {
     router.push(`/inventory/${property.id}${unit ? `?unitId=${unit.id}` : ''}` as any);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setRefreshing(false);
   };
 
   const handleAddPhoto = () => {
@@ -613,6 +620,13 @@ export default function PropertiesScreen() {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#007AFF"
+            />
+          }
         />
       )}
 
