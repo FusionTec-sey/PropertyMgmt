@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { Plus, Wrench, Calendar, AlertCircle } from 'lucide-react-native';
+import { Plus, Wrench, Calendar, AlertCircle, Building2, ChevronRight, ChevronDown, User } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
-import { MaintenanceRequest, MaintenanceSchedule } from '@/types';
+import { MaintenanceRequest, MaintenanceSchedule, Property, Unit } from '@/types';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
@@ -10,6 +10,7 @@ import Input from '@/components/Input';
 import EmptyState from '@/components/EmptyState';
 import { PhotoPicker } from '@/components/PhotoPicker';
 import PhotoGallery from '@/components/PhotoGallery';
+
 
 
 type Tab = 'requests' | 'schedules';
@@ -21,6 +22,7 @@ export default function MaintenanceScreen() {
     properties, 
     units, 
     tenantRenters, 
+    leases,
     addMaintenanceRequest, 
     updateMaintenanceRequest,
     addMaintenanceSchedule,
@@ -29,6 +31,7 @@ export default function MaintenanceScreen() {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<Tab>('requests');
+  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
   const [requestModalVisible, setRequestModalVisible] = useState<boolean>(false);
   const [scheduleModalVisible, setScheduleModalVisible] = useState<boolean>(false);
   const [editingRequest, setEditingRequest] = useState<MaintenanceRequest | null>(null);
@@ -226,6 +229,16 @@ export default function MaintenanceScreen() {
     );
   };
 
+  const togglePropertyExpanded = (propertyId: string) => {
+    const newExpanded = new Set(expandedProperties);
+    if (newExpanded.has(propertyId)) {
+      newExpanded.delete(propertyId);
+    } else {
+      newExpanded.add(propertyId);
+    }
+    setExpandedProperties(newExpanded);
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent': return '#FF3B30';
@@ -246,100 +259,198 @@ export default function MaintenanceScreen() {
     }
   };
 
-  const renderRequest = ({ item }: { item: MaintenanceRequest }) => {
-    const property = properties.find(p => p.id === item.property_id);
-    const unit = item.unit_id ? units.find(u => u.id === item.unit_id) : null;
-    const tenantRenter = item.tenant_renter_id ? tenantRenters.find(r => r.id === item.tenant_renter_id) : null;
+  const getTenantName = (tenantRenterId: string) => {
+    const tenant = tenantRenters.find(t => t.id === tenantRenterId);
+    if (!tenant) return 'Unknown';
+    if (tenant.type === 'business') return tenant.business_name || 'Unnamed Business';
+    return `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed';
+  };
+
+  const renderRequestInUnit = (request: MaintenanceRequest, unit: Unit | null) => {
+    const tenantRenter = request.tenant_renter_id ? tenantRenters.find(r => r.id === request.tenant_renter_id) : null;
+    const activeLease = leases.find(l => l.unit_id === unit?.id && l.status === 'active');
+    const affectedTenant = activeLease ? tenantRenters.find(t => t.id === activeLease.tenant_renter_id) : null;
 
     return (
-      <Card style={styles.requestCard}>
+      <Card key={request.id} style={styles.requestCard}>
         <View style={styles.requestHeader}>
           <View style={styles.titleRow}>
-            <Text style={styles.requestTitle}>{item.title}</Text>
-            <View style={[styles.badge, { backgroundColor: getPriorityColor(item.priority) }]}>
-              <Text style={styles.badgeText}>{item.priority}</Text>
+            <Text style={styles.requestTitle}>{request.title}</Text>
+            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(request.priority) }]}>
+              <Text style={styles.badgeText}>{request.priority}</Text>
             </View>
           </View>
-          <View style={[styles.badge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.badgeText}>{item.status}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(request.status) }]}>
+            <Text style={styles.badgeText}>{request.status}</Text>
           </View>
         </View>
 
         <Text style={styles.requestDescription} numberOfLines={2}>
-          {item.description}
+          {request.description}
         </Text>
 
-        {item.images && item.images.length > 0 && (
+        {request.images && request.images.length > 0 && (
           <View style={styles.photoGalleryContainer}>
             <PhotoGallery
-              photos={item.images}
-              testID={`request-gallery-${item.id}`}
+              photos={request.images}
+              testID={`request-gallery-${request.id}`}
             />
           </View>
         )}
 
         <View style={styles.requestDetails}>
-          <Text style={styles.detailLabel}>Property: </Text>
-          <Text style={styles.detailValue}>{property?.name || 'Unknown'}</Text>
+          <Text style={styles.detailLabel}>Reported: </Text>
+          <Text style={styles.detailValue}>{new Date(request.reported_date).toLocaleDateString()}</Text>
         </View>
-
-        {unit && (
-          <View style={styles.requestDetails}>
-            <Text style={styles.detailLabel}>Unit: </Text>
-            <Text style={styles.detailValue}>{unit.unit_number}</Text>
-          </View>
-        )}
 
         {tenantRenter && (
           <View style={styles.requestDetails}>
             <Text style={styles.detailLabel}>Reported by: </Text>
-            <Text style={styles.detailValue}>{tenantRenter.type === 'business' ? tenantRenter.business_name : `${tenantRenter.first_name} ${tenantRenter.last_name}`}</Text>
+            <Text style={styles.detailValue}>{getTenantName(tenantRenter.id)}</Text>
           </View>
         )}
 
-        <View style={styles.requestDetails}>
-          <Text style={styles.detailLabel}>Reported: </Text>
-          <Text style={styles.detailValue}>{new Date(item.reported_date).toLocaleDateString()}</Text>
-        </View>
+        {affectedTenant && (
+          <View style={styles.affectedTenantBanner}>
+            <User size={16} color="#FF9500" />
+            <View>
+              <Text style={styles.affectedTenantLabel}>Affected Tenant</Text>
+              <Text style={styles.affectedTenantName}>{getTenantName(affectedTenant.id)}</Text>
+              {affectedTenant.phone && (
+                <Text style={styles.affectedTenantContact}>{affectedTenant.phone}</Text>
+              )}
+            </View>
+          </View>
+        )}
 
         <View style={styles.requestActions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleEditRequest(item)}
-            testID={`edit-request-${item.id}`}
+            onPress={() => handleEditRequest(request)}
+            testID={`edit-request-${request.id}`}
           >
             <Text style={styles.actionText}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, item.status !== 'resolved' && styles.resolveButton]}
+            style={[styles.actionButton, request.status !== 'resolved' && styles.resolveButton]}
             onPress={() => {
               Alert.alert(
-                item.status === 'resolved' ? 'Reopen Request' : 'Resolve Request',
-                item.status === 'resolved' 
+                request.status === 'resolved' ? 'Reopen Request' : 'Resolve Request',
+                request.status === 'resolved' 
                   ? 'Are you sure you want to reopen this maintenance request?'
                   : 'Mark this maintenance request as resolved?',
                 [
                   { text: 'Cancel', style: 'cancel' },
                   { 
-                    text: item.status === 'resolved' ? 'Reopen' : 'Resolve',
+                    text: request.status === 'resolved' ? 'Reopen' : 'Resolve',
                     onPress: async () => {
-                      await updateMaintenanceRequest(item.id, {
-                        status: item.status === 'resolved' ? 'open' : 'resolved',
-                        completed_date: item.status === 'resolved' ? undefined : new Date().toISOString(),
+                      await updateMaintenanceRequest(request.id, {
+                        status: request.status === 'resolved' ? 'open' : 'resolved',
+                        completed_date: request.status === 'resolved' ? undefined : new Date().toISOString(),
                       });
-                      Alert.alert('Success', `Request ${item.status === 'resolved' ? 'reopened' : 'resolved'} successfully`);
+                      Alert.alert('Success', `Request ${request.status === 'resolved' ? 'reopened' : 'resolved'} successfully`);
                     }
                   },
                 ]
               );
             }}
-            testID={`toggle-status-${item.id}`}
+            testID={`toggle-status-${request.id}`}
           >
-            <Text style={[styles.actionText, item.status !== 'resolved' && styles.resolveText]}>
-              {item.status === 'resolved' ? 'Reopen' : 'Resolve'}
+            <Text style={[styles.actionText, request.status !== 'resolved' && styles.resolveText]}>
+              {request.status === 'resolved' ? 'Reopen' : 'Resolve'}
             </Text>
           </TouchableOpacity>
         </View>
+      </Card>
+    );
+  };
+
+  const renderPropertySection = (property: Property) => {
+    const propertyUnits = units.filter(u => u.property_id === property.id);
+    const propertyRequests = maintenanceRequests.filter(r => r.property_id === property.id);
+    const isExpanded = expandedProperties.has(property.id);
+
+    return (
+      <Card key={property.id} style={styles.propertyCard}>
+        <TouchableOpacity
+          onPress={() => togglePropertyExpanded(property.id)}
+          testID={`toggle-property-${property.id}`}
+        >
+          <View style={styles.propertyHeader}>
+            <View style={styles.propertyIconContainer}>
+              <Building2 size={20} color="#007AFF" />
+            </View>
+            <View style={styles.propertyInfo}>
+              <Text style={styles.propertyName}>{property.name}</Text>
+              <Text style={styles.propertyStats}>
+                {propertyRequests.length} request{propertyRequests.length !== 1 ? 's' : ''} • {propertyUnits.length} unit{propertyUnits.length !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            {isExpanded ? (
+              <ChevronDown size={24} color="#666" />
+            ) : (
+              <ChevronRight size={24} color="#666" />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <View style={styles.expandedSection}>
+            {propertyUnits.length === 0 ? (
+              <Text style={styles.noUnitsText}>No units in this property</Text>
+            ) : (
+              propertyUnits.map(unit => {
+                const unitRequests = propertyRequests.filter(r => r.unit_id === unit.id);
+                const activeLease = leases.find(l => l.unit_id === unit.id && l.status === 'active');
+                const tenant = activeLease ? tenantRenters.find(t => t.id === activeLease.tenant_renter_id) : null;
+
+                return (
+                  <View key={unit.id} style={styles.unitSection}>
+                    <View style={styles.unitHeader}>
+                      <View>
+                        <Text style={styles.unitNumber}>Unit {unit.unit_number}</Text>
+                        {tenant && (
+                          <Text style={styles.unitTenant}>Tenant: {getTenantName(tenant.id)}</Text>
+                        )}
+                      </View>
+                      <TouchableOpacity
+                        style={styles.addRequestButton}
+                        onPress={() => {
+                          setRequestFormData({
+                            ...requestFormData,
+                            property_id: property.id,
+                            unit_id: unit.id,
+                          });
+                          setRequestModalVisible(true);
+                        }}
+                        testID={`add-request-unit-${unit.id}`}
+                      >
+                        <Plus size={16} color="#FFFFFF" />
+                        <Text style={styles.addRequestButtonText}>Add Request</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {unitRequests.length === 0 ? (
+                      <Text style={styles.noRequestsText}>No maintenance requests</Text>
+                    ) : (
+                      unitRequests.map(request => renderRequestInUnit(request, unit))
+                    )}
+                  </View>
+                );
+              })
+            )}
+
+            {/* Property-level requests (no specific unit) */}
+            {propertyRequests.filter(r => !r.unit_id).length > 0 && (
+              <View style={styles.unitSection}>
+                <View style={styles.unitHeader}>
+                  <Text style={styles.unitNumber}>Property-wide</Text>
+                </View>
+                {propertyRequests.filter(r => !r.unit_id).map(request => renderRequestInUnit(request, null))}
+              </View>
+            )}
+          </View>
+        )}
       </Card>
     );
   };
@@ -469,23 +580,31 @@ export default function MaintenanceScreen() {
       </View>
 
       {activeTab === 'requests' ? (
-        maintenanceRequests.length === 0 ? (
+        properties.length === 0 ? (
+          <EmptyState
+            icon={Building2}
+            title="No Properties"
+            message="Add properties first to manage maintenance requests"
+            actionLabel="Go to Properties"
+            onAction={() => {}}
+            testID="properties-empty"
+          />
+        ) : maintenanceRequests.length === 0 ? (
           <EmptyState
             icon={Wrench}
             title="No Maintenance Requests"
-            message="Start by adding maintenance issues reported by tenants"
+            message="Start by adding maintenance issues for your properties"
             actionLabel="Add Request"
             onAction={handleAddRequest}
             testID="requests-empty"
           />
         ) : (
-          <FlatList
-            data={maintenanceRequests}
-            renderItem={renderRequest}
-            keyExtractor={item => item.id}
+          <ScrollView
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
-          />
+          >
+            {properties.map(property => renderPropertySection(property))}
+          </ScrollView>
         )
       ) : (
         maintenanceSchedules.length === 0 ? (
@@ -783,8 +902,13 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     flex: 1,
   },
-  badge: {
+  priorityBadge: {
     marginLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -911,5 +1035,116 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#1A1A1A',
     marginBottom: 8,
+  },
+  propertyCard: {
+    marginBottom: 12,
+  },
+  propertyHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  propertyIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#007AFF15',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 12,
+  },
+  propertyInfo: {
+    flex: 1,
+  },
+  propertyName: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  propertyStats: {
+    fontSize: 14,
+    color: '#666',
+  },
+  expandedSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  unitSection: {
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  unitHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+  },
+  unitNumber: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  unitTenant: {
+    fontSize: 13,
+    color: '#666',
+  },
+  addRequestButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addRequestButtonText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
+  },
+  noUnitsText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic' as const,
+    textAlign: 'center' as const,
+    paddingVertical: 20,
+  },
+  noRequestsText: {
+    fontSize: 13,
+    color: '#999',
+    fontStyle: 'italic' as const,
+    marginBottom: 12,
+  },
+  affectedTenantBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    backgroundColor: '#FFF9E6',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF9500',
+    marginVertical: 8,
+    gap: 10,
+  },
+  affectedTenantLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#FF9500',
+    marginBottom: 2,
+  },
+  affectedTenantName: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  affectedTenantContact: {
+    fontSize: 13,
+    color: '#666',
   },
 });
