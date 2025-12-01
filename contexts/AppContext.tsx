@@ -230,6 +230,12 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.UNITS, updated);
   }, [units, saveData]);
 
+  const deleteUnit = useCallback(async (id: string) => {
+    const updated = units.filter(u => u.id !== id);
+    setUnits(updated);
+    await saveData(STORAGE_KEYS.UNITS, updated);
+  }, [units, saveData]);
+
   const addRenter = useCallback(async (renter: Omit<Renter, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
     if (!currentTenant) return;
     
@@ -576,6 +582,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     deleteProperty,
     addUnit,
     updateUnit,
+    deleteUnit,
     addRenter,
     updateRenter,
     addLease,

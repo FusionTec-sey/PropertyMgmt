@@ -83,6 +83,15 @@ export interface Permission {
   action: 'create' | 'read' | 'update' | 'delete' | 'manage';
 }
 
+export type PropertyType = 'unit' | 'building' | 'house' | 'office';
+
+export interface ParkingSpot {
+  id: string;
+  spot_number: string;
+  assigned_to_renter_id?: RenterId;
+  notes?: string;
+}
+
 export interface Property {
   id: PropertyId;
   tenant_id: TenantId;
@@ -92,10 +101,11 @@ export interface Property {
   state: string;
   zip_code: string;
   country: string;
-  property_type: 'residential' | 'commercial' | 'mixed';
+  property_type: PropertyType;
   total_units: number;
   description?: string;
   images?: string[];
+  parking_spots?: ParkingSpot[];
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +124,7 @@ export interface Unit {
   status: UnitStatus;
   description?: string;
   amenities?: string[];
+  assigned_parking?: string[];
   created_at: string;
   updated_at: string;
 }
