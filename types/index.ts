@@ -53,6 +53,16 @@ export interface TenantSettings {
   updated_at: string;
 }
 
+export interface UserPermissions {
+  properties: boolean;
+  tenants: boolean;
+  leases: boolean;
+  payments: boolean;
+  maintenance: boolean;
+  todos: boolean;
+  settings: boolean;
+}
+
 export interface User {
   id: UserId;
   tenant_id: TenantId;
@@ -63,6 +73,8 @@ export interface User {
   avatar?: string;
   role: UserRole;
   is_active: boolean;
+  permissions?: UserPermissions;
+  created_by?: UserId;
   created_at: string;
   last_login?: string;
 }

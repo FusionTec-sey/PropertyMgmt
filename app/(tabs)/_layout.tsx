@@ -4,8 +4,8 @@ import React from "react";
 import { useApp } from "@/contexts/AppContext";
 
 export default function TabLayout() {
-  const { currentUser } = useApp();
-  const isStaff = currentUser?.role === 'maintenance';
+  const { currentUser, hasPermission } = useApp();
+  const isOwner = currentUser?.role === 'owner';
 
   return (
     <Tabs
@@ -24,7 +24,7 @@ export default function TabLayout() {
         options={{
           title: "Dashboard",
           tabBarIcon: ({ color }) => <Home size={24} color={color} />,
-          href: isStaff ? null : undefined,
+          href: isOwner ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -32,7 +32,7 @@ export default function TabLayout() {
         options={{
           title: "Properties",
           tabBarIcon: ({ color }) => <Building2 size={24} color={color} />,
-          href: isStaff ? null : undefined,
+          href: hasPermission('properties') ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -40,7 +40,7 @@ export default function TabLayout() {
         options={{
           title: "Tenants",
           tabBarIcon: ({ color }) => <Users size={24} color={color} />,
-          href: isStaff ? null : undefined,
+          href: hasPermission('tenants') ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -48,7 +48,7 @@ export default function TabLayout() {
         options={{
           title: "Payments",
           tabBarIcon: ({ color }) => <DollarSign size={24} color={color} />,
-          href: isStaff ? null : undefined,
+          href: hasPermission('payments') ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -56,6 +56,7 @@ export default function TabLayout() {
         options={{
           title: "Maintenance",
           tabBarIcon: ({ color }) => <Wrench size={24} color={color} />,
+          href: hasPermission('maintenance') ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -63,7 +64,7 @@ export default function TabLayout() {
         options={{
           title: "To-Do",
           tabBarIcon: ({ color }) => <CheckSquare size={24} color={color} />,
-          href: isStaff ? null : undefined,
+          href: hasPermission('todos') ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -71,6 +72,7 @@ export default function TabLayout() {
         options={{
           title: "Settings",
           tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          href: hasPermission('settings') ? undefined : null,
         }}
       />
     </Tabs>

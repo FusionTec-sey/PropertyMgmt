@@ -5,7 +5,7 @@ import type {
   Tenant, User, Property, Unit, TenantRenter, Lease, Payment,
   MaintenanceRequest, Notification,
   ActivityLog, DashboardStats, MoveInChecklist,
-  PropertyItem, MaintenanceSchedule, Todo
+  PropertyItem, MaintenanceSchedule, Todo, UserPermissions
 } from '@/types';
 
 const STORAGE_KEYS = {
@@ -27,6 +27,7 @@ const STORAGE_KEYS = {
   PROPERTY_ITEMS: '@app/property_items',
   MAINTENANCE_SCHEDULES: '@app/maintenance_schedules',
   TODOS: '@app/todos',
+  STAFF_USERS: '@app/staff_users',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -35,6 +36,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [staffUsers, setStaffUsers] = useState<User[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [tenantRenters, setTenantRenters] = useState<TenantRenter[]>([]);
@@ -54,6 +56,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedCurrentTenant,
         savedCurrentUser,
         savedTenants,
+        savedStaffUsers,
         savedProperties,
         savedUnits,
         savedTenantRenters,
@@ -70,6 +73,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
         AsyncStorage.getItem(STORAGE_KEYS.TENANTS),
+        AsyncStorage.getItem(STORAGE_KEYS.STAFF_USERS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTIES),
         AsyncStorage.getItem(STORAGE_KEYS.UNITS),
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_RENTERS),
@@ -87,6 +91,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
       if (savedCurrentUser) setCurrentUser(JSON.parse(savedCurrentUser));
       if (savedTenants) setTenants(JSON.parse(savedTenants));
+      if (savedStaffUsers) setStaffUsers(JSON.parse(savedStaffUsers));
       if (savedProperties) setProperties(JSON.parse(savedProperties));
       if (savedUnits) setUnits(JSON.parse(savedUnits));
       if (savedTenantRenters) setTenantRenters(JSON.parse(savedTenantRenters));
@@ -468,6 +473,82 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.TODOS, updated);
   }, [todos, saveData]);
 
+  const addStaffUser = useCallback(async (user: Omit<User, 'id' | 'created_at' | 'tenant_id'>) => {
+    if (!currentTenant || !currentUser) return;
+    
+    const newUser: User = {
+      ...user,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_by: currentUser.id,
+      created_at: new Date().toISOString(),
+    };
+    const updated = [...staffUsers, newUser];
+    setStaffUsers(updated);
+    await saveData(STORAGE_KEYS.STAFF_USERS, updated);
+    
+    const log: ActivityLog = {
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      user_id: currentUser.id,
+      action: 'create_staff',
+      resource_type: 'user',
+      resource_id: newUser.id,
+      details: { email: newUser.email, role: newUser.role },
+      created_at: new Date().toISOString(),
+    };
+    const updatedLogs = [...activityLogs, log];
+    setActivityLogs(updatedLogs);
+    await saveData(STORAGE_KEYS.ACTIVITY_LOGS, updatedLogs);
+    
+    return newUser;
+  }, [currentTenant, currentUser, staffUsers, activityLogs, saveData]);
+
+  const updateStaffUser = useCallback(async (id: string, updates: Partial<User>) => {
+    const updated = staffUsers.map(u => 
+      u.id === id ? { ...u, ...updates } : u
+    );
+    setStaffUsers(updated);
+    await saveData(STORAGE_KEYS.STAFF_USERS, updated);
+    
+    if (currentTenant && currentUser) {
+      const log: ActivityLog = {
+        id: Date.now().toString(),
+        tenant_id: currentTenant.id,
+        user_id: currentUser.id,
+        action: 'update_staff',
+        resource_type: 'user',
+        resource_id: id,
+        details: updates,
+        created_at: new Date().toISOString(),
+      };
+      const updatedLogs = [...activityLogs, log];
+      setActivityLogs(updatedLogs);
+      await saveData(STORAGE_KEYS.ACTIVITY_LOGS, updatedLogs);
+    }
+  }, [staffUsers, currentTenant, currentUser, activityLogs, saveData]);
+
+  const deleteStaffUser = useCallback(async (id: string) => {
+    const updated = staffUsers.filter(u => u.id !== id);
+    setStaffUsers(updated);
+    await saveData(STORAGE_KEYS.STAFF_USERS, updated);
+    
+    if (currentTenant && currentUser) {
+      const log: ActivityLog = {
+        id: Date.now().toString(),
+        tenant_id: currentTenant.id,
+        user_id: currentUser.id,
+        action: 'delete_staff',
+        resource_type: 'user',
+        resource_id: id,
+        created_at: new Date().toISOString(),
+      };
+      const updatedLogs = [...activityLogs, log];
+      setActivityLogs(updatedLogs);
+      await saveData(STORAGE_KEYS.ACTIVITY_LOGS, updatedLogs);
+    }
+  }, [staffUsers, currentTenant, currentUser, activityLogs, saveData]);
+
   const tenantProperties = useMemo(() => 
     properties.filter(p => p.tenant_id === currentTenant?.id),
     [properties, currentTenant]
@@ -522,6 +603,17 @@ export const [AppContext, useApp] = createContextHook(() => {
     todos.filter(t => t.tenant_id === currentTenant?.id),
     [todos, currentTenant]
   );
+
+  const tenantStaffUsers = useMemo(() => 
+    staffUsers.filter(u => u.tenant_id === currentTenant?.id),
+    [staffUsers, currentTenant]
+  );
+
+  const hasPermission = useCallback((resource: keyof UserPermissions): boolean => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'owner') return true;
+    return currentUser.permissions?.[resource] || false;
+  }, [currentUser]);
 
   const dashboardStats = useMemo((): DashboardStats => {
     const occupiedUnits = tenantUnits.filter(u => u.status === 'occupied').length;
@@ -603,5 +695,10 @@ export const [AppContext, useApp] = createContextHook(() => {
     addTodo,
     updateTodo,
     deleteTodo,
+    staffUsers: tenantStaffUsers,
+    addStaffUser,
+    updateStaffUser,
+    deleteStaffUser,
+    hasPermission,
   };
 });

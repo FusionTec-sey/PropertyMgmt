@@ -18,8 +18,10 @@ import type { Tenant, User } from '@/types';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { isLoading, currentTenant, currentUser, tenants, login, addTenant } = useApp();
+  const { isLoading, currentTenant, currentUser, tenants, login, addTenant, staffUsers } = useApp();
   const [showNewTenant, setShowNewTenant] = useState<boolean>(false);
+  const [showStaffLogin, setShowStaffLogin] = useState<boolean>(false);
+  const [selectedTenantForStaff, setSelectedTenantForStaff] = useState<Tenant | null>(null);
   const [newTenantName, setNewTenantName] = useState<string>('');
   const [newTenantEmail, setNewTenantEmail] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<'owner' | 'staff'>('owner');
@@ -68,14 +70,14 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSelectTenant = async (tenant: Tenant, role: 'owner' | 'staff') => {
+  const handleSelectTenant = async (tenant: Tenant, role: 'owner') => {
     const defaultUser: User = {
       id: Date.now().toString(),
       tenant_id: tenant.id,
       email: tenant.email,
-      first_name: role === 'owner' ? 'Admin' : 'Staff',
+      first_name: 'Admin',
       last_name: 'User',
-      role: role === 'owner' ? 'owner' : 'maintenance',
+      role: 'owner',
       is_active: true,
       created_at: new Date().toISOString(),
     };
@@ -83,6 +85,20 @@ export default function LoginScreen() {
     await login(tenant, defaultUser);
     router.replace('/(tabs)');
   };
+
+  const handleSelectStaffLogin = (tenant: Tenant) => {
+    setSelectedTenantForStaff(tenant);
+    setShowStaffLogin(true);
+  };
+
+  const handleStaffUserSelect = async (staff: User) => {
+    if (!selectedTenantForStaff) return;
+    await login(selectedTenantForStaff, staff);
+    router.replace('/(tabs)');
+  };
+
+  const availableStaffForTenant = selectedTenantForStaff ? 
+    staffUsers.filter(u => u.tenant_id === selectedTenantForStaff.id) : [];
 
   if (isLoading) {
     return (
@@ -146,10 +162,10 @@ export default function LoginScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.roleButton, styles.staffButton]}
-                        onPress={() => handleSelectTenant(tenant, 'staff')}
+                        onPress={() => handleSelectStaffLogin(tenant)}
                         testID={`login-staff-${tenant.id}`}
                       >
-                        <Text style={styles.roleButtonText}>Login as Staff</Text>
+                        <Text style={styles.roleButtonText}>Staff Login</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -235,6 +251,49 @@ export default function LoginScreen() {
               }}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {showStaffLogin && selectedTenantForStaff && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Select Staff Account</Text>
+            <Text style={styles.businessName}>{selectedTenantForStaff.name}</Text>
+            
+            {availableStaffForTenant.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No staff accounts found</Text>
+                <Text style={styles.emptySubtext}>Contact your administrator to create a staff account</Text>
+              </View>
+            ) : (
+              availableStaffForTenant.map((staff) => (
+                <TouchableOpacity
+                  key={staff.id}
+                  style={styles.staffLoginCard}
+                  onPress={() => handleStaffUserSelect(staff)}
+                  testID={`select-staff-${staff.id}`}
+                >
+                  <View style={styles.staffLoginInfo}>
+                    <Text style={styles.staffLoginName}>
+                      {staff.first_name} {staff.last_name}
+                    </Text>
+                    <Text style={styles.staffLoginEmail}>{staff.email}</Text>
+                  </View>
+                  <View style={styles.staffRoleBadge}>
+                    <Text style={styles.staffRoleBadgeText}>{staff.role}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setShowStaffLogin(false);
+                setSelectedTenantForStaff(null);
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Back</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -460,5 +519,50 @@ const styles = StyleSheet.create({
   },
   roleSelectorTextActive: {
     color: '#007AFF',
+  },
+  businessName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+    marginBottom: 16,
+    textAlign: 'center' as const,
+  },
+  staffLoginCard: {
+    flexDirection: 'row' as const,
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  staffLoginInfo: {
+    flex: 1,
+  },
+  staffLoginName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  staffLoginEmail: {
+    fontSize: 14,
+    color: '#666',
+  },
+  staffRoleBadge: {
+    backgroundColor: '#34C75915',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  staffRoleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#34C759',
   },
 });

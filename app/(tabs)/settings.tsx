@@ -1,19 +1,139 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { LogOut } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
+import type { UserRole, UserPermissions } from '@/types';
+import Modal from '@/components/Modal';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { currentTenant, currentUser, logout } = useApp();
+  const { currentTenant, currentUser, logout, staffUsers, addStaffUser, updateStaffUser, deleteStaffUser } = useApp();
+  
+  const [showAddStaffModal, setShowAddStaffModal] = useState<boolean>(false);
+  const [showEditStaffModal, setShowEditStaffModal] = useState<boolean>(false);
+  const [editingStaff, setEditingStaff] = useState<any>(null);
+  
+  const [staffEmail, setStaffEmail] = useState<string>('');
+  const [staffFirstName, setStaffFirstName] = useState<string>('');
+  const [staffLastName, setStaffLastName] = useState<string>('');
+  const [staffPhone, setStaffPhone] = useState<string>('');
+  const [staffRole, setStaffRole] = useState<UserRole>('maintenance');
+  const [permissions, setPermissions] = useState<UserPermissions>({
+    properties: false,
+    tenants: false,
+    leases: false,
+    payments: false,
+    maintenance: true,
+    todos: true,
+    settings: false,
+  });
 
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
   };
 
+  const resetForm = () => {
+    setStaffEmail('');
+    setStaffFirstName('');
+    setStaffLastName('');
+    setStaffPhone('');
+    setStaffRole('maintenance');
+    setPermissions({
+      properties: false,
+      tenants: false,
+      leases: false,
+      payments: false,
+      maintenance: true,
+      todos: true,
+      settings: false,
+    });
+  };
+
+  const handleAddStaff = async () => {
+    if (!staffEmail.trim() || !staffFirstName.trim() || !staffLastName.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    await addStaffUser({
+      email: staffEmail.trim(),
+      first_name: staffFirstName.trim(),
+      last_name: staffLastName.trim(),
+      phone: staffPhone.trim() || undefined,
+      role: staffRole,
+      is_active: true,
+      permissions,
+    });
+
+    Alert.alert('Success', 'Staff member added successfully');
+    resetForm();
+    setShowAddStaffModal(false);
+  };
+
+  const handleEditStaff = (staff: any) => {
+    setEditingStaff(staff);
+    setStaffEmail(staff.email);
+    setStaffFirstName(staff.first_name);
+    setStaffLastName(staff.last_name);
+    setStaffPhone(staff.phone || '');
+    setStaffRole(staff.role);
+    setPermissions(staff.permissions || {
+      properties: false,
+      tenants: false,
+      leases: false,
+      payments: false,
+      maintenance: true,
+      todos: true,
+      settings: false,
+    });
+    setShowEditStaffModal(true);
+  };
+
+  const handleUpdateStaff = async () => {
+    if (!staffEmail.trim() || !staffFirstName.trim() || !staffLastName.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    await updateStaffUser(editingStaff.id, {
+      email: staffEmail.trim(),
+      first_name: staffFirstName.trim(),
+      last_name: staffLastName.trim(),
+      phone: staffPhone.trim() || undefined,
+      role: staffRole,
+      permissions,
+    });
+
+    Alert.alert('Success', 'Staff member updated successfully');
+    resetForm();
+    setEditingStaff(null);
+    setShowEditStaffModal(false);
+  };
+
+  const handleDeleteStaff = (staff: any) => {
+    Alert.alert(
+      'Delete Staff Member',
+      `Are you sure you want to delete ${staff.first_name} ${staff.last_name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteStaffUser(staff.id);
+            Alert.alert('Success', 'Staff member deleted successfully');
+          },
+        },
+      ]
+    );
+  };
+
+  const isOwner = currentUser?.role === 'owner';
+
   return (
+    <>
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.section}>
@@ -56,12 +176,336 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {isOwner && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Staff Management</Text>
+              <TouchableOpacity
+                style={styles.addStaffButton}
+                onPress={() => setShowAddStaffModal(true)}
+                testID="add-staff-button"
+              >
+                <UserPlus size={18} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+
+            {staffUsers.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No staff members yet</Text>
+                <Text style={styles.emptySubtext}>Add your first staff member to get started</Text>
+              </View>
+            ) : (
+              staffUsers.map((staff) => (
+                <View key={staff.id} style={styles.staffCard}>
+                  <View style={styles.staffHeader}>
+                    <View style={styles.staffInfo}>
+                      <Text style={styles.staffName}>
+                        {staff.first_name} {staff.last_name}
+                      </Text>
+                      <View style={[styles.roleBadge, styles.staffRoleBadge]}>
+                        <Text style={styles.staffRoleBadgeText}>{staff.role}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.staffActions}>
+                      <TouchableOpacity
+                        onPress={() => handleEditStaff(staff)}
+                        style={styles.iconButton}
+                        testID={`edit-staff-${staff.id}`}
+                      >
+                        <Edit size={18} color="#007AFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteStaff(staff)}
+                        style={styles.iconButton}
+                        testID={`delete-staff-${staff.id}`}
+                      >
+                        <Trash2 size={18} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={styles.staffDetail}>
+                    <Mail size={14} color="#666" />
+                    <Text style={styles.staffDetailText}>{staff.email}</Text>
+                  </View>
+                  {staff.phone && (
+                    <View style={styles.staffDetail}>
+                      <Phone size={14} color="#666" />
+                      <Text style={styles.staffDetailText}>{staff.phone}</Text>
+                    </View>
+                  )}
+                  <View style={styles.permissionsContainer}>
+                    <View style={styles.permissionsHeader}>
+                      <Shield size={14} color="#666" />
+                      <Text style={styles.permissionsTitle}>Permissions:</Text>
+                    </View>
+                    <View style={styles.permissionTags}>
+                      {staff.permissions?.properties && <View style={styles.permissionTag}><Text style={styles.permissionTagText}>Properties</Text></View>}
+                      {staff.permissions?.tenants && <View style={styles.permissionTag}><Text style={styles.permissionTagText}>Tenants</Text></View>}
+                      {staff.permissions?.leases && <View style={styles.permissionTag}><Text style={styles.permissionTagText}>Leases</Text></View>}
+                      {staff.permissions?.payments && <View style={styles.permissionTag}><Text style={styles.permissionTagText}>Payments</Text></View>}
+                      {staff.permissions?.maintenance && <View style={styles.permissionTag}><Text style={styles.permissionTagText}>Maintenance</Text></View>}
+                      {staff.permissions?.todos && <View style={styles.permissionTag}><Text style={styles.permissionTagText}>Tasks</Text></View>}
+                      {staff.permissions?.settings && <View style={styles.permissionTag}><Text style={styles.permissionTagText}>Settings</Text></View>}
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <LogOut size={20} color="#FFF" />
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
+
+    <Modal
+      visible={showAddStaffModal}
+      onClose={() => {
+        setShowAddStaffModal(false);
+        resetForm();
+      }}
+      title="Add Staff Member"
+    >
+      <ScrollView style={styles.modalContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email *</Text>
+          <TextInput
+            style={styles.input}
+            value={staffEmail}
+            onChangeText={setStaffEmail}
+            placeholder="staff@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            testID="staff-email-input"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>First Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={staffFirstName}
+            onChangeText={setStaffFirstName}
+            placeholder="John"
+            testID="staff-first-name-input"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Last Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={staffLastName}
+            onChangeText={setStaffLastName}
+            placeholder="Doe"
+            testID="staff-last-name-input"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Phone</Text>
+          <TextInput
+            style={styles.input}
+            value={staffPhone}
+            onChangeText={setStaffPhone}
+            placeholder="+248 xxx xxxx"
+            keyboardType="phone-pad"
+            testID="staff-phone-input"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Permissions</Text>
+          <View style={styles.permissionsList}>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Properties</Text>
+              <Switch
+                value={permissions.properties}
+                onValueChange={(value) => setPermissions({ ...permissions, properties: value })}
+                testID="permission-properties"
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Tenants</Text>
+              <Switch
+                value={permissions.tenants}
+                onValueChange={(value) => setPermissions({ ...permissions, tenants: value })}
+                testID="permission-tenants"
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Leases</Text>
+              <Switch
+                value={permissions.leases}
+                onValueChange={(value) => setPermissions({ ...permissions, leases: value })}
+                testID="permission-leases"
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Payments</Text>
+              <Switch
+                value={permissions.payments}
+                onValueChange={(value) => setPermissions({ ...permissions, payments: value })}
+                testID="permission-payments"
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Maintenance</Text>
+              <Switch
+                value={permissions.maintenance}
+                onValueChange={(value) => setPermissions({ ...permissions, maintenance: value })}
+                testID="permission-maintenance"
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Tasks/Todos</Text>
+              <Switch
+                value={permissions.todos}
+                onValueChange={(value) => setPermissions({ ...permissions, todos: value })}
+                testID="permission-todos"
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Settings</Text>
+              <Switch
+                value={permissions.settings}
+                onValueChange={(value) => setPermissions({ ...permissions, settings: value })}
+                testID="permission-settings"
+              />
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={handleAddStaff}
+          testID="submit-add-staff"
+        >
+          <Text style={styles.submitButtonText}>Add Staff Member</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </Modal>
+
+    <Modal
+      visible={showEditStaffModal}
+      onClose={() => {
+        setShowEditStaffModal(false);
+        setEditingStaff(null);
+        resetForm();
+      }}
+      title="Edit Staff Member"
+    >
+      <ScrollView style={styles.modalContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email *</Text>
+          <TextInput
+            style={styles.input}
+            value={staffEmail}
+            onChangeText={setStaffEmail}
+            placeholder="staff@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>First Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={staffFirstName}
+            onChangeText={setStaffFirstName}
+            placeholder="John"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Last Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={staffLastName}
+            onChangeText={setStaffLastName}
+            placeholder="Doe"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Phone</Text>
+          <TextInput
+            style={styles.input}
+            value={staffPhone}
+            onChangeText={setStaffPhone}
+            placeholder="+248 xxx xxxx"
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Permissions</Text>
+          <View style={styles.permissionsList}>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Properties</Text>
+              <Switch
+                value={permissions.properties}
+                onValueChange={(value) => setPermissions({ ...permissions, properties: value })}
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Tenants</Text>
+              <Switch
+                value={permissions.tenants}
+                onValueChange={(value) => setPermissions({ ...permissions, tenants: value })}
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Leases</Text>
+              <Switch
+                value={permissions.leases}
+                onValueChange={(value) => setPermissions({ ...permissions, leases: value })}
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Payments</Text>
+              <Switch
+                value={permissions.payments}
+                onValueChange={(value) => setPermissions({ ...permissions, payments: value })}
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Maintenance</Text>
+              <Switch
+                value={permissions.maintenance}
+                onValueChange={(value) => setPermissions({ ...permissions, maintenance: value })}
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Tasks/Todos</Text>
+              <Switch
+                value={permissions.todos}
+                onValueChange={(value) => setPermissions({ ...permissions, todos: value })}
+              />
+            </View>
+            <View style={styles.permissionRow}>
+              <Text style={styles.permissionLabel}>Settings</Text>
+              <Switch
+                value={permissions.settings}
+                onValueChange={(value) => setPermissions({ ...permissions, settings: value })}
+              />
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={handleUpdateStaff}
+        >
+          <Text style={styles.submitButtonText}>Update Staff Member</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </Modal>
+    </>
   );
 }
 
@@ -133,5 +577,172 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#1A1A1A',
+  },
+  sectionHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+  },
+  addStaffButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#007AFF15',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  emptyState: {
+    backgroundColor: '#FFF',
+    padding: 32,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#666',
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center' as const,
+  },
+  staffCard: {
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  staffHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 12,
+  },
+  staffInfo: {
+    flex: 1,
+  },
+  staffName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  staffRoleBadge: {
+    backgroundColor: '#34C75915',
+    alignSelf: 'flex-start' as const,
+  },
+  staffRoleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#34C759',
+  },
+  staffActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8F9FA',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  staffDetail: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: 6,
+  },
+  staffDetailText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  permissionsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  permissionsHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    marginBottom: 8,
+  },
+  permissionsTitle: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  permissionTags: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 6,
+  },
+  permissionTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: '#007AFF15',
+  },
+  permissionTagText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  modalContent: {
+    maxHeight: 500,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#1A1A1A',
+  },
+  permissionsList: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+  },
+  permissionRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  permissionLabel: {
+    fontSize: 14,
+    color: '#1A1A1A',
+  },
+  submitButton: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFF',
   },
 });
