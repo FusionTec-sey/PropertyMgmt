@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { Plus, DollarSign, Calendar, AlertCircle } from 'lucide-react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
+import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
-import { Payment } from '@/types';
+import { Payment, PaymentCurrency } from '@/types';
+import * as DocumentPicker from 'expo-document-picker';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
@@ -17,13 +18,15 @@ export default function PaymentsScreen() {
     lease_id: '',
     renter_id: '',
     amount: '',
+    currency: 'SCR' as PaymentCurrency,
     payment_date: '',
     due_date: '',
     status: 'pending' as 'pending' | 'paid' | 'overdue' | 'partial' | 'cancelled',
-    payment_method: 'bank_transfer' as 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'other',
+    payment_method: 'bank_transfer' as 'cash' | 'cheque' | 'bank_transfer',
     reference_number: '',
     notes: '',
     late_fee: '',
+    payment_proof: null as { uri: string; type: 'image' | 'pdf'; name: string; size?: number } | null,
   });
 
   const overduePayments = useMemo(() => {
@@ -49,6 +52,7 @@ export default function PaymentsScreen() {
       lease_id: '',
       renter_id: '',
       amount: '',
+      currency: 'SCR',
       payment_date: new Date().toISOString().split('T')[0],
       due_date: '',
       status: 'pending',
@@ -56,6 +60,7 @@ export default function PaymentsScreen() {
       reference_number: '',
       notes: '',
       late_fee: '',
+      payment_proof: null,
     });
   };
 
@@ -75,6 +80,33 @@ export default function PaymentsScreen() {
     });
   };
 
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'application/pdf'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      const fileType = file.mimeType?.startsWith('image/') ? 'image' : 'pdf';
+      
+      setFormData({
+        ...formData,
+        payment_proof: {
+          uri: file.uri,
+          type: fileType as 'image' | 'pdf',
+          name: file.name,
+          size: file.size,
+        },
+      });
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick document');
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.lease_id || !formData.renter_id || !formData.amount || !formData.due_date) {
       Alert.alert('Error', 'Please fill in all required fields');
@@ -85,6 +117,7 @@ export default function PaymentsScreen() {
       lease_id: formData.lease_id,
       renter_id: formData.renter_id,
       amount: parseFloat(formData.amount),
+      currency: formData.currency,
       payment_date: formData.payment_date || new Date().toISOString().split('T')[0],
       due_date: formData.due_date,
       status: formData.status,
@@ -92,6 +125,10 @@ export default function PaymentsScreen() {
       reference_number: formData.reference_number || undefined,
       notes: formData.notes || undefined,
       late_fee: formData.late_fee ? parseFloat(formData.late_fee) : undefined,
+      payment_proof: formData.payment_proof ? {
+        ...formData.payment_proof,
+        uploadedAt: new Date().toISOString(),
+      } : undefined,
     };
 
     await addPayment(paymentData);
@@ -120,10 +157,20 @@ export default function PaymentsScreen() {
     return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const getCurrencySymbol = (currency: PaymentCurrency) => {
+    switch (currency) {
+      case 'SCR': return '₨';
+      case 'EUR': return '€';
+      case 'USD': return '$';
+      default: return '$';
+    }
+  };
+
   const renderPayment = ({ item }: { item: Payment }) => {
     const renter = renters.find(r => r.id === item.renter_id);
     const isOverdue = item.status === 'overdue';
     const totalAmount = item.amount + (item.late_fee || 0);
+    const currencySymbol = getCurrencySymbol(item.currency);
 
     return (
       <Card style={[styles.paymentCard, isOverdue && styles.overdueCard]}>
@@ -132,7 +179,9 @@ export default function PaymentsScreen() {
             <Text style={styles.renterName}>
               {renter ? `${renter.first_name} ${renter.last_name}` : 'Unknown'}
             </Text>
-            <Text style={styles.amount}>${totalAmount.toLocaleString()}</Text>
+            <Text style={styles.amount}>
+              {currencySymbol}{totalAmount.toLocaleString()} {item.currency}
+            </Text>
           </View>
           <Badge label={item.status} variant={getStatusVariant(item.status)} />
         </View>
@@ -155,7 +204,9 @@ export default function PaymentsScreen() {
         {item.late_fee && item.late_fee > 0 && (
           <View style={styles.lateFeeRow}>
             <AlertCircle size={14} color="#FF9500" />
-            <Text style={styles.lateFeeText}>Late Fee: ${item.late_fee.toLocaleString()}</Text>
+            <Text style={styles.lateFeeText}>
+              Late Fee: {currencySymbol}{item.late_fee.toLocaleString()}
+            </Text>
           </View>
         )}
 
@@ -167,6 +218,28 @@ export default function PaymentsScreen() {
 
         {item.reference_number && (
           <Text style={styles.reference}>Ref: {item.reference_number}</Text>
+        )}
+
+        {item.payment_proof && (
+          <View style={styles.proofContainer}>
+            <View style={styles.proofInfo}>
+              {item.payment_proof.type === 'image' ? (
+                <Image source={{ uri: item.payment_proof.uri }} style={styles.proofThumbnail} />
+              ) : (
+                <FileText size={40} color="#007AFF" />
+              )}
+              <View style={styles.proofDetails}>
+                <Text style={styles.proofLabel}>Payment Proof</Text>
+                <Text style={styles.proofName}>{item.payment_proof.name}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.viewProofButton}
+              onPress={() => Alert.alert('View Proof', `Opening: ${item.payment_proof?.name}`)}
+            >
+              <Eye size={16} color="#007AFF" />
+            </TouchableOpacity>
+          </View>
         )}
 
         {item.status !== 'paid' && item.status !== 'cancelled' && (
@@ -341,27 +414,52 @@ export default function PaymentsScreen() {
           </ScrollView>
         </View>
 
-        <View style={styles.formSection}>
-          <Text style={styles.label}>Payment Method</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
-            {['cash', 'check', 'bank_transfer', 'credit_card', 'other'].map(method => (
-              <TouchableOpacity
-                key={method}
-                style={[
-                  styles.selectorItem,
-                  formData.payment_method === method && styles.selectorItemActive
-                ]}
-                onPress={() => setFormData({ ...formData, payment_method: method as any })}
-              >
-                <Text style={[
-                  styles.selectorText,
-                  formData.payment_method === method && styles.selectorTextActive
-                ]}>
-                  {method.replace('_', ' ')}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+        <View style={styles.row}>
+          <View style={[styles.formSection, styles.halfInput]}>
+            <Text style={styles.label}>Currency</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+              {(['SCR', 'EUR', 'USD'] as PaymentCurrency[]).map(currency => (
+                <TouchableOpacity
+                  key={currency}
+                  style={[
+                    styles.selectorItem,
+                    formData.currency === currency && styles.selectorItemActive
+                  ]}
+                  onPress={() => setFormData({ ...formData, currency })}
+                >
+                  <Text style={[
+                    styles.selectorText,
+                    formData.currency === currency && styles.selectorTextActive
+                  ]}>
+                    {currency}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={[styles.formSection, styles.halfInput]}>
+            <Text style={styles.label}>Payment Method</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorScroll}>
+              {(['cash', 'cheque', 'bank_transfer'] as const).map(method => (
+                <TouchableOpacity
+                  key={method}
+                  style={[
+                    styles.selectorItem,
+                    formData.payment_method === method && styles.selectorItemActive
+                  ]}
+                  onPress={() => setFormData({ ...formData, payment_method: method })}
+                >
+                  <Text style={[
+                    styles.selectorText,
+                    formData.payment_method === method && styles.selectorTextActive
+                  ]}>
+                    {method.replace('_', ' ')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
 
         <Input
@@ -381,6 +479,37 @@ export default function PaymentsScreen() {
           numberOfLines={2}
           testID="payment-notes-input"
         />
+
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Payment Proof (Photo/PDF)</Text>
+          {formData.payment_proof ? (
+            <View style={styles.attachmentPreview}>
+              {formData.payment_proof.type === 'image' ? (
+                <Image source={{ uri: formData.payment_proof.uri }} style={styles.attachmentImage} />
+              ) : (
+                <View style={styles.pdfPreview}>
+                  <FileText size={40} color="#007AFF" />
+                  <Text style={styles.pdfName}>{formData.payment_proof.name}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.removeAttachment}
+                onPress={() => setFormData({ ...formData, payment_proof: null })}
+              >
+                <Text style={styles.removeText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={handlePickDocument}
+              testID="upload-proof-button"
+            >
+              <Paperclip size={20} color="#007AFF" />
+              <Text style={styles.uploadText}>Attach Payment Proof</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <Button
           title="Record Payment"
@@ -512,6 +641,47 @@ const styles = StyleSheet.create({
     color: '#999',
     marginBottom: 8,
   },
+  proofContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F0F8FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  proofInfo: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    flex: 1,
+  },
+  proofThumbnail: {
+    width: 50,
+    height: 50,
+    borderRadius: 6,
+    backgroundColor: '#E0E0E0',
+  },
+  proofDetails: {
+    flex: 1,
+  },
+  proofLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  proofName: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+  },
+  viewProofButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+  },
   paymentActions: {
     flexDirection: 'row' as const,
     gap: 12,
@@ -578,5 +748,56 @@ const styles = StyleSheet.create({
   },
   halfInput: {
     flex: 1,
+  },
+  attachmentPreview: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden' as const,
+  },
+  attachmentImage: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#F0F0F0',
+  },
+  pdfPreview: {
+    height: 120,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#F8F9FA',
+    gap: 8,
+  },
+  pdfName: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center' as const,
+    paddingHorizontal: 16,
+  },
+  removeAttachment: {
+    padding: 12,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center' as const,
+  },
+  removeText: {
+    color: '#FFFFFF',
+    fontWeight: '600' as const,
+    fontSize: 14,
+  },
+  uploadButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    borderStyle: 'dashed' as const,
+    backgroundColor: '#F0F8FF',
+    gap: 8,
+  },
+  uploadText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#007AFF',
   },
 });

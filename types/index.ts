@@ -150,19 +150,31 @@ export interface Lease {
   updated_at: string;
 }
 
+export type PaymentCurrency = 'SCR' | 'EUR' | 'USD';
+
+export interface PaymentProof {
+  uri: string;
+  type: 'image' | 'pdf';
+  name: string;
+  size?: number;
+  uploadedAt: string;
+}
+
 export interface Payment {
   id: PaymentId;
   tenant_id: TenantId;
   lease_id: LeaseId;
   renter_id: RenterId;
   amount: number;
+  currency: PaymentCurrency;
   payment_date: string;
   due_date: string;
   status: PaymentStatus;
-  payment_method?: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'other';
+  payment_method?: 'cash' | 'cheque' | 'bank_transfer';
   reference_number?: string;
   notes?: string;
   late_fee?: number;
+  payment_proof?: PaymentProof;
   created_at: string;
   updated_at: string;
 }
