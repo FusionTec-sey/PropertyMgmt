@@ -460,3 +460,46 @@ export interface Todo {
   created_at: string;
   updated_at: string;
 }
+
+export type InvoiceId = string;
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+
+export interface InvoiceLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+  tax_rate?: number;
+}
+
+export interface Invoice {
+  id: InvoiceId;
+  tenant_id: TenantId;
+  tenant_renter_id: TenantRenterId;
+  lease_id: LeaseId;
+  property_id: PropertyId;
+  unit_id: UnitId;
+  invoice_number: string;
+  invoice_date: string;
+  due_date: string;
+  status: InvoiceStatus;
+  currency: PaymentCurrency;
+  line_items: InvoiceLineItem[];
+  subtotal: number;
+  tax_amount?: number;
+  discount_amount?: number;
+  late_fee_amount?: number;
+  total_amount: number;
+  amount_paid?: number;
+  balance_due?: number;
+  notes?: string;
+  payment_id?: PaymentId;
+  sent_at?: string;
+  paid_at?: string;
+  pdf_uri?: string;
+  auto_generated: boolean;
+  recurring_period?: string;
+  created_at: string;
+  updated_at: string;
+}
