@@ -12,6 +12,7 @@ import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 import PhotoGallery from '@/components/PhotoGallery';
 import { showPhotoOptions } from '@/components/PhotoPicker';
+import SwipeableItem, { SwipeAction } from '@/components/SwipeableItem';
 import { useRouter } from 'expo-router';
 
 export default function PropertiesScreen() {
@@ -376,8 +377,28 @@ export default function PropertiesScreen() {
     const isExpanded = expandedProperties.has(item.id);
     const parkingCount = item.parking_spots?.length || 0;
 
+    const swipeActions: SwipeAction[] = [
+      {
+        text: 'Edit',
+        backgroundColor: '#007AFF',
+        color: '#FFFFFF',
+        icon: <Edit size={20} color="#FFFFFF" />,
+        onPress: () => handleEdit(item),
+        testID: `swipe-edit-property-${item.id}`,
+      },
+      {
+        text: 'Delete',
+        backgroundColor: '#FF3B30',
+        color: '#FFFFFF',
+        icon: <Trash2 size={20} color="#FFFFFF" />,
+        onPress: () => handleDelete(item),
+        testID: `swipe-delete-property-${item.id}`,
+      },
+    ];
+
     return (
-      <Card style={styles.propertyCard}>
+      <SwipeableItem rightActions={swipeActions} testID={`swipeable-property-${item.id}`}>
+        <Card style={styles.propertyCard}>
         <TouchableOpacity
           onPress={() => toggleExpanded(item.id)}
           testID={`toggle-property-${item.id}`}
@@ -499,7 +520,8 @@ export default function PropertiesScreen() {
             )}
           </View>
         )}
-      </Card>
+        </Card>
+      </SwipeableItem>
     );
   };
 

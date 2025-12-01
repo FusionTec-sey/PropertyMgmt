@@ -10,6 +10,7 @@ import Card from '@/components/Card';
 import Modal from '@/components/Modal';
 import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
+import SwipeableItem, { SwipeAction } from '@/components/SwipeableItem';
 
 export default function InvoicesScreen() {
   const { 
@@ -180,8 +181,39 @@ export default function InvoicesScreen() {
       ? (tenantRenter.type === 'business' ? tenantRenter.business_name : `${tenantRenter.first_name} ${tenantRenter.last_name}`)
       : 'Unknown';
 
+    const swipeActions: SwipeAction[] = [
+      {
+        text: 'View',
+        backgroundColor: '#007AFF',
+        color: '#FFFFFF',
+        icon: <Eye size={20} color="#FFFFFF" />,
+        onPress: () => handleViewInvoice(item),
+        testID: `swipe-view-invoice-${item.id}`,
+      },
+      {
+        text: 'Share',
+        backgroundColor: '#34C759',
+        color: '#FFFFFF',
+        icon: <Send size={20} color="#FFFFFF" />,
+        onPress: () => handleShareInvoice(item),
+        testID: `swipe-share-invoice-${item.id}`,
+      },
+    ];
+
+    if (item.status !== 'paid') {
+      swipeActions.push({
+        text: 'Mark Paid',
+        backgroundColor: '#FF9500',
+        color: '#FFFFFF',
+        icon: <DollarSign size={20} color="#FFFFFF" />,
+        onPress: () => handleMarkAsPaid(item),
+        testID: `swipe-paid-invoice-${item.id}`,
+      });
+    }
+
     return (
-      <Card style={[styles.invoiceCard, item.status === 'overdue' && styles.overdueCard]}>
+      <SwipeableItem rightActions={swipeActions} testID={`swipeable-invoice-${item.id}`}>
+        <Card style={[styles.invoiceCard, item.status === 'overdue' && styles.overdueCard]}>
         <TouchableOpacity onPress={() => handleViewInvoice(item)}>
           <View style={styles.invoiceHeader}>
             <View style={styles.invoiceInfo}>
@@ -253,7 +285,8 @@ export default function InvoicesScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </Card>
+        </Card>
+      </SwipeableItem>
     );
   };
 

@@ -9,6 +9,7 @@ import Modal from '@/components/Modal';
 import Input from '@/components/Input';
 import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
+import SwipeableItem, { SwipeAction } from '@/components/SwipeableItem';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -426,8 +427,36 @@ export default function TenantsScreen() {
     const tenantLeases = leases.filter(l => l.tenant_renter_id === item.id);
     const activeLeases = tenantLeases.filter(l => l.status === 'active');
 
+    const swipeActions: SwipeAction[] = [
+      {
+        text: 'Edit',
+        backgroundColor: '#007AFF',
+        color: '#FFFFFF',
+        icon: <Edit size={20} color="#FFFFFF" />,
+        onPress: () => handleEdit(item),
+        testID: `swipe-edit-tenant-${item.id}`,
+      },
+      {
+        text: 'Lease',
+        backgroundColor: '#FF9500',
+        color: '#FFFFFF',
+        icon: <FileText size={20} color="#FFFFFF" />,
+        onPress: () => handleAddLease(item),
+        testID: `swipe-lease-tenant-${item.id}`,
+      },
+      {
+        text: 'Checklist',
+        backgroundColor: '#34C759',
+        color: '#FFFFFF',
+        icon: <ClipboardCheck size={20} color="#FFFFFF" />,
+        onPress: () => handleOpenChecklist(item),
+        testID: `swipe-checklist-tenant-${item.id}`,
+      },
+    ];
+
     return (
-      <Card style={styles.tenantCard}>
+      <SwipeableItem rightActions={swipeActions} testID={`swipeable-tenant-${item.id}`}>
+        <Card style={styles.tenantCard}>
         <TouchableOpacity onPress={() => handleViewDetails(item)}>
           <View style={styles.tenantHeader}>
             <View style={styles.avatarContainer}>
@@ -495,7 +524,8 @@ export default function TenantsScreen() {
             <Text style={[styles.actionText, { color: '#34C759' }]}>Checklist</Text>
           </TouchableOpacity>
         </View>
-      </Card>
+        </Card>
+      </SwipeableItem>
     );
   };
 
