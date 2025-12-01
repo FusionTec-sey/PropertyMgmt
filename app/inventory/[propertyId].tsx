@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
-import { Package, Plus, History, Trash2, Edit, AlertCircle } from 'lucide-react-native';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { Package, Plus, History, Trash2, Edit, AlertCircle, User, FileText } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { PropertyItem, InventoryHistory, InventoryChangeReason, InventoryPaidBy } from '@/types';
 import Button from '@/components/Button';
@@ -13,6 +13,7 @@ import EmptyState from '@/components/EmptyState';
 
 export default function InventoryScreen() {
   const { propertyId, unitId } = useLocalSearchParams();
+  const router = useRouter();
   const {
     properties, units, propertyItems, addPropertyItem, updatePropertyItem, deletePropertyItem,
     inventoryHistory, addInventoryHistory, tenantRenters, leases
@@ -54,6 +55,12 @@ export default function InventoryScreen() {
     item.property_id === propertyId && (unitId ? item.unit_id === unitId : true)
   );
 
+  const activeLease = unitId ? leases.find(l =>
+    l.unit_id === unitId && l.status === 'active'
+  ) : undefined;
+
+  const activeTenant = activeLease ? tenantRenters.find(t => t.id === activeLease.tenant_renter_id) : undefined;
+
   const formatCurrency = (amount: number) => {
     return `₨${amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
   };
@@ -81,6 +88,12 @@ export default function InventoryScreen() {
     if (!tenant) return 'Unknown Tenant';
     if (tenant.type === 'business') return tenant.business_name || 'Unnamed Business';
     return `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed';
+  };
+
+  const handleViewLease = () => {
+    if (activeLease) {
+      router.push(`/lease/${activeLease.id}` as any);
+    }
   };
 
   const handleAdd = () => {
@@ -306,47 +319,62 @@ export default function InventoryScreen() {
     );
   };
 
-  const renderHistoryItem = ({ item }: { item: InventoryHistory }) => (
-    <Card style={styles.historyCard}>
-      <View style={styles.historyHeader}>
-        <Badge
-          label={item.action}
-          variant={item.action === 'removed' ? 'danger' : 'info'}
-        />
-        <Text style={styles.historyDate}>{formatDate(item.performed_at)}</Text>
-      </View>
+  const renderHistoryItem = ({ item }: { item: InventoryHistory }) => {
+    const historyLease = item.lease_id ? leases.find(l => l.id === item.lease_id) : undefined;
+    
+    return (
+      <Card style={styles.historyCard}>
+        <View style={styles.historyHeader}>
+          <Badge
+            label={item.action}
+            variant={item.action === 'removed' ? 'danger' : 'info'}
+          />
+          <Text style={styles.historyDate}>{formatDate(item.performed_at)}</Text>
+        </View>
 
-      <View style={styles.historyDetails}>
-        <Text style={styles.historyReason}>
-          {item.reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-        </Text>
-        {item.tenant_renter_id && (
-          <Text style={styles.historyTenant}>
-            Tenant: {getTenantName(item.tenant_renter_id)}
+        <View style={styles.historyDetails}>
+          <Text style={styles.historyReason}>
+            {item.reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
           </Text>
-        )}
-        {item.cost && (
-          <View style={styles.historyCost}>
-            <Text style={styles.historyCostLabel}>Cost: {formatCurrency(item.cost)}</Text>
-            {item.paid_by && (
-              <Badge
-                label={item.paid_by.replace('_', ' ')}
-                variant={item.paid_by === 'tenant_deposit' || item.paid_by === 'tenant_direct' ? 'warning' : 'success'}
-              />
-            )}
-          </View>
-        )}
-        {item.previous_condition && item.new_condition && (
-          <Text style={styles.historyCondition}>
-            Condition: {item.previous_condition} → {item.new_condition}
-          </Text>
-        )}
-        {item.notes && (
-          <Text style={styles.historyNotes}>{item.notes}</Text>
-        )}
-      </View>
-    </Card>
-  );
+          {item.tenant_renter_id && (
+            <View style={styles.historyTenantRow}>
+              <Text style={styles.historyTenant}>
+                Tenant: {getTenantName(item.tenant_renter_id)}
+              </Text>
+              {historyLease && (
+                <TouchableOpacity
+                  style={styles.viewLeaseButton}
+                  onPress={() => router.push(`/lease/${historyLease.id}` as any)}
+                >
+                  <FileText size={14} color="#007AFF" />
+                  <Text style={styles.viewLeaseText}>View Lease</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+          {item.cost && (
+            <View style={styles.historyCost}>
+              <Text style={styles.historyCostLabel}>Cost: {formatCurrency(item.cost)}</Text>
+              {item.paid_by && (
+                <Badge
+                  label={item.paid_by.replace('_', ' ')}
+                  variant={item.paid_by === 'tenant_deposit' || item.paid_by === 'tenant_direct' ? 'warning' : 'success'}
+                />
+              )}
+            </View>
+          )}
+          {item.previous_condition && item.new_condition && (
+            <Text style={styles.historyCondition}>
+              Condition: {item.previous_condition} → {item.new_condition}
+            </Text>
+          )}
+          {item.notes && (
+            <Text style={styles.historyNotes}>{item.notes}</Text>
+          )}
+        </View>
+      </Card>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -362,6 +390,32 @@ export default function InventoryScreen() {
           ),
         }}
       />
+
+      {activeLease && activeTenant && (
+        <TouchableOpacity 
+          style={styles.leaseCard} 
+          onPress={handleViewLease}
+          activeOpacity={0.7}
+        >
+          <View style={styles.leaseCardHeader}>
+            <View style={styles.leaseIcon}>
+              <User size={20} color="#007AFF" />
+            </View>
+            <View style={styles.leaseInfo}>
+              <Text style={styles.leaseLabel}>Current Tenant</Text>
+              <Text style={styles.leaseTenantName}>
+                {activeTenant.type === 'business' 
+                  ? activeTenant.business_name 
+                  : `${activeTenant.first_name || ''} ${activeTenant.last_name || ''}`.trim()}
+              </Text>
+              <Text style={styles.leaseSubtext}>
+                Lease ends {formatDate(activeLease.end_date)}
+              </Text>
+            </View>
+            <FileText size={20} color="#007AFF" />
+          </View>
+        </TouchableOpacity>
+      )}
 
       {items.length > 0 && (
         <View style={styles.summaryCard}>
@@ -1097,5 +1151,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     textTransform: 'capitalize' as const,
+  },
+  leaseCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#007AFF20',
+  },
+  leaseCardHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  leaseIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#007AFF15',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 12,
+  },
+  leaseInfo: {
+    flex: 1,
+  },
+  leaseLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  leaseTenantName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  leaseSubtext: {
+    fontSize: 13,
+    color: '#666',
+  },
+  historyTenantRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  viewLeaseButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#F0F8FF',
+    borderRadius: 6,
+  },
+  viewLeaseText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#007AFF',
   },
 });
