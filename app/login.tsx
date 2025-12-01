@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Building2, Plus } from 'lucide-react-native';
+import { Building2, Plus, Wifi, WifiOff } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
+import { trpc } from '@/lib/trpc';
 import type { Tenant, User } from '@/types';
 
 export default function LoginScreen() {
@@ -21,7 +22,11 @@ export default function LoginScreen() {
   const [showNewTenant, setShowNewTenant] = useState<boolean>(false);
   const [newTenantName, setNewTenantName] = useState<string>('');
   const [newTenantEmail, setNewTenantEmail] = useState<string>('');
-  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  
+  const healthQuery = trpc.health.useQuery(undefined, {
+    retry: 1,
+    refetchInterval: false,
+  });
 
   useEffect(() => {
     if (currentTenant && currentUser) {
@@ -95,6 +100,22 @@ export default function LoginScreen() {
           </View>
           <Text style={styles.title}>Property Manager</Text>
           <Text style={styles.subtitle}>Manage your properties with ease</Text>
+          
+          <View style={styles.backendStatus}>
+            {healthQuery.isLoading ? (
+              <ActivityIndicator size="small" color="#999" />
+            ) : healthQuery.isSuccess ? (
+              <View style={styles.statusRow}>
+                <Wifi size={16} color="#4CAF50" />
+                <Text style={styles.statusTextSuccess}>Backend Connected</Text>
+              </View>
+            ) : (
+              <View style={styles.statusRow}>
+                <WifiOff size={16} color="#F44336" />
+                <Text style={styles.statusTextError}>Backend Offline</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {!showNewTenant && (
@@ -224,6 +245,27 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666',
+  },
+  backendStatus: {
+    marginTop: 16,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFF',
+  },
+  statusRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  statusTextSuccess: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500' as const,
+  },
+  statusTextError: {
+    fontSize: 14,
+    color: '#F44336',
+    fontWeight: '500' as const,
   },
   section: {
     marginBottom: 24,
