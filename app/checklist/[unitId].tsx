@@ -447,15 +447,29 @@ export default function ChecklistScreen() {
                           </View>
                         </View>
 
-                        <TextInput
-                          style={styles.notesInput}
-                          placeholder="Add notes (optional)"
-                          placeholderTextColor="#999"
-                          value={item.notes}
-                          onChangeText={(text: string) => updateItemNotes(itemId, text)}
-                          multiline
-                          numberOfLines={2}
-                        />
+                        {section.id === 'keys' ? (
+                          <View style={styles.quantityRow}>
+                            <Text style={styles.quantityLabel}>Quantity:</Text>
+                            <TextInput
+                              style={styles.quantityInput}
+                              placeholder="0"
+                              placeholderTextColor="#999"
+                              value={item.notes}
+                              onChangeText={(text: string) => updateItemNotes(itemId, text)}
+                              keyboardType="number-pad"
+                            />
+                          </View>
+                        ) : (
+                          <TextInput
+                            style={styles.notesInput}
+                            placeholder="Add notes (optional)"
+                            placeholderTextColor="#999"
+                            value={item.notes}
+                            onChangeText={(text: string) => updateItemNotes(itemId, text)}
+                            multiline
+                            numberOfLines={2}
+                          />
+                        )}
 
                         <PhotoPicker
                           photos={item.images || []}
@@ -655,5 +669,27 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: 24,
     gap: 12,
+  },
+  quantityRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+    gap: 12,
+  },
+  quantityLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+  },
+  quantityInput: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
 });
