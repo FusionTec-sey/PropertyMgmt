@@ -21,7 +21,8 @@ export default function InvoicesScreen() {
     tenantRenters, 
     properties, 
     units,
-    currentTenant
+    currentTenant,
+    businessLogo
   } = useApp();
   
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
@@ -106,6 +107,7 @@ export default function InvoicesScreen() {
       address: property.address,
       email: currentTenant?.email || '',
       phone: currentTenant?.phone || '',
+      logo: businessLogo,
     };
 
     try {

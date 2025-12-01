@@ -15,7 +15,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function TenantsScreen() {
-  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease, updateLease, propertyItems } = useApp();
+  const { tenantRenters, addTenantRenter, updateTenantRenter, leases, units, addMoveInChecklist, updateMoveInChecklist, moveInChecklists, properties, addLease, updateLease, propertyItems, businessLogo } = useApp();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingTenant, setEditingTenant] = useState<TenantRenter | null>(null);
@@ -467,7 +467,8 @@ export default function TenantsScreen() {
           unit,
           selectedTenantForDetail,
           checklist,
-          inventory
+          inventory,
+          businessLogo
         );
         
         const link = document.createElement('a');
@@ -483,7 +484,8 @@ export default function TenantsScreen() {
           unit,
           selectedTenantForDetail,
           checklist,
-          inventory
+          inventory,
+          businessLogo
         );
         Alert.alert('Success', 'Tenancy agreement generated and ready to share!');
       }
