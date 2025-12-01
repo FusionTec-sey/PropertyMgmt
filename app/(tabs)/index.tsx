@@ -17,7 +17,6 @@ import {
   ArrowRight,
   Wrench,
   Receipt,
-  Package,
   ClipboardCheck,
 } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
@@ -52,11 +51,13 @@ export default function DashboardScreen() {
     title,
     color,
     onPress,
+    badge,
   }: {
     icon: any;
     title: string;
     color: string;
     onPress: () => void;
+    badge?: number;
   }) => (
     <TouchableOpacity
       style={styles.quickAction}
@@ -65,6 +66,11 @@ export default function DashboardScreen() {
     >
       <View style={[styles.quickActionIcon, { backgroundColor: `${color}20` }]}>
         <Icon size={24} color={color} />
+        {badge !== undefined && badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        )}
       </View>
       <Text style={styles.quickActionTitle}>{title}</Text>
     </TouchableOpacity>
@@ -408,55 +414,42 @@ export default function DashboardScreen() {
             icon={Users}
             title="Applications"
             color="#AF52DE"
+            badge={pendingApplications.length}
             onPress={() => router.push('/(tabs)/applications')}
-          />
-          <QuickActionCard
-            icon={Wrench}
-            title="Maintenance"
-            color="#FF9500"
-            onPress={() => router.push('/(tabs)/maintenance')}
           />
           <QuickActionCard
             icon={Receipt}
             title="Payments"
             color="#34C759"
+            badge={dashboardStats.pending_payments + dashboardStats.overdue_payments}
             onPress={() => router.push('/(tabs)/payments')}
           />
           <QuickActionCard
+            icon={Wrench}
+            title="Maintenance"
+            color="#FF9500"
+            badge={dashboardStats.open_maintenance}
+            onPress={() => router.push('/(tabs)/maintenance')}
+          />
+          <QuickActionCard
             icon={Users}
-            title="Add Tenant"
+            title="Tenants"
             color="#5856D6"
             onPress={() => router.push('/(tabs)/tenants')}
           />
           <QuickActionCard
             icon={ClipboardCheck}
             title="Inspections"
-            color="#5856D6"
+            color="#007AFF"
+            badge={upcomingInspections.length}
             onPress={() => router.push('/(tabs)/inspections')}
           />
           <QuickActionCard
             icon={FileText}
             title="Documents"
             color="#FF2D55"
+            badge={expiringDocuments.length}
             onPress={() => router.push('/(tabs)/documents')}
-          />
-          <QuickActionCard
-            icon={Plus}
-            title="Add Property"
-            color="#007AFF"
-            onPress={() => router.push('/(tabs)/properties')}
-          />
-          <QuickActionCard
-            icon={Package}
-            title="Inventory"
-            color="#00C7BE"
-            onPress={() => {
-              if (properties.length > 0) {
-                router.push(`/inventory/${properties[0].id}` as any);
-              } else {
-                Alert.alert('No Properties', 'Add a property first to manage inventory');
-              }
-            }}
           />
         </View>
       </View>
@@ -1109,7 +1102,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   quickAction: {
-    width: '31%' as const,
+    width: '48%' as const,
     backgroundColor: '#FFF',
     borderRadius: 12,
     padding: 16,
@@ -1127,6 +1120,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginBottom: 8,
+    position: 'relative' as const,
+  },
+  badge: {
+    position: 'absolute' as const,
+    top: -4,
+    right: -4,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
   },
   quickActionTitle: {
     fontSize: 12,

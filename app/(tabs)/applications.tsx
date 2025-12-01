@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { 
   FileText, 
@@ -12,7 +12,8 @@ import {
   XCircle, 
   Clock, 
   AlertCircle,
-  Eye
+  Eye,
+  CheckCheck,
 } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { TenantApplication, TenantApplicationStatus } from '@/types';
@@ -20,10 +21,13 @@ import Card from '@/components/Card';
 import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 import SwipeableItem, { SwipeAction } from '@/components/SwipeableItem';
+import BulkActionsBar, { BulkAction } from '@/components/BulkActionsBar';
 
 export default function ApplicationsScreen() {
-  const { tenantApplications, properties, units } = useApp();
+  const { tenantApplications, properties, units, updateTenantApplication } = useApp();
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState<boolean>(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -96,6 +100,124 @@ export default function ApplicationsScreen() {
     router.push(`/applications/${application.id}`);
   };
 
+  const toggleSelection = (id: string) => {
+    const newSelection = new Set(selectedIds);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedIds(newSelection);
+    if (newSelection.size === 0) {
+      setSelectionMode(false);
+    }
+  };
+
+  const handleLongPress = (id: string) => {
+    setSelectionMode(true);
+    toggleSelection(id);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleBulkApprove = async () => {
+    const selectedApplications = tenantApplications.filter(a => selectedIds.has(a.id));
+    
+    Alert.alert(
+      'Approve Applications',
+      `Approve ${selectedApplications.length} application${selectedApplications.length > 1 ? 's' : ''}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          style: 'default',
+          onPress: async () => {
+            try {
+              for (const app of selectedApplications) {
+                await updateTenantApplication(app.id, { status: 'approved' });
+              }
+              Alert.alert('Success', `${selectedApplications.length} application${selectedApplications.length > 1 ? 's' : ''} approved`);
+              clearSelection();
+            } catch (error) {
+              console.error('Error approving applications:', error);
+              Alert.alert('Error', 'Failed to approve some applications');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBulkReject = async () => {
+    const selectedApplications = tenantApplications.filter(a => selectedIds.has(a.id));
+    
+    Alert.alert(
+      'Reject Applications',
+      `Reject ${selectedApplications.length} application${selectedApplications.length > 1 ? 's' : ''}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              for (const app of selectedApplications) {
+                await updateTenantApplication(app.id, { status: 'rejected' });
+              }
+              Alert.alert('Success', `${selectedApplications.length} application${selectedApplications.length > 1 ? 's' : ''} rejected`);
+              clearSelection();
+            } catch (error) {
+              console.error('Error rejecting applications:', error);
+              Alert.alert('Error', 'Failed to reject some applications');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBulkReview = async () => {
+    const selectedApplications = tenantApplications.filter(a => selectedIds.has(a.id));
+    
+    try {
+      for (const app of selectedApplications) {
+        await updateTenantApplication(app.id, { status: 'under_review' });
+      }
+      Alert.alert('Success', `${selectedApplications.length} application${selectedApplications.length > 1 ? 's' : ''} marked for review`);
+      clearSelection();
+    } catch (error) {
+      console.error('Error updating applications:', error);
+      Alert.alert('Error', 'Failed to update some applications');
+    }
+  };
+
+  const bulkActions: BulkAction[] = [
+    {
+      id: 'approve',
+      label: 'Approve',
+      icon: <CheckCircle size={16} color="#34C759" />,
+      color: '#34C759',
+      onPress: handleBulkApprove,
+    },
+    {
+      id: 'reject',
+      label: 'Reject',
+      icon: <XCircle size={16} color="#FF3B30" />,
+      color: '#FF3B30',
+      onPress: handleBulkReject,
+    },
+    {
+      id: 'review',
+      label: 'Review',
+      icon: <Eye size={16} color="#007AFF" />,
+      color: '#007AFF',
+      onPress: handleBulkReview,
+    },
+  ];
+
   const renderApplication = ({ item }: { item: TenantApplication }) => {
     const property = properties.find(p => p.id === item.property_id);
     const unit = item.unit_id ? units.find(u => u.id === item.unit_id) : null;
@@ -112,10 +234,31 @@ export default function ApplicationsScreen() {
       },
     ];
 
+    const isSelected = selectedIds.has(item.id);
+
     return (
       <SwipeableItem rightActions={swipeActions} testID={`swipeable-application-${item.id}`}>
-        <Card style={styles.applicationCard}>
-          <TouchableOpacity onPress={() => handleViewApplication(item)} activeOpacity={0.7}>
+        <Card style={[styles.applicationCard, isSelected && styles.selectedCard]}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (selectionMode) {
+                toggleSelection(item.id);
+              } else {
+                handleViewApplication(item);
+              }
+            }}
+            onLongPress={() => handleLongPress(item.id)}
+            activeOpacity={0.7}
+          >
+            {selectionMode && (
+              <View style={styles.selectionCheckbox}>
+                {isSelected ? (
+                  <CheckCircle size={24} color="#007AFF" />
+                ) : (
+                  <View style={styles.emptyCheckbox} />
+                )}
+              </View>
+            )}
             <View style={styles.applicationHeader}>
               <View style={styles.applicantInfo}>
                 <View style={styles.avatarContainer}>
@@ -198,7 +341,18 @@ export default function ApplicationsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Applications</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>Applications</Text>
+          {!selectionMode && sortedApplications.length > 0 && (
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setSelectionMode(true)}
+            >
+              <CheckCheck size={20} color="#007AFF" />
+              <Text style={styles.selectButtonText}>Select</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{pendingApplications.length}</Text>
@@ -224,7 +378,7 @@ export default function ApplicationsScreen() {
           data={sortedApplications}
           renderItem={renderApplication}
           keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, selectionMode && styles.listWithBulkBar]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -235,6 +389,12 @@ export default function ApplicationsScreen() {
           }
         />
       )}
+
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        onClearSelection={clearSelection}
+        actions={bulkActions}
+      />
     </View>
   );
 }
@@ -250,11 +410,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
+  headerTop: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700' as const,
     color: '#1A1A1A',
-    marginBottom: 12,
+  },
+  selectButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
+  },
+  selectButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
   },
   statsContainer: {
     flexDirection: 'row' as const,
@@ -283,8 +462,31 @@ const styles = StyleSheet.create({
   list: {
     padding: 16,
   },
+  listWithBulkBar: {
+    paddingBottom: 80,
+  },
   applicationCard: {
     marginBottom: 16,
+    position: 'relative' as const,
+  },
+  selectedCard: {
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    backgroundColor: '#F0F8FF',
+  },
+  selectionCheckbox: {
+    position: 'absolute' as const,
+    top: 12,
+    right: 12,
+    zIndex: 10,
+  },
+  emptyCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#CCCCCC',
+    backgroundColor: '#FFFFFF',
   },
   applicationHeader: {
     flexDirection: 'row' as const,
