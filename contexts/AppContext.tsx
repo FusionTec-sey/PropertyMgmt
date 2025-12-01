@@ -6,7 +6,7 @@ import type {
   MaintenanceRequest, Notification,
   ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo, UserPermissions,
-  InventoryHistory, Invoice
+  InventoryHistory, Invoice, BusinessDocument
 } from '@/types';
 
 const STORAGE_KEYS = {
@@ -31,6 +31,7 @@ const STORAGE_KEYS = {
   STAFF_USERS: '@app/staff_users',
   INVENTORY_HISTORY: '@app/inventory_history',
   INVOICES: '@app/invoices',
+  BUSINESS_DOCUMENTS: '@app/business_documents',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -54,6 +55,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [inventoryHistory, setInventoryHistory] = useState<InventoryHistory[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [businessDocuments, setBusinessDocuments] = useState<BusinessDocument[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -76,6 +78,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedTodos,
         savedInventoryHistory,
         savedInvoices,
+        savedBusinessDocuments,
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
@@ -95,6 +98,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.TODOS),
         AsyncStorage.getItem(STORAGE_KEYS.INVENTORY_HISTORY),
         AsyncStorage.getItem(STORAGE_KEYS.INVOICES),
+        AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_DOCUMENTS),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -115,6 +119,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedTodos) setTodos(JSON.parse(savedTodos));
       if (savedInventoryHistory) setInventoryHistory(JSON.parse(savedInventoryHistory));
       if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
+      if (savedBusinessDocuments) setBusinessDocuments(JSON.parse(savedBusinessDocuments));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -545,6 +550,37 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.INVOICES, updated);
   }, [invoices, saveData]);
 
+  const addBusinessDocument = useCallback(async (document: Omit<BusinessDocument, 'id' | 'created_at' | 'updated_at' | 'tenant_id' | 'uploaded_by'>) => {
+    if (!currentTenant || !currentUser) return;
+    
+    const newDocument: BusinessDocument = {
+      ...document,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      uploaded_by: currentUser.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...businessDocuments, newDocument];
+    setBusinessDocuments(updated);
+    await saveData(STORAGE_KEYS.BUSINESS_DOCUMENTS, updated);
+    return newDocument;
+  }, [currentTenant, currentUser, businessDocuments, saveData]);
+
+  const updateBusinessDocument = useCallback(async (id: string, updates: Partial<BusinessDocument>) => {
+    const updated = businessDocuments.map(d => 
+      d.id === id ? { ...d, ...updates, updated_at: new Date().toISOString() } : d
+    );
+    setBusinessDocuments(updated);
+    await saveData(STORAGE_KEYS.BUSINESS_DOCUMENTS, updated);
+  }, [businessDocuments, saveData]);
+
+  const deleteBusinessDocument = useCallback(async (id: string) => {
+    const updated = businessDocuments.filter(d => d.id !== id);
+    setBusinessDocuments(updated);
+    await saveData(STORAGE_KEYS.BUSINESS_DOCUMENTS, updated);
+  }, [businessDocuments, saveData]);
+
   const addStaffUser = useCallback(async (user: Omit<User, 'id' | 'created_at' | 'tenant_id'>) => {
     if (!currentTenant || !currentUser) return;
     
@@ -686,6 +722,11 @@ export const [AppContext, useApp] = createContextHook(() => {
     [invoices, currentTenant]
   );
 
+  const tenantBusinessDocuments = useMemo(() => 
+    businessDocuments.filter(d => d.tenant_id === currentTenant?.id),
+    [businessDocuments, currentTenant]
+  );
+
   const tenantStaffUsers = useMemo(() => 
     staffUsers.filter(u => u.tenant_id === currentTenant?.id),
     [staffUsers, currentTenant]
@@ -790,5 +831,9 @@ export const [AppContext, useApp] = createContextHook(() => {
     addInvoice,
     updateInvoice,
     deleteInvoice,
+    businessDocuments: tenantBusinessDocuments,
+    addBusinessDocument,
+    updateBusinessDocument,
+    deleteBusinessDocument,
   };
 });

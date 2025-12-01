@@ -464,6 +464,37 @@ export interface Todo {
 export type InvoiceId = string;
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
 
+export type BusinessDocumentId = string;
+export type DocumentCategory = 
+  | 'business_license' 
+  | 'insurance_policy' 
+  | 'registration' 
+  | 'tax_certificate' 
+  | 'permit' 
+  | 'contract' 
+  | 'certification'
+  | 'other';
+
+export interface BusinessDocument {
+  id: BusinessDocumentId;
+  tenant_id: TenantId;
+  property_id?: PropertyId;
+  name: string;
+  category: DocumentCategory;
+  document_number?: string;
+  issuing_authority?: string;
+  issue_date?: string;
+  expiry_date?: string;
+  reminder_days_before?: number;
+  file_uri?: string;
+  file_type?: 'pdf' | 'image' | 'other';
+  file_size?: number;
+  notes?: string;
+  uploaded_by: UserId;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   description: string;
