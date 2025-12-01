@@ -405,16 +405,10 @@ export default function DashboardScreen() {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsGrid}>
           <QuickActionCard
-            icon={Plus}
-            title="Add Property"
-            color="#007AFF"
-            onPress={() => router.push('/(tabs)/properties')}
-          />
-          <QuickActionCard
             icon={Users}
-            title="Add Tenant"
-            color="#5856D6"
-            onPress={() => router.push('/(tabs)/tenants')}
+            title="Applications"
+            color="#AF52DE"
+            onPress={() => router.push('/(tabs)/applications')}
           />
           <QuickActionCard
             icon={Wrench}
@@ -429,10 +423,28 @@ export default function DashboardScreen() {
             onPress={() => router.push('/(tabs)/payments')}
           />
           <QuickActionCard
+            icon={Users}
+            title="Add Tenant"
+            color="#5856D6"
+            onPress={() => router.push('/(tabs)/tenants')}
+          />
+          <QuickActionCard
+            icon={ClipboardCheck}
+            title="Inspections"
+            color="#5856D6"
+            onPress={() => router.push('/(tabs)/inspections')}
+          />
+          <QuickActionCard
             icon={FileText}
             title="Documents"
             color="#FF2D55"
             onPress={() => router.push('/(tabs)/documents')}
+          />
+          <QuickActionCard
+            icon={Plus}
+            title="Add Property"
+            color="#007AFF"
+            onPress={() => router.push('/(tabs)/properties')}
           />
           <QuickActionCard
             icon={Package}
@@ -445,18 +457,6 @@ export default function DashboardScreen() {
                 Alert.alert('No Properties', 'Add a property first to manage inventory');
               }
             }}
-          />
-          <QuickActionCard
-            icon={ClipboardCheck}
-            title="Inspections"
-            color="#5856D6"
-            onPress={() => router.push('/(tabs)/inspections')}
-          />
-          <QuickActionCard
-            icon={Users}
-            title="Applications"
-            color="#AF52DE"
-            onPress={() => router.push('/(tabs)/applications')}
           />
         </View>
       </View>
