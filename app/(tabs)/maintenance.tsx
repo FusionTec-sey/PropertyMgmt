@@ -7,6 +7,7 @@ import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Modal from '@/components/Modal';
 import Input from '@/components/Input';
+import Select from '@/components/Select';
 import EmptyState from '@/components/EmptyState';
 import { PhotoPicker } from '@/components/PhotoPicker';
 import PhotoGallery from '@/components/PhotoGallery';
@@ -637,29 +638,48 @@ export default function MaintenanceScreen() {
         testID="request-modal"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
-          <Input
+          <Select
             label="Property"
             value={requestFormData.property_id}
-            onChangeText={text => setRequestFormData({ ...requestFormData, property_id: text })}
-            placeholder="Select property ID"
+            options={properties.map(p => ({ label: p.name, value: p.id }))}
+            onValueChange={value => {
+              setRequestFormData({ ...requestFormData, property_id: value, unit_id: '' });
+            }}
+            placeholder="Select a property"
             required
-            testID="request-property-input"
+            testID="request-property-select"
           />
 
-          <Input
+          <Select
             label="Unit (Optional)"
             value={requestFormData.unit_id}
-            onChangeText={text => setRequestFormData({ ...requestFormData, unit_id: text })}
-            placeholder="Unit ID"
-            testID="request-unit-input"
+            options={[
+              { label: 'Property-wide (no specific unit)', value: '' },
+              ...units
+                .filter(u => u.property_id === requestFormData.property_id)
+                .map(u => ({ label: `Unit ${u.unit_number}`, value: u.id }))
+            ]}
+            onValueChange={value => setRequestFormData({ ...requestFormData, unit_id: value })}
+            placeholder="Select a unit"
+            disabled={!requestFormData.property_id}
+            testID="request-unit-select"
           />
 
-          <Input
+          <Select
             label="Tenant (Optional)"
             value={requestFormData.tenant_renter_id}
-            onChangeText={text => setRequestFormData({ ...requestFormData, tenant_renter_id: text })}
-            placeholder="Tenant ID"
-            testID="request-tenant-input"
+            options={[
+              { label: 'None', value: '' },
+              ...tenantRenters.map(t => {
+                const name = t.type === 'business' 
+                  ? t.business_name || 'Unnamed Business'
+                  : `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'Unnamed';
+                return { label: name, value: t.id };
+              })
+            ]}
+            onValueChange={value => setRequestFormData({ ...requestFormData, tenant_renter_id: value })}
+            placeholder="Select a tenant"
+            testID="request-tenant-select"
           />
 
           <Input
@@ -682,12 +702,38 @@ export default function MaintenanceScreen() {
             testID="request-description-input"
           />
 
-          <Input
+          <Select
             label="Category"
             value={requestFormData.category}
-            onChangeText={text => setRequestFormData({ ...requestFormData, category: text })}
-            placeholder="e.g., Plumbing, Electrical"
-            testID="request-category-input"
+            options={[
+              { label: 'None', value: '' },
+              { label: 'Plumbing', value: 'Plumbing' },
+              { label: 'Electrical', value: 'Electrical' },
+              { label: 'HVAC', value: 'HVAC' },
+              { label: 'Appliance', value: 'Appliance' },
+              { label: 'Structural', value: 'Structural' },
+              { label: 'Painting', value: 'Painting' },
+              { label: 'Flooring', value: 'Flooring' },
+              { label: 'Pest Control', value: 'Pest Control' },
+              { label: 'Other', value: 'Other' },
+            ]}
+            onValueChange={value => setRequestFormData({ ...requestFormData, category: value })}
+            placeholder="Select a category"
+            testID="request-category-select"
+          />
+
+          <Select
+            label="Priority"
+            value={requestFormData.priority}
+            options={[
+              { label: 'Low', value: 'low' },
+              { label: 'Medium', value: 'medium' },
+              { label: 'High', value: 'high' },
+              { label: 'Urgent', value: 'urgent' },
+            ]}
+            onValueChange={value => setRequestFormData({ ...requestFormData, priority: value as any })}
+            placeholder="Select priority"
+            testID="request-priority-select"
           />
 
           <Input
@@ -736,21 +782,31 @@ export default function MaintenanceScreen() {
         testID="schedule-modal"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
-          <Input
+          <Select
             label="Property"
             value={scheduleFormData.property_id}
-            onChangeText={text => setScheduleFormData({ ...scheduleFormData, property_id: text })}
-            placeholder="Property ID"
+            options={properties.map(p => ({ label: p.name, value: p.id }))}
+            onValueChange={value => {
+              setScheduleFormData({ ...scheduleFormData, property_id: value, unit_id: '' });
+            }}
+            placeholder="Select a property"
             required
-            testID="schedule-property-input"
+            testID="schedule-property-select"
           />
 
-          <Input
+          <Select
             label="Unit (Optional)"
             value={scheduleFormData.unit_id}
-            onChangeText={text => setScheduleFormData({ ...scheduleFormData, unit_id: text })}
-            placeholder="Unit ID"
-            testID="schedule-unit-input"
+            options={[
+              { label: 'Property-wide (no specific unit)', value: '' },
+              ...units
+                .filter(u => u.property_id === scheduleFormData.property_id)
+                .map(u => ({ label: `Unit ${u.unit_number}`, value: u.id }))
+            ]}
+            onValueChange={value => setScheduleFormData({ ...scheduleFormData, unit_id: value })}
+            placeholder="Select a unit"
+            disabled={!scheduleFormData.property_id}
+            testID="schedule-unit-select"
           />
 
           <Input
@@ -773,12 +829,49 @@ export default function MaintenanceScreen() {
             testID="schedule-task-input"
           />
 
-          <Input
+          <Select
+            label="Asset Type"
+            value={scheduleFormData.asset_type}
+            options={[
+              { label: 'HVAC', value: 'hvac' },
+              { label: 'Plumbing', value: 'plumbing' },
+              { label: 'Electrical', value: 'electrical' },
+              { label: 'Appliance', value: 'appliance' },
+              { label: 'Structure', value: 'structure' },
+              { label: 'Other', value: 'other' },
+            ]}
+            onValueChange={value => setScheduleFormData({ ...scheduleFormData, asset_type: value as any })}
+            placeholder="Select asset type"
+            testID="schedule-asset-type-select"
+          />
+
+          <Select
             label="Frequency"
             value={scheduleFormData.frequency}
-            onChangeText={text => setScheduleFormData({ ...scheduleFormData, frequency: text as any })}
-            placeholder="monthly, quarterly, annual"
-            testID="schedule-frequency-input"
+            options={[
+              { label: 'Daily', value: 'daily' },
+              { label: 'Weekly', value: 'weekly' },
+              { label: 'Monthly', value: 'monthly' },
+              { label: 'Quarterly', value: 'quarterly' },
+              { label: 'Semi-Annual', value: 'semi-annual' },
+              { label: 'Annual', value: 'annual' },
+            ]}
+            onValueChange={value => setScheduleFormData({ ...scheduleFormData, frequency: value as any })}
+            placeholder="Select frequency"
+            testID="schedule-frequency-select"
+          />
+
+          <Select
+            label="Priority"
+            value={scheduleFormData.priority}
+            options={[
+              { label: 'Low', value: 'low' },
+              { label: 'Medium', value: 'medium' },
+              { label: 'High', value: 'high' },
+            ]}
+            onValueChange={value => setScheduleFormData({ ...scheduleFormData, priority: value as any })}
+            placeholder="Select priority"
+            testID="schedule-priority-select"
           />
 
           <Input
