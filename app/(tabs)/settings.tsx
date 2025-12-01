@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
-import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit } from 'lucide-react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import type { UserRole, UserPermissions } from '@/types';
@@ -174,6 +174,26 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Management</Text>
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={() => router.push('/(tabs)/documents')}
+            testID="manage-documents-button"
+          >
+            <View style={styles.managementIconContainer}>
+              <FileText size={20} color="#007AFF" />
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>Document Management</Text>
+              <Text style={styles.managementSubtitle}>
+                Manage business licenses, insurance, and other documents
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
         </View>
 
         {isOwner && (
@@ -744,5 +764,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#FFF',
+  },
+  managementCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 8,
+    gap: 12,
+  },
+  managementIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#007AFF15',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  managementContent: {
+    flex: 1,
+  },
+  managementTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  managementSubtitle: {
+    fontSize: 13,
+    color: '#666',
   },
 });
