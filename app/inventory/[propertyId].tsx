@@ -55,11 +55,11 @@ export default function InventoryScreen() {
   );
 
   const formatCurrency = (amount: number) => {
-    return `₨${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
+    return `₨${amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const getTenantName = (tenantId: string) => {
@@ -90,6 +90,8 @@ export default function InventoryScreen() {
       return;
     }
 
+    console.log('[INVENTORY] Adding new item:', formData.name, 'to property:', property.id);
+
     const newItem = await addPropertyItem({
       property_id: property.id,
       unit_id: unitId ? String(unitId) : undefined,
@@ -115,7 +117,8 @@ export default function InventoryScreen() {
         quantity_after: parseInt(formData.quantity) || 1,
         notes: `Initial provision: ${formData.name}`,
       });
-      Alert.alert('Success', 'Item added successfully');
+      console.log('[INVENTORY] Item added with initial history record');
+      Alert.alert('Success', 'Item added to inventory successfully');
     }
 
     setAddModalVisible(false);

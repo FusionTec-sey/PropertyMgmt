@@ -240,6 +240,7 @@ export default function ChecklistScreen() {
         notes: overallNotes,
       });
 
+      console.log('[CHECKLIST] Saved draft checklist for unit:', unit.id);
       Alert.alert('Success', 'Checklist saved successfully!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -278,8 +279,19 @@ export default function ChecklistScreen() {
                   notes: overallNotes,
                 });
 
-                Alert.alert('Success', 'Checklist completed and saved!', [
-                  { text: 'OK', onPress: () => router.back() },
+                console.log('[CHECKLIST] Completed move-in checklist for unit:', unit.id);
+                Alert.alert('Success', 'Move-in checklist completed!', [
+                  {
+                    text: 'View Inventory',
+                    onPress: () => {
+                      router.back();
+                      router.push(`/inventory/${property?.id}?unitId=${unit.id}` as any);
+                    }
+                  },
+                  {
+                    text: 'Done',
+                    onPress: () => router.back()
+                  }
                 ]);
               } catch (error) {
                 console.error('Error completing checklist:', error);
@@ -307,8 +319,19 @@ export default function ChecklistScreen() {
           notes: overallNotes,
         });
 
-        Alert.alert('Success', 'Checklist completed and saved!', [
-          { text: 'OK', onPress: () => router.back() },
+        console.log('[CHECKLIST] Completed move-in checklist for unit:', unit.id);
+        Alert.alert('Success', 'Move-in checklist completed!', [
+          {
+            text: 'View Inventory',
+            onPress: () => {
+              router.back();
+              router.push(`/inventory/${property?.id}?unitId=${unit.id}` as any);
+            }
+          },
+          {
+            text: 'Done',
+            onPress: () => router.back()
+          }
         ]);
       } catch (error) {
         console.error('Error completing checklist:', error);
