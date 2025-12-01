@@ -37,7 +37,7 @@ Notifications.setNotificationHandler({
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo } = useApp();
+  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo, tenantApplications, propertyInspections, invoices, businessDocuments } = useApp();
   const [requestingNotificationPermission, setRequestingNotificationPermission] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -74,14 +74,35 @@ export default function DashboardScreen() {
     return `₨${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
   };
 
+  const today = new Date();
+  const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+
   const draftLeases = leases.filter((l) => l.status === 'draft');
   const recentLeases = leases.filter((l) => l.status !== 'draft').slice(-3).reverse();
   const urgentMaintenance = maintenanceRequests.filter(
     (m) => m.priority === 'urgent' || m.priority === 'high'
   ).slice(0, 3);
 
-  const today = new Date();
-  const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const pendingApplications = tenantApplications.filter((a) => a.status === 'pending' || a.status === 'under_review');
+  
+  const upcomingInspections = propertyInspections.filter((i) => {
+    if (i.status !== 'scheduled') return false;
+    const inspDate = new Date(i.scheduled_date);
+    const thirtyDaysOut = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+    return inspDate >= today && inspDate <= thirtyDaysOut;
+  }).sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+
+  const overdueInvoices = invoices.filter((inv) => {
+    if (inv.status === 'paid' || inv.status === 'cancelled') return false;
+    return new Date(inv.due_date) < today;
+  });
+
+  const expiringDocuments = businessDocuments.filter((doc) => {
+    if (!doc.expiry_date) return false;
+    const expiryDate = new Date(doc.expiry_date);
+    const sixtyDaysFromNow = new Date(today.getTime() + (60 * 24 * 60 * 60 * 1000));
+    return expiryDate >= today && expiryDate <= sixtyDaysFromNow;
+  }).sort((a, b) => new Date(a.expiry_date!).getTime() - new Date(b.expiry_date!).getTime()).slice(0, 3);
   const expiringLeases = leases.filter((l) => {
     if (l.status !== 'active') return false;
     const endDate = new Date(l.end_date);
@@ -431,10 +452,39 @@ export default function DashboardScreen() {
             color="#5856D6"
             onPress={() => router.push('/(tabs)/inspections')}
           />
+          <QuickActionCard
+            icon={Users}
+            title="Applications"
+            color="#AF52DE"
+            onPress={() => router.push('/(tabs)/applications')}
+          />
         </View>
       </View>
 
-      {(dashboardStats.pending_payments > 0 || dashboardStats.overdue_payments > 0) && (
+      {pendingApplications.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Users size={20} color="#AF52DE" />
+            <Text style={styles.sectionTitle}>New Applications</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.alertBanner, { borderLeftColor: '#AF52DE' }]}
+            onPress={() => router.push('/(tabs)/applications')}
+            activeOpacity={0.8}
+          >
+            <Users size={20} color="#AF52DE" />
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>
+                {pendingApplications.length} Pending Application{pendingApplications.length > 1 ? 's' : ''}
+              </Text>
+              <Text style={styles.alertSubtext}>Review and process tenant applications</Text>
+            </View>
+            <ArrowRight size={20} color="#AF52DE" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {(dashboardStats.pending_payments > 0 || dashboardStats.overdue_payments > 0 || overdueInvoices.length > 0) && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <AlertCircle size={20} color="#FF9500" />
@@ -469,7 +519,91 @@ export default function DashboardScreen() {
                 <ArrowRight size={20} color="#FF9500" />
               </TouchableOpacity>
             )}
+            {overdueInvoices.length > 0 && (
+              <TouchableOpacity 
+                style={[styles.alertBanner, styles.urgentAlert]}
+                onPress={() => router.push('/(tabs)/invoices')}
+                activeOpacity={0.8}
+              >
+                <Receipt size={20} color="#FF3B30" />
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertTitle}>{overdueInvoices.length} Overdue Invoice{overdueInvoices.length > 1 ? 's' : ''}</Text>
+                  <Text style={styles.alertSubtext}>Follow up with tenants</Text>
+                </View>
+                <ArrowRight size={20} color="#FF3B30" />
+              </TouchableOpacity>
+            )}
           </View>
+        </View>
+      )}
+
+      {upcomingInspections.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ClipboardCheck size={20} color="#5856D6" />
+            <Text style={styles.sectionTitle}>Upcoming Inspections</Text>
+          </View>
+          {upcomingInspections.slice(0, 3).map((inspection) => {
+            const property = properties.find((p) => p.id === inspection.property_id);
+            const unit = units.find((u) => u.id === inspection.unit_id);
+            const inspDate = new Date(inspection.scheduled_date);
+            const daysUntil = Math.ceil((inspDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+            return (
+              <TouchableOpacity
+                key={inspection.id}
+                style={styles.inspectionCard}
+                onPress={() => router.push(`/inspection/${inspection.id}` as any)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.leaseInfo}>
+                  <Text style={styles.leaseProperty}>{property?.name || 'Unknown'}</Text>
+                  <Text style={styles.leaseDetails}>
+                    {inspection.inspection_type.replace('_', ' ')} • {unit ? `Unit ${unit.unit_number}` : 'Property-wide'}
+                  </Text>
+                  <Text style={[styles.leaseExpiry, daysUntil <= 3 && styles.leaseExpiryUrgent]}>
+                    {daysUntil === 0 
+                      ? 'Today' 
+                      : daysUntil === 1 
+                      ? 'Tomorrow' 
+                      : `In ${daysUntil} days`} • {inspDate.toLocaleDateString()}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {expiringDocuments.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FileText size={20} color="#FF9500" />
+            <Text style={styles.sectionTitle}>Expiring Documents</Text>
+          </View>
+          {expiringDocuments.map((doc) => {
+            const property = doc.property_id ? properties.find((p) => p.id === doc.property_id) : null;
+            const expiryDate = new Date(doc.expiry_date!);
+            const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+            return (
+              <View key={doc.id} style={styles.expiringDocCard}>
+                <View style={styles.leaseInfo}>
+                  <Text style={styles.leaseProperty}>{doc.name}</Text>
+                  <Text style={styles.leaseDetails}>
+                    {doc.category.replace('_', ' ')} {property && `• ${property.name}`}
+                  </Text>
+                  <Text style={[styles.leaseExpiry, daysUntilExpiry <= 14 && styles.leaseExpiryUrgent]}>
+                    {daysUntilExpiry === 0 
+                      ? 'Expires today' 
+                      : daysUntilExpiry === 1 
+                      ? 'Expires tomorrow' 
+                      : `Expires in ${daysUntilExpiry} days`}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -1387,6 +1521,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#007AFF',
+  },
+  inspectionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#5856D6',
+  },
+  expiringDocCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9500',
   },
   reminderButton: {
     padding: 8,
