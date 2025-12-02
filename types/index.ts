@@ -275,6 +275,7 @@ export interface MaintenanceRequest {
   images?: string[];
   receipts?: ExpenseAttachment[];
   notes?: string;
+  related_expense_id?: ExpenseId;
   created_at: string;
   updated_at: string;
 }
