@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
 import { inMemoryDB } from '../../../../db/schema';
 
-export const syncRoute = {
+const syncRoute = {
   getAllData: publicProcedure
     .input(z.object({ 
       tenantId: z.string(),
