@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { FileText, Eye, Calendar, DollarSign, Send, RefreshCw } from 'lucide-react-native';
+import { FileText, Eye, Calendar, DollarSign, Send, RefreshCw, Clock } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Invoice } from '@/types';
 import { generateInvoiceNumber, generateInvoiceData, generateMonthlyInvoiceDate, shouldGenerateInvoice, shareInvoicePDF } from '@/utils/invoiceGenerator';
+import { 
+  getSchedulesReadyForGeneration, 
+  shouldGenerateScheduledInvoice, 
+  generateScheduledInvoice, 
+  getUpcomingScheduledInvoices 
+} from '@/utils/invoiceScheduler';
 import { getCurrencySymbol, DEFAULT_CURRENCY } from '@/constants/currencies';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -22,7 +28,9 @@ export default function InvoicesScreen() {
     properties, 
     units,
     currentTenant,
-    businessLogo
+    businessLogo,
+    invoiceSchedules,
+    updateInvoiceSchedule,
   } = useApp();
   
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
@@ -30,8 +38,48 @@ export default function InvoicesScreen() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log(`[Invoices] Loaded ${invoices.length} invoices`);
-  }, [invoices.length]);
+    console.log(`[Invoices] Loaded ${invoices.length} invoices, ${invoiceSchedules.length} schedules`);
+  }, [invoices.length, invoiceSchedules.length]);
+
+  useEffect(() => {
+    const processScheduledInvoices = async () => {
+      const readySchedules = getSchedulesReadyForGeneration(invoiceSchedules, invoices);
+      
+      if (readySchedules.length > 0) {
+        console.log(`[INVOICE_SCHEDULER] Found ${readySchedules.length} schedules ready for invoice generation`);
+        
+        for (const schedule of readySchedules) {
+          const lease = leases.find(l => l.id === schedule.lease_id);
+          const tenantRenter = tenantRenters.find(tr => tr.id === schedule.tenant_renter_id);
+          const property = properties.find(p => p.id === schedule.property_id);
+          const unit = units.find(u => u.id === schedule.unit_id);
+          
+          if (lease && tenantRenter && property && unit) {
+            const invoiceData = generateScheduledInvoice({
+              schedule,
+              lease,
+              tenantRenter,
+              property,
+              unit,
+              existingInvoicesCount: invoices.length,
+            });
+            
+            await addInvoice(invoiceData);
+            
+            const checkResult = shouldGenerateScheduledInvoice(schedule, invoices);
+            await updateInvoiceSchedule(schedule.id, {
+              last_generation_date: new Date().toISOString().split('T')[0],
+              next_generation_date: checkResult.nextGenerationDate,
+            });
+            
+            console.log(`[INVOICE_SCHEDULER] Generated invoice ${invoiceData.invoice_number} for schedule ${schedule.id}`);
+          }
+        }
+      }
+    };
+    
+    processScheduledInvoices();
+  }, [invoiceSchedules, invoices, leases, tenantRenters, properties, units, addInvoice, updateInvoiceSchedule]);
 
   const handleAutoGenerateInvoices = useCallback(async () => {
     setIsGenerating(true);
@@ -292,6 +340,8 @@ export default function InvoicesScreen() {
     );
   };
 
+  const upcomingScheduled = getUpcomingScheduledInvoices(invoiceSchedules, 30);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -300,6 +350,14 @@ export default function InvoicesScreen() {
           <Text style={styles.headerSubtitle}>
             {invoices.filter(i => i.status === 'paid').length} paid • {invoices.filter(i => i.status === 'overdue').length} overdue
           </Text>
+          {upcomingScheduled.length > 0 && (
+            <View style={styles.scheduledInfo}>
+              <Clock size={12} color="#007AFF" />
+              <Text style={styles.scheduledText}>
+                {upcomingScheduled.length} scheduled in next 30 days
+              </Text>
+            </View>
+          )}
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -833,5 +891,16 @@ const styles = StyleSheet.create({
   detailActions: {
     gap: 12,
     marginTop: 12,
+  },
+  scheduledInfo: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    marginTop: 6,
+  },
+  scheduledText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500' as const,
   },
 });

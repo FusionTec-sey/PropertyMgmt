@@ -942,3 +942,30 @@ export interface AccountBalance {
   last_transaction_date?: string;
   last_updated: string;
 }
+
+export type InvoiceScheduleId = string;
+export type InvoiceScheduleFrequency = 'monthly' | 'quarterly' | 'semi-annual' | 'annual';
+export type InvoiceScheduleStatus = 'active' | 'paused' | 'completed' | 'cancelled';
+
+export interface InvoiceSchedule {
+  id: InvoiceScheduleId;
+  tenant_id: TenantId;
+  lease_id: LeaseId;
+  property_id: PropertyId;
+  unit_id: UnitId;
+  tenant_renter_id: TenantRenterId;
+  frequency: InvoiceScheduleFrequency;
+  start_date: string;
+  end_date?: string;
+  next_generation_date: string;
+  last_generation_date?: string;
+  status: InvoiceScheduleStatus;
+  generation_day: number;
+  auto_send: boolean;
+  include_late_fee: boolean;
+  late_fee_amount?: number;
+  notes?: string;
+  created_by?: UserId;
+  created_at: string;
+  updated_at: string;
+}

@@ -11,7 +11,8 @@ import type {
   ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo, UserPermissions,
   InventoryHistory, Invoice, BusinessDocument,
-  TenantApplication, TenantOnboarding, PropertyInspection, Expense, JournalEntry
+  TenantApplication, TenantOnboarding, PropertyInspection, Expense, JournalEntry,
+  InvoiceSchedule
 } from '@/types';
 import { 
   generateMonthlyPayments, 
@@ -63,6 +64,7 @@ const STORAGE_KEYS = {
   BUSINESS_LOGO: '@app/business_logo',
   EXPENSES: '@app/expenses',
   JOURNAL_ENTRIES: '@app/journal_entries',
+  INVOICE_SCHEDULES: '@app/invoice_schedules',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -94,6 +96,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [propertyInspections, setPropertyInspections] = useState<PropertyInspection[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [invoiceSchedules, setInvoiceSchedules] = useState<InvoiceSchedule[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -131,6 +134,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedBusinessLogo,
         savedExpenses,
         savedJournalEntries,
+        savedInvoiceSchedules,
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
@@ -157,6 +161,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_LOGO),
         AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
         AsyncStorage.getItem(STORAGE_KEYS.JOURNAL_ENTRIES),
+        AsyncStorage.getItem(STORAGE_KEYS.INVOICE_SCHEDULES),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -184,6 +189,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedBusinessLogo) setBusinessLogo(savedBusinessLogo);
       if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
       if (savedJournalEntries) setJournalEntries(JSON.parse(savedJournalEntries));
+      if (savedInvoiceSchedules) setInvoiceSchedules(JSON.parse(savedInvoiceSchedules));
       
       console.log('[APP] Running initialization tasks...');
       await AppInitializer.runAllInitializers();
@@ -1268,6 +1274,39 @@ export const [AppContext, useApp] = createContextHook(() => {
     await saveData(STORAGE_KEYS.EXPENSES, updated);
   }, [expenses, saveData]);
 
+  const addInvoiceSchedule = useCallback(async (schedule: Omit<InvoiceSchedule, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    if (!currentTenant) return;
+    
+    const newSchedule: InvoiceSchedule = {
+      ...schedule,
+      id: Date.now().toString(),
+      tenant_id: currentTenant.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updated = [...invoiceSchedules, newSchedule];
+    setInvoiceSchedules(updated);
+    await saveData(STORAGE_KEYS.INVOICE_SCHEDULES, updated);
+    console.log(`[INVOICE_SCHEDULER] Created invoice schedule ${newSchedule.id} for lease ${newSchedule.lease_id}`);
+    return newSchedule;
+  }, [currentTenant, invoiceSchedules, saveData]);
+
+  const updateInvoiceSchedule = useCallback(async (id: string, updates: Partial<InvoiceSchedule>) => {
+    const updated = invoiceSchedules.map(s => 
+      s.id === id ? { ...s, ...updates, updated_at: new Date().toISOString() } : s
+    );
+    setInvoiceSchedules(updated);
+    await saveData(STORAGE_KEYS.INVOICE_SCHEDULES, updated);
+    console.log(`[INVOICE_SCHEDULER] Updated invoice schedule ${id}`);
+  }, [invoiceSchedules, saveData]);
+
+  const deleteInvoiceSchedule = useCallback(async (id: string) => {
+    const updated = invoiceSchedules.filter(s => s.id !== id);
+    setInvoiceSchedules(updated);
+    await saveData(STORAGE_KEYS.INVOICE_SCHEDULES, updated);
+    console.log(`[INVOICE_SCHEDULER] Deleted invoice schedule ${id}`);
+  }, [invoiceSchedules, saveData]);
+
   const tenantProperties = useMemo(() => 
     properties.filter(p => p.tenant_id === currentTenant?.id),
     [properties, currentTenant]
@@ -1361,6 +1400,11 @@ export const [AppContext, useApp] = createContextHook(() => {
   const tenantJournalEntries = useMemo(() => 
     journalEntries.filter(j => j.tenant_id === currentTenant?.id),
     [journalEntries, currentTenant]
+  );
+
+  const tenantInvoiceSchedules = useMemo(() => 
+    invoiceSchedules.filter(s => s.tenant_id === currentTenant?.id),
+    [invoiceSchedules, currentTenant]
   );
 
   const tenantStaffUsers = useMemo(() => 
@@ -1490,5 +1534,9 @@ export const [AppContext, useApp] = createContextHook(() => {
     updateExpense,
     deleteExpense,
     journalEntries: tenantJournalEntries,
+    invoiceSchedules: tenantInvoiceSchedules,
+    addInvoiceSchedule,
+    updateInvoiceSchedule,
+    deleteInvoiceSchedule,
   };
 });
