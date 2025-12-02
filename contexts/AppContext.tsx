@@ -1,5 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSync } from './SyncContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Tenant, User, Property, Unit, TenantRenter, Lease, Payment,
@@ -54,6 +55,7 @@ const STORAGE_KEYS = {
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
+  const sync = useSync();
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -189,6 +191,9 @@ export const [AppContext, useApp] = createContextHook(() => {
       saveData(STORAGE_KEYS.CURRENT_USER, user),
     ]);
     
+    console.log(`[APP] User logged in: ${user.email}, setting tenant ID for sync`);
+    sync.setTenantId(tenant.id);
+    
     const log: ActivityLog = {
       id: Date.now().toString(),
       tenant_id: tenant.id,
@@ -201,7 +206,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     const updatedLogs = [...activityLogs, log];
     setActivityLogs(updatedLogs);
     await saveData(STORAGE_KEYS.ACTIVITY_LOGS, updatedLogs);
-  }, [activityLogs, saveData]);
+  }, [activityLogs, saveData, sync]);
 
   const logout = useCallback(async () => {
     if (currentTenant && currentUser) {
@@ -252,8 +257,9 @@ export const [AppContext, useApp] = createContextHook(() => {
     const updated = [...properties, newProperty];
     setProperties(updated);
     await saveData(STORAGE_KEYS.PROPERTIES, updated);
+    await sync.addPendingChange('properties', 'create', newProperty);
     return newProperty;
-  }, [currentTenant, properties, saveData]);
+  }, [currentTenant, properties, saveData, sync]);
 
   const updateProperty = useCallback(async (id: string, updates: Partial<Property>) => {
     const updated = properties.map(p => 

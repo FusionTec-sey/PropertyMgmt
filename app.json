@@ -23,6 +23,17 @@
         "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
         "NSCalendarsUsageDescription": "Allow $(PRODUCT_NAME) to access your calendar",
         "NSRemindersUsageDescription": "Allow $(PRODUCT_NAME) to access your reminders"
+      },
+      "entitlements": {
+        "com": {
+          "apple": {
+            "developer": {
+              "networking": {
+                "wifi-info": true
+              }
+            }
+          }
+        }
       }
     },
     "android": {

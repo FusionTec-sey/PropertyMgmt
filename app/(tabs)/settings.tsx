@@ -6,6 +6,7 @@ import { useApp } from '@/contexts/AppContext';
 import type { UserRole, UserPermissions } from '@/types';
 import Modal from '@/components/Modal';
 import { showPhotoOptions } from '@/components/PhotoPicker';
+import SyncStatusIndicator from '@/components/SyncStatusIndicator';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -137,6 +138,7 @@ export default function SettingsScreen() {
     <>
     <ScrollView style={styles.container}>
       <View style={styles.content}>
+        <SyncStatusIndicator />
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Business Information</Text>
           

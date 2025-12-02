@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import { AppContext } from "@/contexts/AppContext";
 import { NotificationContext } from "@/contexts/NotificationContext";
+import { SyncContext } from "@/contexts/SyncContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -39,15 +40,17 @@ export default function RootLayout() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <NotificationContext>
-          <AppContext>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <AppErrorBoundary>
-                <RootLayoutNav />
-              </AppErrorBoundary>
-            </GestureHandlerRootView>
-          </AppContext>
-        </NotificationContext>
+        <SyncContext>
+          <NotificationContext>
+            <AppContext>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <AppErrorBoundary>
+                  <RootLayoutNav />
+                </AppErrorBoundary>
+              </GestureHandlerRootView>
+            </AppContext>
+          </NotificationContext>
+        </SyncContext>
       </QueryClientProvider>
     </trpc.Provider>
   );
