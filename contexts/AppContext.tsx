@@ -149,7 +149,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedInventoryHistory) setInventoryHistory(JSON.parse(savedInventoryHistory));
       if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
       if (savedBusinessDocuments) setBusinessDocuments(JSON.parse(savedBusinessDocuments));
-      const [savedTenantApplications, savedTenantOnboardings, savedPropertyInspections, savedBusinessLogo] = await Promise.all([
+      const [savedTenantApplications, savedTenantOnboardings, savedPropertyInspections, savedBusinessLogo, savedExpenses] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
@@ -160,9 +160,6 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedTenantOnboardings) setTenantOnboardings(JSON.parse(savedTenantOnboardings));
       if (savedPropertyInspections) setPropertyInspections(JSON.parse(savedPropertyInspections));
       if (savedBusinessLogo) setBusinessLogo(savedBusinessLogo);
-      const [savedExpenses] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
-      ]);
       if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
     } catch (error) {
       console.error('Error loading data:', error);

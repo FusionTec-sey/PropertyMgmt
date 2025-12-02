@@ -1,4 +1,4 @@
-import { Payment, TenantRenter, Lease, Property, Unit, PaymentCurrency, Receipt } from '@/types';
+import { Payment, TenantRenter, Lease, Property, Unit, Receipt } from '@/types';
 import { getCurrencySymbol } from '@/constants/currencies';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';

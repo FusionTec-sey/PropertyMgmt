@@ -30,7 +30,6 @@ export default function PaymentsScreen() {
     addInvoice,
     updateInvoice,
     addExpense,
-    updateExpense,
     deleteExpense
   } = useApp();
   const [modalVisible, setModalVisible] = useState<boolean>(false);

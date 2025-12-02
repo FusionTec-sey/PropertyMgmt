@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Switch } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
-import { Building, User, Calendar, FileText, TrendingUp, DollarSign, Info } from 'lucide-react-native';
+import { Building, User, Calendar, FileText, TrendingUp, Info } from 'lucide-react-native';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 
@@ -60,63 +60,9 @@ export default function RenewLeaseScreen() {
     }
   }, [oldLease, renewalData.rent_amount]);
 
-  if (!oldLease) {
-    return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: 'Lease Not Found' }} />
-        <Text style={styles.errorText}>Lease not found</Text>
-      </View>
-    );
-  }
-
-  const getTenantName = (t: typeof tenant) => {
-    if (!t) return 'Unknown';
-    if (t.type === 'business') {
-      return t.business_name || 'Unnamed Business';
-    }
-    return `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'Unnamed';
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `₨${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
-  };
-
-  const handleRenew = async () => {
-    if (!renewalData.start_date || !renewalData.end_date || !renewalData.rent_amount) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    const rentAmount = parseFloat(renewalData.rent_amount);
-    const depositAmount = renewalData.deposit_amount ? parseFloat(renewalData.deposit_amount) : 0;
-    const paymentDueDay = parseInt(renewalData.payment_due_day, 10);
-
-    if (isNaN(rentAmount) || rentAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid rent amount');
-      return;
-    }
-
-    if (paymentDueDay < 1 || paymentDueDay > 31) {
-      Alert.alert('Error', 'Payment due day must be between 1 and 31');
-      return;
-    }
-
-    if (rentIncrease.amount > 0 && rentIncrease.percentage > 15) {
-      Alert.alert(
-        'Large Rent Increase',
-        `The rent increase of ${rentIncrease.percentage.toFixed(1)}% is significant. Are you sure you want to proceed?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Continue', onPress: () => proceedWithRenewal() },
-        ]
-      );
-      return;
-    }
-
-    await proceedWithRenewal();
-  };
-
   const proceedWithRenewal = async () => {
+    if (!oldLease) return;
+
     const rentAmount = parseFloat(renewalData.rent_amount);
     const depositAmount = renewalData.deposit_amount ? parseFloat(renewalData.deposit_amount) : 0;
     const paymentDueDay = parseInt(renewalData.payment_due_day, 10);
@@ -189,6 +135,61 @@ export default function RenewLeaseScreen() {
       console.error('Error renewing lease:', error);
       Alert.alert('Error', 'Failed to renew lease');
     }
+  };
+
+  if (!oldLease) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: 'Lease Not Found' }} />
+        <Text style={styles.errorText}>Lease not found</Text>
+      </View>
+    );
+  }
+
+  const getTenantName = (t: typeof tenant) => {
+    if (!t) return 'Unknown';
+    if (t.type === 'business') {
+      return t.business_name || 'Unnamed Business';
+    }
+    return `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'Unnamed';
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `₨${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
+  };
+
+  const handleRenew = async () => {
+    if (!renewalData.start_date || !renewalData.end_date || !renewalData.rent_amount) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    const rentAmount = parseFloat(renewalData.rent_amount);
+    const paymentDueDay = parseInt(renewalData.payment_due_day, 10);
+
+    if (isNaN(rentAmount) || rentAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid rent amount');
+      return;
+    }
+
+    if (paymentDueDay < 1 || paymentDueDay > 31) {
+      Alert.alert('Error', 'Payment due day must be between 1 and 31');
+      return;
+    }
+
+    if (rentIncrease.amount > 0 && rentIncrease.percentage > 15) {
+      Alert.alert(
+        'Large Rent Increase',
+        `The rent increase of ${rentIncrease.percentage.toFixed(1)}% is significant. Are you sure you want to proceed?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Continue', onPress: () => proceedWithRenewal() },
+        ]
+      );
+      return;
+    }
+
+    await proceedWithRenewal();
   };
 
   return (

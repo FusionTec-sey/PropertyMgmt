@@ -84,6 +84,7 @@ export default function NotificationsScreen() {
     maintenanceSchedules,
     todos,
     propertyItems,
+    syncRemindersFromData,
   ]);
 
   const upcomingEvents = useMemo(() => {

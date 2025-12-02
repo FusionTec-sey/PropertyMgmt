@@ -11,10 +11,10 @@ import { ApplicationDocument } from '@/types';
 
 export default function TenantApplicationScreen() {
   const { propertyId, unitId } = useLocalSearchParams();
-  const { addTenantApplication, properties, units } = useApp();
+  const { addTenantApplication } = useApp();
   const [step, setStep] = useState<number>(1);
   const [applicationType, setApplicationType] = useState<'individual' | 'business'>('individual');
-  const [uploadedDocuments, setUploadedDocuments] = useState<ApplicationDocument[]>([]);
+  const [uploadedDocuments] = useState<ApplicationDocument[]>([]);
   
   const [formData, setFormData] = useState({
     applicant_type: 'individual' as 'individual' | 'business',
