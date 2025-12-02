@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, Alert } from 'react-native';
-import { FileText, Image as ImageIcon, File as FileIcon, Download, Folder, Calendar, Building2, User, Receipt, FileCheck, Filter } from 'lucide-react-native';
+import { FileText, Image as ImageIcon, File as FileIcon, Download, Folder, Calendar, Building2, User, Receipt, FileCheck, Filter, ExternalLink } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import EmptyState from '@/components/EmptyState';
 import * as Sharing from 'expo-sharing';
+import { router } from 'expo-router';
 
 type FileCategory = 'all' | 'documents' | 'photos' | 'receipts' | 'agreements' | 'invoices' | 'inspections';
 
@@ -21,6 +22,8 @@ interface FileItem {
     amount?: number;
     description?: string;
   };
+  sourceId?: string;
+  sourceType?: 'payment' | 'invoice' | 'lease' | 'document' | 'inspection' | 'property' | 'unit' | 'maintenance';
 }
 
 export default function FilesScreen() {
@@ -54,6 +57,8 @@ export default function FilesScreen() {
           category: 'documents',
           size: doc.file_size,
           date: doc.created_at,
+          sourceId: doc.id,
+          sourceType: 'document',
           metadata: {
             propertyName: property?.name,
             description: `${doc.category} - ${doc.document_number || 'N/A'}`,
@@ -76,6 +81,8 @@ export default function FilesScreen() {
           type: 'pdf',
           category: 'agreements',
           date: lease.pdf_generated_at || lease.created_at,
+          sourceId: lease.id,
+          sourceType: 'lease',
           metadata: {
             propertyName: property?.name,
             tenantName,
@@ -92,6 +99,8 @@ export default function FilesScreen() {
           type: 'pdf',
           category: 'agreements',
           date: lease.complete_agreement_generated_at || lease.created_at,
+          sourceId: lease.id,
+          sourceType: 'lease',
           metadata: {
             propertyName: property?.name,
             tenantName,
@@ -108,6 +117,8 @@ export default function FilesScreen() {
           type: lease.signed_agreement.type === 'image' ? 'image' : 'pdf',
           category: 'agreements',
           date: lease.signed_agreement.uploadedAt,
+          sourceId: lease.id,
+          sourceType: 'lease',
           metadata: {
             propertyName: property?.name,
             tenantName,
@@ -132,6 +143,8 @@ export default function FilesScreen() {
           category: 'receipts',
           size: payment.payment_proof.size,
           date: payment.payment_proof.uploadedAt,
+          sourceId: payment.id,
+          sourceType: 'payment',
           metadata: {
             propertyName: property?.name,
             tenantName,
@@ -154,6 +167,8 @@ export default function FilesScreen() {
           type: 'pdf',
           category: 'receipts',
           date: payment.receipt_generated_at || payment.created_at,
+          sourceId: payment.id,
+          sourceType: 'payment',
           metadata: {
             propertyName: property?.name,
             tenantName,
@@ -177,6 +192,8 @@ export default function FilesScreen() {
           type: 'pdf',
           category: 'invoices',
           date: invoice.created_at,
+          sourceId: invoice.id,
+          sourceType: 'invoice',
           metadata: {
             propertyName: property?.name,
             tenantName,
@@ -199,6 +216,8 @@ export default function FilesScreen() {
           type: 'pdf',
           category: 'inspections',
           date: inspection.completed_date || inspection.created_at,
+          sourceId: inspection.id,
+          sourceType: 'inspection',
           metadata: {
             propertyName: property?.name,
             description: `${inspection.inspection_type} inspection`,
@@ -215,6 +234,8 @@ export default function FilesScreen() {
             type: 'image',
             category: 'photos',
             date: inspection.completed_date || inspection.created_at,
+            sourceId: inspection.id,
+            sourceType: 'inspection',
             metadata: {
               propertyName: property?.name,
               description: `${inspection.inspection_type} inspection`,
@@ -234,6 +255,8 @@ export default function FilesScreen() {
             type: 'image',
             category: 'photos',
             date: property.created_at,
+            sourceId: property.id,
+            sourceType: 'property',
             metadata: {
               propertyName: property.name,
               description: 'Property photo',
@@ -254,6 +277,8 @@ export default function FilesScreen() {
             type: 'image',
             category: 'photos',
             date: unit.created_at,
+            sourceId: unit.id,
+            sourceType: 'unit',
             metadata: {
               propertyName: property?.name,
               description: `Unit ${unit.unit_number}`,
@@ -389,6 +414,48 @@ export default function FilesScreen() {
     }
   };
 
+  const handleNavigateToSource = (file: FileItem) => {
+    if (!file.sourceId || !file.sourceType) {
+      Alert.alert('Info', 'Cannot navigate to source - no source information available');
+      return;
+    }
+
+    switch (file.sourceType) {
+      case 'payment':
+        router.push('/(tabs)/payments');
+        Alert.alert('Navigate', `Navigating to Payments tab. Look for payment with ID: ${file.sourceId}`);
+        break;
+      case 'invoice':
+        router.push('/(tabs)/invoices');
+        Alert.alert('Navigate', `Navigating to Invoices tab. Look for invoice with ID: ${file.sourceId}`);
+        break;
+      case 'lease':
+        router.push(`/lease/${file.sourceId}`);
+        break;
+      case 'document':
+        router.push('/(tabs)/documents');
+        Alert.alert('Navigate', `Navigating to Documents tab. Look for document with ID: ${file.sourceId}`);
+        break;
+      case 'inspection':
+        router.push(`/inspection/${file.sourceId}`);
+        break;
+      case 'property':
+        router.push('/(tabs)/properties');
+        Alert.alert('Navigate', `Navigating to Properties tab. Look for property with ID: ${file.sourceId}`);
+        break;
+      case 'unit':
+        router.push('/(tabs)/properties');
+        Alert.alert('Navigate', `Navigating to Properties tab. Look for unit with ID: ${file.sourceId}`);
+        break;
+      case 'maintenance':
+        router.push('/(tabs)/maintenance');
+        Alert.alert('Navigate', `Navigating to Maintenance tab. Look for request with ID: ${file.sourceId}`);
+        break;
+      default:
+        Alert.alert('Info', 'Navigation not implemented for this file type');
+    }
+  };
+
   const formatFileSize = (bytes?: number): string => {
     if (!bytes) return 'Unknown size';
     const k = 1024;
@@ -510,12 +577,11 @@ export default function FilesScreen() {
             const Icon = file.type === 'image' ? ImageIcon : file.type === 'pdf' ? FileText : FileIcon;
 
             return (
-              <TouchableOpacity
-                key={file.id}
-                style={styles.fileCard}
-                onPress={() => handleShare(file)}
-              >
-                <View style={styles.filePreviewContainer}>
+              <View key={file.id} style={styles.fileCard}>
+                <TouchableOpacity 
+                  style={styles.filePreviewContainer}
+                  onPress={() => handleShare(file)}
+                >
                   {file.type === 'image' ? (
                     <Image source={{ uri: file.uri }} style={styles.filePreviewImage} />
                   ) : (
@@ -523,7 +589,7 @@ export default function FilesScreen() {
                       <Icon size={28} color="#007AFF" />
                     </View>
                   )}
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.fileInfo}>
                   <Text style={styles.fileName} numberOfLines={2}>
@@ -569,13 +635,23 @@ export default function FilesScreen() {
                   )}
                 </View>
 
-                <TouchableOpacity
-                  style={styles.shareButton}
-                  onPress={() => handleShare(file)}
-                >
-                  <Download size={20} color="#007AFF" />
-                </TouchableOpacity>
-              </TouchableOpacity>
+                <View style={styles.fileActions}>
+                  {file.sourceId && file.sourceType && (
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => handleNavigateToSource(file)}
+                    >
+                      <ExternalLink size={18} color="#007AFF" />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleShare(file)}
+                  >
+                    <Download size={18} color="#007AFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
             );
           })
         )}
@@ -790,13 +866,17 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#FFF',
   },
-  shareButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  fileActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+    alignSelf: 'center' as const,
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F8F9FA',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    alignSelf: 'center' as const,
   },
 });

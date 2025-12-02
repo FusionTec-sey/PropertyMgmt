@@ -70,6 +70,8 @@ export default function ApplicationDetailScreen() {
         review_notes: reviewNotes,
       });
       
+      setShowApproveModal(false);
+      
       Alert.alert(
         'Application Approved',
         'Would you like to automatically create a tenant from this application?',
@@ -78,7 +80,6 @@ export default function ApplicationDetailScreen() {
             text: 'Later',
             style: 'cancel',
             onPress: () => {
-              setShowApproveModal(false);
               router.push('/(tabs)/applications');
             },
           },
@@ -86,7 +87,6 @@ export default function ApplicationDetailScreen() {
             text: 'Create Tenant',
             onPress: async () => {
               await createTenantFromApplication();
-              setShowApproveModal(false);
             },
           },
         ]
@@ -138,7 +138,10 @@ export default function ApplicationDetailScreen() {
           {
             text: 'Create Lease',
             onPress: () => {
-              router.push('/(tabs)/tenants');
+              router.push({
+                pathname: '/(tabs)/tenants',
+                params: { newTenantId: newTenant?.id, highlightTenant: 'true' }
+              });
             },
           },
         ]
