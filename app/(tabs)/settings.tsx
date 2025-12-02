@@ -297,6 +297,23 @@ export default function SettingsScreen() {
 
           <TouchableOpacity
             style={styles.managementCard}
+            onPress={() => router.push('/(tabs)/files')}
+            testID="manage-files-button"
+          >
+            <View style={styles.managementIconContainer}>
+              <HardDrive size={20} color="#AF52DE" />
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>File Management</Text>
+              <Text style={styles.managementSubtitle}>
+                All photos and documents organized by category
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.managementCard}
             onPress={() => router.push('/(tabs)/notifications')}
             testID="manage-notifications-button"
           >

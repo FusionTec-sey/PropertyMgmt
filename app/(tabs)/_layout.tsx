@@ -104,6 +104,12 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="files"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
