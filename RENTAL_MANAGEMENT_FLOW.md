@@ -144,7 +144,12 @@ This document outlines the complete property rental management flow from propert
 
 ### 13. **Financial Management** ✅ (Implemented)
 **Invoicing**:
-- Auto-generated monthly invoices
+- **Automatic monthly invoice generation** (NEW - Background Job)
+  - Runs on app launch (once per day)
+  - Checks all active leases
+  - Generates invoices for current month if missing
+  - Uses lease payment_due_day for due date calculation
+  - Auto-generated invoices marked with `auto_generated: true`
 - Line item support
 - Tax calculations
 - Discount application

@@ -4,6 +4,7 @@ import { useSync } from './SyncContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { runMigrations } from '@/utils/dataMigration';
 import { validateData } from '@/utils/dataValidation';
+import { AppInitializer } from '@/utils/appInitializer';
 import type {
   Tenant, User, Property, Unit, TenantRenter, Lease, Payment,
   MaintenanceRequest, Notification,
@@ -183,6 +184,10 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedBusinessLogo) setBusinessLogo(savedBusinessLogo);
       if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
       if (savedJournalEntries) setJournalEntries(JSON.parse(savedJournalEntries));
+      
+      console.log('[APP] Running initialization tasks...');
+      await AppInitializer.runAllInitializers();
+      console.log('[APP] Initialization tasks completed');
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
