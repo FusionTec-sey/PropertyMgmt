@@ -21,8 +21,6 @@ export default function SettingsScreen() {
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isCreatingBackup, setIsCreatingBackup] = useState<boolean>(false);
-  const [showBackupsModal, setShowBackupsModal] = useState<boolean>(false);
-  const [backups, setBackups] = useState<any[]>([]);
   
   const [staffEmail, setStaffEmail] = useState<string>('');
   const [staffFirstName, setStaffFirstName] = useState<string>('');
@@ -385,8 +383,11 @@ export default function SettingsScreen() {
             style={styles.managementCard}
             onPress={async () => {
               const backupsList = await DataExport.getBackupMetadata();
-              setBackups(backupsList);
-              setShowBackupsModal(true);
+              Alert.alert(
+                'Backups',
+                `Found ${backupsList.length} backup(s).\n\nBackup management UI coming soon.`,
+                [{ text: 'OK' }]
+              );
             }}
             testID="manage-backups-button"
           >
