@@ -44,6 +44,134 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'overdue_payments' | 'pending_maintenance' | 'expiring_leases' | 'recent_files'>('overdue_payments');
 
+  type ActivityItem = {
+    id: string;
+    title: string;
+    subtitle: string;
+    timestamp: string;
+    icon: any;
+    color: string;
+    relatedType?: string;
+    relatedId?: string;
+  };
+
+  const recentActivities = useMemo<ActivityItem[]>(() => {
+    const activities: ActivityItem[] = [];
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    payments.filter(p => new Date(p.created_at) >= sevenDaysAgo && p.status === 'paid').forEach(payment => {
+      const lease = leases.find(l => l.id === payment.lease_id);
+      const property = properties.find(p => p.id === lease?.property_id);
+      const unit = units.find(u => u.id === lease?.unit_id);
+      activities.push({
+        id: payment.id,
+        title: 'Payment Received',
+        subtitle: `${property?.name || 'Unknown'} - Unit ${unit?.unit_number || 'N/A'}`,
+        timestamp: payment.created_at,
+        icon: DollarSign,
+        color: '#34C759',
+        relatedType: 'payment',
+        relatedId: payment.id,
+      });
+    });
+
+    maintenanceRequests.filter(m => new Date(m.created_at) >= sevenDaysAgo).forEach(request => {
+      const property = properties.find(p => p.id === request.property_id);
+      activities.push({
+        id: request.id,
+        title: `Maintenance ${request.status === 'resolved' ? 'Completed' : 'Created'}`,
+        subtitle: `${request.title} - ${property?.name || 'Unknown'}`,
+        timestamp: request.status === 'resolved' && request.completed_date ? request.completed_date : request.created_at,
+        icon: Wrench,
+        color: request.status === 'resolved' ? '#34C759' : '#FF9500',
+        relatedType: 'maintenance',
+        relatedId: request.id,
+      });
+    });
+
+    leases.filter(l => new Date(l.created_at) >= sevenDaysAgo).forEach(lease => {
+      const property = properties.find(p => p.id === lease.property_id);
+      const tenant = tenantRenters.find(t => t.id === lease.tenant_renter_id);
+      const tenantName = tenant
+        ? tenant.type === 'business'
+          ? tenant.business_name || 'Unnamed Business'
+          : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+        : 'Unknown';
+      activities.push({
+        id: lease.id,
+        title: lease.status === 'draft' ? 'Lease Draft Created' : 'Lease Activated',
+        subtitle: `${tenantName} - ${property?.name || 'Unknown'}`,
+        timestamp: lease.status === 'active' && lease.signed_date ? lease.signed_date : lease.created_at,
+        icon: FileText,
+        color: '#5856D6',
+        relatedType: 'lease',
+        relatedId: lease.id,
+      });
+    });
+
+    propertyInspections.filter(i => new Date(i.created_at) >= sevenDaysAgo).forEach(inspection => {
+      const property = properties.find(p => p.id === inspection.property_id);
+      activities.push({
+        id: inspection.id,
+        title: `${inspection.inspection_type.replace('_', ' ')} Inspection ${inspection.status === 'completed' ? 'Completed' : 'Scheduled'}`,
+        subtitle: property?.name || 'Unknown',
+        timestamp: inspection.status === 'completed' && inspection.completed_date ? inspection.completed_date : inspection.created_at,
+        icon: ClipboardCheck,
+        color: '#007AFF',
+        relatedType: 'inspection',
+        relatedId: inspection.id,
+      });
+    });
+
+    todos.filter(t => t.status === 'completed' && t.completed_date && new Date(t.completed_date) >= sevenDaysAgo).forEach(todo => {
+      activities.push({
+        id: todo.id,
+        title: 'Task Completed',
+        subtitle: todo.title,
+        timestamp: todo.completed_date!,
+        icon: CheckCircle,
+        color: '#34C759',
+        relatedType: 'todo',
+        relatedId: todo.id,
+      });
+    });
+
+    tenantApplications.filter(a => new Date(a.created_at) >= sevenDaysAgo).forEach(app => {
+      activities.push({
+        id: app.id,
+        title: app.status === 'approved' ? 'Application Approved' : 'New Application',
+        subtitle: app.applicant_type === 'business' ? (app.business_name || 'Business') : `${app.applicant_first_name || ''} ${app.applicant_last_name || ''}`.trim(),
+        timestamp: app.reviewed_at || app.created_at,
+        icon: Users,
+        color: app.status === 'approved' ? '#34C759' : '#AF52DE',
+        relatedType: 'application',
+        relatedId: app.id,
+      });
+    });
+
+    invoices.filter(i => new Date(i.created_at) >= sevenDaysAgo).forEach(invoice => {
+      const tenant = tenantRenters.find(t => t.id === invoice.tenant_renter_id);
+      const tenantName = tenant
+        ? tenant.type === 'business'
+          ? tenant.business_name || 'Unnamed Business'
+          : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+        : 'Unknown';
+      activities.push({
+        id: invoice.id,
+        title: invoice.status === 'paid' ? 'Invoice Paid' : 'Invoice Generated',
+        subtitle: `${invoice.invoice_number} - ${tenantName}`,
+        timestamp: invoice.status === 'paid' && invoice.paid_at ? invoice.paid_at : invoice.created_at,
+        icon: Receipt,
+        color: invoice.status === 'paid' ? '#34C759' : '#FF9500',
+        relatedType: 'invoice',
+        relatedId: invoice.id,
+      });
+    });
+
+    return activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
+  }, [payments, maintenanceRequests, leases, propertyInspections, todos, tenantApplications, invoices, properties, units, tenantRenters]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -306,6 +434,28 @@ export default function DashboardScreen() {
         return '#34C759';
       default:
         return '#8E8E93';
+    }
+  };
+
+  const getTimeAgo = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString('en-GB');
     }
   };
 
@@ -956,8 +1106,64 @@ export default function DashboardScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <AlertCircle size={20} color="#007AFF" />
+          <Clock size={20} color="#007AFF" />
           <Text style={styles.sectionTitle}>Recent Activity</Text>
+        </View>
+
+        {recentActivities.length === 0 ? (
+          <View style={styles.emptyActivityState}>
+            <Clock size={32} color="#8E8E93" />
+            <Text style={styles.emptyActivityText}>No recent activity in the last 7 days</Text>
+          </View>
+        ) : (
+          <View style={styles.activityList}>
+            {recentActivities.slice(0, 5).map((activity) => {
+              const ActivityIcon = activity.icon;
+              const timeAgo = getTimeAgo(new Date(activity.timestamp));
+
+              return (
+                <TouchableOpacity
+                  key={activity.id}
+                  style={styles.activityCard}
+                  onPress={() => {
+                    if (activity.relatedType === 'payment') {
+                      router.push('/(tabs)/payments');
+                    } else if (activity.relatedType === 'maintenance') {
+                      router.push('/(tabs)/maintenance');
+                    } else if (activity.relatedType === 'lease') {
+                      router.push(`/lease/${activity.relatedId}`);
+                    } else if (activity.relatedType === 'inspection') {
+                      router.push(`/inspection/${activity.relatedId}` as any);
+                    } else if (activity.relatedType === 'todo') {
+                      router.push('/(tabs)/todos');
+                    } else if (activity.relatedType === 'application') {
+                      router.push(`/applications/${activity.relatedId}` as any);
+                    } else if (activity.relatedType === 'invoice') {
+                      router.push('/(tabs)/invoices');
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.activityIcon, { backgroundColor: `${activity.color}20` }]}>
+                    <ActivityIcon size={20} color={activity.color} />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <Text style={styles.activityTitle}>{activity.title}</Text>
+                    <Text style={styles.activitySubtitle}>{activity.subtitle}</Text>
+                    <Text style={styles.activityMeta}>{timeAgo}</Text>
+                  </View>
+                  <ArrowRight size={16} color="#8E8E93" />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <AlertCircle size={20} color="#007AFF" />
+          <Text style={styles.sectionTitle}>Quick Access</Text>
         </View>
         
         <View style={styles.tabsContainer}>
@@ -1401,19 +1607,6 @@ export default function DashboardScreen() {
     </ScrollView>
   );
 }
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'active':
-      return '#34C759';
-    case 'expired':
-      return '#FF3B30';
-    case 'draft':
-      return '#999';
-    default:
-      return '#007AFF';
-  }
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -2158,5 +2351,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#1A1A1A',
+  },
+  emptyActivityState: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 32,
+    gap: 12,
+  },
+  emptyActivityText: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center' as const,
+  },
+  activityList: {
+    gap: 8,
   },
 });
