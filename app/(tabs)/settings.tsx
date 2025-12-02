@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image, ActivityIndicator, FlatList } from 'react-native';
-import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X, Download, HardDrive, BarChart3, Archive, Clock, RotateCcw, AlertCircle } from 'lucide-react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X, Download, HardDrive, BarChart3, Archive, Clock, RotateCcw, AlertCircle, TrendingUp } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import type { UserRole, UserPermissions } from '@/types';
@@ -307,6 +307,23 @@ export default function SettingsScreen() {
               <Text style={styles.managementTitle}>Notifications & Reminders</Text>
               <Text style={styles.managementSubtitle}>
                 View upcoming events and manage notification settings
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={() => router.push('/(tabs)/finance')}
+            testID="finance-reports-button"
+          >
+            <View style={styles.managementIconContainer}>
+              <TrendingUp size={20} color="#34C759" />
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>Financial Reports</Text>
+              <Text style={styles.managementSubtitle}>
+                Income statements, balance sheets, and property performance
               </Text>
             </View>
             <ChevronRight size={20} color="#999" />
