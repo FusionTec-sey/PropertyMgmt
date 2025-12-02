@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { Plus, CheckSquare, Circle, CheckCircle, Clock, AlertCircle, Calendar } from 'lucide-react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { Plus, CheckSquare, Circle, CheckCircle, Clock, AlertCircle, Calendar, Sparkles } from 'lucide-react-native';
+import { runTaskAutomation } from '@/utils/taskAutomation';
 import { useApp } from '@/contexts/AppContext';
 import { Todo, TodoPriority, TodoStatus } from '@/types';
 import Button from '@/components/Button';
@@ -12,10 +13,27 @@ import EmptyState from '@/components/EmptyState';
 type FilterTab = 'all' | 'pending' | 'in_progress' | 'completed';
 
 export default function TodosScreen() {
-  const { todos, addTodo, updateTodo, deleteTodo } = useApp();
+  const {
+    todos,
+    addTodo,
+    updateTodo,
+    deleteTodo,
+    leases,
+    payments,
+    maintenanceRequests,
+    invoices,
+    businessDocuments,
+    tenantApplications,
+    propertyInspections,
+    expenses,
+    properties,
+    units,
+    currentTenant,
+  } = useApp();
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [isRunningAutomation, setIsRunningAutomation] = useState<boolean>(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -136,6 +154,60 @@ export default function TodosScreen() {
     );
   };
 
+  const handleRunAutomation = async () => {
+    if (!currentTenant) return;
+    
+    setIsRunningAutomation(true);
+    try {
+      console.log('[TODOS] Running manual task automation...');
+      
+      const result = runTaskAutomation(
+        leases,
+        payments,
+        maintenanceRequests,
+        invoices,
+        businessDocuments,
+        tenantApplications,
+        propertyInspections,
+        expenses,
+        properties,
+        units,
+        todos,
+        currentTenant.id
+      );
+      
+      for (const task of result.tasks) {
+        await addTodo(task);
+      }
+      
+      for (const todoId of result.completedTaskIds) {
+        await updateTodo(todoId, {
+          status: 'completed',
+          completed_date: new Date().toISOString(),
+        });
+      }
+      
+      let message = '';
+      if (result.summary.generated > 0) {
+        message += `Generated ${result.summary.generated} new task${result.summary.generated !== 1 ? 's' : ''}.\n`;
+      }
+      if (result.summary.completed > 0) {
+        message += `Auto-completed ${result.summary.completed} task${result.summary.completed !== 1 ? 's' : ''}.`;
+      }
+      if (!message) {
+        message = 'No new tasks to generate. Everything is up to date!';
+      }
+      
+      Alert.alert('Task Automation', message);
+      console.log('[TODOS] Task automation summary:', result.summary);
+    } catch (error) {
+      console.error('[TODOS] Error running task automation:', error);
+      Alert.alert('Error', 'Failed to run task automation. Please try again.');
+    } finally {
+      setIsRunningAutomation(false);
+    }
+  };
+
   const getPriorityColor = (priority: TodoPriority) => {
     switch (priority) {
       case 'urgent': return '#FF3B30';
@@ -239,13 +311,14 @@ export default function TodosScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabContainer}
-          contentContainerStyle={styles.tabContentContainer}
-        >
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabContainer}
+            contentContainerStyle={styles.tabContentContainer}
+          >
           <TouchableOpacity
             style={[styles.tab, filterTab === 'all' && styles.activeTab]}
             onPress={() => setFilterTab('all')}
@@ -291,6 +364,22 @@ export default function TodosScreen() {
           <Plus size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
+      <TouchableOpacity
+        style={styles.automationButton}
+        onPress={handleRunAutomation}
+        disabled={isRunningAutomation}
+        testID="auto-generate-tasks-button"
+      >
+        {isRunningAutomation ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Sparkles size={20} color="#FFFFFF" />
+        )}
+        <Text style={styles.automationButtonText}>
+          {isRunningAutomation ? 'Running...' : 'Auto-Generate Tasks'}
+        </Text>
+      </TouchableOpacity>
+    </View>
 
       {filteredTodos.length === 0 ? (
         <EmptyState
@@ -527,5 +616,27 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     color: '#FF3B30',
+  },
+  headerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  automationButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#34C759',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+  },
+  automationButtonText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
   },
 });

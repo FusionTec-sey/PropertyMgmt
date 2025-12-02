@@ -1,12 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateInvoiceNumber, shouldGenerateInvoice, generateMonthlyInvoiceDate, generateInvoiceData } from './invoiceGenerator';
-import type { Lease, Invoice, Property, Unit, TenantRenter } from '@/types';
+import { runTaskAutomation } from './taskAutomation';
+import type {
+  Lease,
+  Invoice,
+  Property,
+  Unit,
+  TenantRenter,
+  Payment,
+  MaintenanceRequest,
+  BusinessDocument,
+  TenantApplication,
+  PropertyInspection,
+  Expense,
+  Todo,
+} from '@/types';
 
 const STORAGE_KEY = '@app/last_reminder_check';
 const INVOICE_CHECK_KEY = '@app/last_invoice_check';
+const TASK_AUTOMATION_KEY = '@app/last_task_automation_check';
 
 const REMINDER_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 const INVOICE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
+const TASK_AUTOMATION_INTERVAL = 6 * 60 * 60 * 1000;
 
 export class AppInitializer {
   static async checkAndCreateExpiringDocumentReminders(): Promise<void> {
@@ -227,11 +243,123 @@ export class AppInitializer {
     }
   }
 
+  static async runAutomatedTaskGeneration(): Promise<void> {
+    try {
+      console.log('[APP_INITIALIZER] Checking if task automation is needed...');
+      
+      const lastCheckStr = await AsyncStorage.getItem(TASK_AUTOMATION_KEY);
+      const lastCheck = lastCheckStr ? parseInt(lastCheckStr) : 0;
+      const now = Date.now();
+      
+      if (now - lastCheck < TASK_AUTOMATION_INTERVAL) {
+        console.log('[APP_INITIALIZER] Last task automation was recent, skipping...');
+        return;
+      }
+      
+      console.log('[APP_INITIALIZER] Running automated task generation...');
+      
+      const [currentTenantStr, leasesStr, paymentsStr, maintenanceStr, invoicesStr, 
+        businessDocsStr, applicationsStr, inspectionsStr, expensesStr, propertiesStr,
+        unitsStr, todosStr] = await Promise.all([
+        AsyncStorage.getItem('@app/current_tenant'),
+        AsyncStorage.getItem('@app/leases'),
+        AsyncStorage.getItem('@app/payments'),
+        AsyncStorage.getItem('@app/maintenance'),
+        AsyncStorage.getItem('@app/invoices'),
+        AsyncStorage.getItem('@app/business_documents'),
+        AsyncStorage.getItem('@app/tenant_applications'),
+        AsyncStorage.getItem('@app/property_inspections'),
+        AsyncStorage.getItem('@app/expenses'),
+        AsyncStorage.getItem('@app/properties'),
+        AsyncStorage.getItem('@app/units'),
+        AsyncStorage.getItem('@app/todos'),
+      ]);
+      
+      if (!currentTenantStr) {
+        console.log('[APP_INITIALIZER] No current tenant, skipping task automation');
+        await AsyncStorage.setItem(TASK_AUTOMATION_KEY, now.toString());
+        return;
+      }
+      
+      const currentTenant = JSON.parse(currentTenantStr);
+      const leases: Lease[] = leasesStr ? JSON.parse(leasesStr) : [];
+      const payments: Payment[] = paymentsStr ? JSON.parse(paymentsStr) : [];
+      const maintenanceRequests: MaintenanceRequest[] = maintenanceStr ? JSON.parse(maintenanceStr) : [];
+      const invoices: Invoice[] = invoicesStr ? JSON.parse(invoicesStr) : [];
+      const businessDocuments: BusinessDocument[] = businessDocsStr ? JSON.parse(businessDocsStr) : [];
+      const tenantApplications: TenantApplication[] = applicationsStr ? JSON.parse(applicationsStr) : [];
+      const propertyInspections: PropertyInspection[] = inspectionsStr ? JSON.parse(inspectionsStr) : [];
+      const expenses: Expense[] = expensesStr ? JSON.parse(expensesStr) : [];
+      const properties: Property[] = propertiesStr ? JSON.parse(propertiesStr) : [];
+      const units: Unit[] = unitsStr ? JSON.parse(unitsStr) : [];
+      const todos: Todo[] = todosStr ? JSON.parse(todosStr) : [];
+      
+      const result = runTaskAutomation(
+        leases,
+        payments,
+        maintenanceRequests,
+        invoices,
+        businessDocuments,
+        tenantApplications,
+        propertyInspections,
+        expenses,
+        properties,
+        units,
+        todos,
+        currentTenant.id
+      );
+      
+      let todosUpdated = false;
+      
+      if (result.tasks.length > 0) {
+        for (const task of result.tasks) {
+          todos.push({
+            ...task,
+            id: `${Date.now()}-${Math.random()}-auto`,
+            tenant_id: currentTenant.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+        todosUpdated = true;
+        console.log(`[APP_INITIALIZER] Added ${result.tasks.length} new automated tasks`);
+      }
+      
+      if (result.completedTaskIds.length > 0) {
+        for (const todoId of result.completedTaskIds) {
+          const todoIndex = todos.findIndex(t => t.id === todoId);
+          if (todoIndex !== -1 && todos[todoIndex].status !== 'completed') {
+            todos[todoIndex] = {
+              ...todos[todoIndex],
+              status: 'completed',
+              completed_date: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            todosUpdated = true;
+          }
+        }
+        console.log(`[APP_INITIALIZER] Auto-completed ${result.completedTaskIds.length} tasks`);
+      }
+      
+      if (todosUpdated) {
+        await AsyncStorage.setItem('@app/todos', JSON.stringify(todos));
+      }
+      
+      console.log(`[APP_INITIALIZER] Task automation summary:`, result.summary);
+      
+      await AsyncStorage.setItem(TASK_AUTOMATION_KEY, now.toString());
+      console.log('[APP_INITIALIZER] Task automation completed');
+    } catch (error) {
+      console.error('[APP_INITIALIZER] Error in task automation:', error);
+    }
+  }
+
   static async runAllInitializers(): Promise<void> {
     console.log('[APP_INITIALIZER] Running all initialization tasks...');
     await Promise.all([
       this.checkAndCreateExpiringDocumentReminders(),
       this.autoGenerateMonthlyInvoices(),
+      this.runAutomatedTaskGeneration(),
     ]);
     console.log('[APP_INITIALIZER] All initialization tasks completed');
   }
