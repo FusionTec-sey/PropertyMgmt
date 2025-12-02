@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trpc } from '@/lib/trpc';
 import { useQueryClient } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
+import { withRetry } from '@/utils/retryHelper';
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'offline';
 
@@ -12,7 +13,7 @@ export interface PendingChange {
   id: string;
   entity: string;
   action: 'create' | 'update' | 'delete';
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -90,18 +91,19 @@ export const [SyncContext, useSync] = createContextHook(() => {
   const addPendingChange = useCallback(async (
     entity: string,
     action: 'create' | 'update' | 'delete',
-    data: any
+    data: Record<string, unknown>
   ) => {
     if (!syncEnabled) {
       console.log('[SYNC] Sync disabled, not queuing change');
       return;
     }
 
+    const currentVersion = typeof data.version === 'number' ? data.version : 0;
     const change: PendingChange = {
       id: `${Date.now()}-${Math.random()}`,
       entity,
       action,
-      data: { ...data, version: (data.version || 0) + 1 },
+      data: { ...data, version: currentVersion + 1 },
       timestamp: new Date().toISOString(),
     };
 
@@ -151,7 +153,7 @@ export const [SyncContext, useSync] = createContextHook(() => {
       if (pendingChanges.length > 0) {
         console.log(`[SYNC] Pushing ${pendingChanges.length} pending changes to server`);
         
-        const changesByEntity: Record<string, any[]> = {};
+        const changesByEntity: Record<string, Record<string, unknown>[]> = {};
         
         for (const change of pendingChanges) {
           if (!changesByEntity[change.entity]) {
@@ -160,17 +162,25 @@ export const [SyncContext, useSync] = createContextHook(() => {
           changesByEntity[change.entity].push(change.data);
         }
 
-        await pushChangesMutation.mutateAsync({
-          tenantId,
-          changes: changesByEntity,
-        });
+        await withRetry(
+          () => pushChangesMutation.mutateAsync({
+            tenantId,
+            changes: changesByEntity,
+          }),
+          'push-changes',
+          { maxRetries: 3 }
+        );
 
         await savePendingChanges([]);
         console.log('[SYNC] Successfully pushed all changes');
       }
 
       console.log('[SYNC] Pulling latest data from server');
-      const serverData = await getAllDataQuery.refetch();
+      const serverData = await withRetry(
+        () => getAllDataQuery.refetch(),
+        'pull-data',
+        { maxRetries: 2 }
+      );
       
       if (serverData.data) {
         console.log('[SYNC] Received server data, updating local cache');
@@ -190,10 +200,11 @@ export const [SyncContext, useSync] = createContextHook(() => {
           }
         }, 3000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Sync failed';
       console.error('[SYNC] Sync error:', error);
       setSyncStatus('error');
-      setErrorMessage(error.message || 'Sync failed');
+      setErrorMessage(errorMessage);
     } finally {
       syncInProgress.current = false;
     }
@@ -214,7 +225,11 @@ export const [SyncContext, useSync] = createContextHook(() => {
     setErrorMessage(null);
 
     try {
-      const result = await getAllDataQuery.refetch();
+      const result = await withRetry(
+        () => getAllDataQuery.refetch(),
+        'pull-from-server',
+        { maxRetries: 2 }
+      );
       
       if (result.data) {
         const syncTime = new Date().toISOString();
@@ -234,10 +249,11 @@ export const [SyncContext, useSync] = createContextHook(() => {
         
         return result.data;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Pull failed';
       console.error('[SYNC] Pull error:', error);
       setSyncStatus('error');
-      setErrorMessage(error.message || 'Pull failed');
+      setErrorMessage(errorMessage);
       throw error;
     }
   }, [getAllDataQuery, queryClient, syncStatus]);

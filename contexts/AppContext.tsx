@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSync } from './SyncContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { runMigrations } from '@/utils/dataMigration';
 import type {
   Tenant, User, Property, Unit, TenantRenter, Lease, Payment,
   MaintenanceRequest, Notification,
@@ -85,6 +86,14 @@ export const [AppContext, useApp] = createContextHook(() => {
 
   const loadData = useCallback(async () => {
     try {
+      console.log('[APP] Running data migrations...');
+      const migrationResult = await runMigrations();
+      if (migrationResult.success) {
+        console.log(`[APP] Migrations completed: v${migrationResult.previousVersion} -> v${migrationResult.currentVersion}`);
+      } else {
+        console.error('[APP] Migrations failed:', migrationResult.errors);
+      }
+      
       const [
         savedCurrentTenant,
         savedCurrentUser,
@@ -254,7 +263,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     const updated = [...properties, newProperty];
     setProperties(updated);
     await saveData(STORAGE_KEYS.PROPERTIES, updated);
-    await sync.addPendingChange('properties', 'create', newProperty);
+    await sync.addPendingChange('properties', 'create', newProperty as unknown as Record<string, unknown>);
     return newProperty;
   }, [currentTenant, properties, saveData, sync]);
 
