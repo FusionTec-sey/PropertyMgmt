@@ -10,7 +10,7 @@ import type {
   ActivityLog, DashboardStats, MoveInChecklist,
   PropertyItem, MaintenanceSchedule, Todo, UserPermissions,
   InventoryHistory, Invoice, BusinessDocument,
-  TenantApplication, TenantOnboarding, PropertyInspection, Expense
+  TenantApplication, TenantOnboarding, PropertyInspection, Expense, JournalEntry
 } from '@/types';
 import { 
   generateMonthlyPayments, 
@@ -27,7 +27,9 @@ import {
 } from '@/utils/automationHelper';
 import { 
   assignAccountCodeToExpense, 
-  assignAccountCodeToPayment 
+  assignAccountCodeToPayment,
+  createPaymentJournalEntries,
+  createExpenseJournalEntries
 } from '@/utils/financialTransactions';
 import { mapExpenseCategoryToAccount } from '@/constants/chartOfAccounts';
 
@@ -59,6 +61,7 @@ const STORAGE_KEYS = {
   PROPERTY_INSPECTIONS: '@app/property_inspections',
   BUSINESS_LOGO: '@app/business_logo',
   EXPENSES: '@app/expenses',
+  JOURNAL_ENTRIES: '@app/journal_entries',
 };
 
 export const [AppContext, useApp] = createContextHook(() => {
@@ -89,6 +92,7 @@ export const [AppContext, useApp] = createContextHook(() => {
   const [tenantOnboardings, setTenantOnboardings] = useState<TenantOnboarding[]>([]);
   const [propertyInspections, setPropertyInspections] = useState<PropertyInspection[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -125,6 +129,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedPropertyInspections,
         savedBusinessLogo,
         savedExpenses,
+        savedJournalEntries,
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
@@ -150,6 +155,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
         AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_LOGO),
         AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
+        AsyncStorage.getItem(STORAGE_KEYS.JOURNAL_ENTRIES),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -176,6 +182,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedPropertyInspections) setPropertyInspections(JSON.parse(savedPropertyInspections));
       if (savedBusinessLogo) setBusinessLogo(savedBusinessLogo);
       if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
+      if (savedJournalEntries) setJournalEntries(JSON.parse(savedJournalEntries));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -462,6 +469,17 @@ export const [AppContext, useApp] = createContextHook(() => {
     setPayments(updated);
     await saveData(STORAGE_KEYS.PAYMENTS, updated);
     
+    if (newPayment.status === 'paid' && currentUser) {
+      const lease = leases.find(l => l.id === newPayment.lease_id);
+      if (lease) {
+        const entries = createPaymentJournalEntries(newPayment, lease, currentTenant.id, currentUser.id);
+        const updatedJournalEntries = [...journalEntries, ...entries];
+        setJournalEntries(updatedJournalEntries);
+        await saveData(STORAGE_KEYS.JOURNAL_ENTRIES, updatedJournalEntries);
+        console.log(`[FINANCE] Created ${entries.length} journal entries for payment ${newPayment.id}`);
+      }
+    }
+    
     if (shouldGenerateInvoiceFromPayment(newPayment, invoices) && currentTenant) {
       console.log(`[AUTOMATION] Generating invoice for payment ${newPayment.id}`);
       
@@ -497,7 +515,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     }
     
     return newPayment;
-  }, [currentTenant, payments, invoices, leases, properties, units, saveData]);
+  }, [currentTenant, currentUser, payments, invoices, leases, properties, units, journalEntries, saveData]);
 
   const updatePayment = useCallback(async (id: string, updates: Partial<Payment>) => {
     const payment = payments.find(p => p.id === id);
@@ -1210,8 +1228,17 @@ export const [AppContext, useApp] = createContextHook(() => {
     const updated = [...expenses, newExpense];
     setExpenses(updated);
     await saveData(STORAGE_KEYS.EXPENSES, updated);
+    
+    if (newExpense.status === 'paid' || newExpense.status === 'pending' || newExpense.status === 'approved') {
+      const entries = createExpenseJournalEntries(newExpense, currentTenant.id, currentUser.id);
+      const updatedJournalEntries = [...journalEntries, ...entries];
+      setJournalEntries(updatedJournalEntries);
+      await saveData(STORAGE_KEYS.JOURNAL_ENTRIES, updatedJournalEntries);
+      console.log(`[FINANCE] Created ${entries.length} journal entries for expense ${newExpense.id}`);
+    }
+    
     return newExpense;
-  }, [currentTenant, currentUser, expenses, saveData]);
+  }, [currentTenant, currentUser, expenses, journalEntries, saveData]);
 
   const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
     const expense = expenses.find(e => e.id === id);
@@ -1324,6 +1351,11 @@ export const [AppContext, useApp] = createContextHook(() => {
   const tenantExpenses = useMemo(() => 
     expenses.filter(e => e.tenant_id === currentTenant?.id),
     [expenses, currentTenant]
+  );
+
+  const tenantJournalEntries = useMemo(() => 
+    journalEntries.filter(j => j.tenant_id === currentTenant?.id),
+    [journalEntries, currentTenant]
   );
 
   const tenantStaffUsers = useMemo(() => 
@@ -1452,5 +1484,6 @@ export const [AppContext, useApp] = createContextHook(() => {
     addExpense,
     updateExpense,
     deleteExpense,
+    journalEntries: tenantJournalEntries,
   };
 });

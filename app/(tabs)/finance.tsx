@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
-import { TrendingUp, DollarSign, PieChart, FileText, Building2, X } from 'lucide-react-native';
+import { TrendingUp, DollarSign, PieChart, FileText, Building2, X, Receipt } from 'lucide-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import { 
@@ -10,19 +10,20 @@ import {
   generatePropertyPerformance,
   formatCurrency
 } from '@/utils/financeReports';
-import { getAccountsByType } from '@/constants/chartOfAccounts';
+import { getAccountsByType, DEFAULT_CHART_OF_ACCOUNTS } from '@/constants/chartOfAccounts';
 import Card from '@/components/Card';
 import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 
-type ReportType = 'income' | 'balance' | 'cashflow' | 'property' | 'accounts';
+type ReportType = 'income' | 'balance' | 'cashflow' | 'property' | 'accounts' | 'ledger';
 type PeriodType = 'month' | 'quarter' | 'year' | 'custom';
 
 export default function FinanceScreen() {
-  const { payments, expenses, leases, properties, units } = useApp();
+  const { payments, expenses, leases, properties, units, journalEntries } = useApp();
   const params = useLocalSearchParams<{ propertyId?: string }>();
   
   const [activeReport, setActiveReport] = useState<ReportType>('income');
+  const [selectedAccountCode, setSelectedAccountCode] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('month');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [selectedMonth] = useState<string>(() => {
@@ -121,6 +122,29 @@ export default function FinanceScreen() {
     selectedPropertyId ? properties.find(p => p.id === selectedPropertyId) : null,
     [selectedPropertyId, properties]
   );
+
+  const accountBalances = useMemo(() => {
+    const balances = new Map<string, { balance: number; entryCount: number }>();
+    
+    journalEntries.forEach(entry => {
+      const current = balances.get(entry.account_code) || { balance: 0, entryCount: 0 };
+      const account = DEFAULT_CHART_OF_ACCOUNTS.find(a => a.code === entry.account_code);
+      
+      if (account) {
+        const isDebitNormal = account.type === 'asset' || account.type === 'expense';
+        const change = entry.entry_type === 'debit' 
+          ? (isDebitNormal ? entry.amount : -entry.amount)
+          : (isDebitNormal ? -entry.amount : entry.amount);
+        
+        balances.set(entry.account_code, {
+          balance: current.balance + change,
+          entryCount: current.entryCount + 1,
+        });
+      }
+    });
+    
+    return balances;
+  }, [journalEntries]);
 
 
 
@@ -394,6 +418,154 @@ export default function FinanceScreen() {
     </ScrollView>
   );
 
+  const renderAccountLedger = () => {
+    if (!selectedAccountCode) {
+      return (
+        <ScrollView style={styles.reportContainer} showsVerticalScrollIndicator={false}>
+          <Text style={styles.reportHeaderTitle}>Account Ledger</Text>
+          <Text style={styles.reportHeaderSubtitle}>Select an account to view transactions</Text>
+
+          {['asset', 'liability', 'equity', 'revenue', 'expense'].map((type) => {
+            const accounts = getAccountsByType(type as any);
+            return (
+              <Card key={type} style={styles.accountCard}>
+                <View style={styles.accountTypeHeader}>
+                  <Text style={styles.accountTypeTitle}>{type.toUpperCase()}</Text>
+                  <Badge label={`${accounts.length} accounts`} variant="info" />
+                </View>
+
+                {accounts.map((account) => {
+                  const balanceInfo = accountBalances.get(account.code);
+                  return (
+                    <TouchableOpacity
+                      key={account.code}
+                      style={styles.accountRowClickable}
+                      onPress={() => setSelectedAccountCode(account.code)}
+                      testID={`account-${account.code}`}
+                    >
+                      <View style={styles.accountInfo}>
+                        <Text style={styles.accountCode}>{account.code}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.accountName}>{account.name}</Text>
+                          <Text style={styles.accountDescription}>{account.description}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.accountBalanceInfo}>
+                        {balanceInfo && (
+                          <>
+                            <Text style={styles.accountBalanceValue}>
+                              {formatCurrency(balanceInfo.balance)}
+                            </Text>
+                            <Text style={styles.accountEntryCount}>
+                              {balanceInfo.entryCount} {balanceInfo.entryCount === 1 ? 'entry' : 'entries'}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </Card>
+            );
+          })}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      );
+    }
+
+    const account = DEFAULT_CHART_OF_ACCOUNTS.find(a => a.code === selectedAccountCode);
+    const accountEntries = journalEntries
+      .filter(e => e.account_code === selectedAccountCode)
+      .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime());
+    
+    const balanceInfo = accountBalances.get(selectedAccountCode);
+
+    return (
+      <ScrollView style={styles.reportContainer} showsVerticalScrollIndicator={false}>
+        <View style={styles.ledgerHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setSelectedAccountCode(null)}
+          >
+            <X size={20} color="#007AFF" />
+            <Text style={styles.backButtonText}>Back to Accounts</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Card style={styles.reportCard}>
+          <View style={styles.ledgerAccountHeader}>
+            <View>
+              <Text style={styles.ledgerAccountCode}>{account?.code}</Text>
+              <Text style={styles.ledgerAccountName}>{account?.name}</Text>
+              <Text style={styles.ledgerAccountDescription}>{account?.description}</Text>
+            </View>
+            <View style={styles.ledgerAccountBalance}>
+              <Text style={styles.ledgerBalanceLabel}>Balance</Text>
+              <Text style={styles.ledgerBalanceValue}>
+                {formatCurrency(balanceInfo?.balance || 0)}
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        <Card style={styles.reportCard}>
+          <Text style={styles.reportTitle}>Transaction History</Text>
+          <Text style={styles.reportSubtitle}>
+            {accountEntries.length} {accountEntries.length === 1 ? 'transaction' : 'transactions'}
+          </Text>
+
+          {accountEntries.length === 0 ? (
+            <EmptyState
+              icon={Receipt}
+              title="No Transactions"
+              message="No journal entries have been recorded for this account"
+              testID="account-ledger-empty"
+            />
+          ) : (
+            <View>
+              {accountEntries.map((entry, index) => (
+                <View key={entry.id} style={styles.ledgerEntry}>
+                  <View style={styles.ledgerEntryHeader}>
+                    <Text style={styles.ledgerEntryDate}>
+                      {new Date(entry.transaction_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                    <Badge
+                      label={entry.entry_type.toUpperCase()}
+                      variant={entry.entry_type === 'debit' ? 'warning' : 'success'}
+                    />
+                  </View>
+                  <Text style={styles.ledgerEntryDescription}>{entry.description}</Text>
+                  {entry.notes && (
+                    <Text style={styles.ledgerEntryNotes}>{entry.notes}</Text>
+                  )}
+                  <View style={styles.ledgerEntryFooter}>
+                    <Text style={styles.ledgerEntryType}>
+                      {entry.transaction_type.charAt(0).toUpperCase() + entry.transaction_type.slice(1)}
+                    </Text>
+                    <Text style={[
+                      styles.ledgerEntryAmount,
+                      entry.entry_type === 'debit' ? styles.debitAmount : styles.creditAmount,
+                    ]}>
+                      {entry.entry_type === 'debit' ? '+' : '-'}{formatCurrency(entry.amount)}
+                    </Text>
+                  </View>
+                  {index < accountEntries.length - 1 && <View style={styles.ledgerEntrySeparator} />}
+                </View>
+              ))}
+            </View>
+          )}
+        </Card>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    );
+  };
+
   const renderChartOfAccounts = () => (
     <ScrollView style={styles.reportContainer} showsVerticalScrollIndicator={false}>
       <Text style={styles.reportHeaderTitle}>Chart of Accounts</Text>
@@ -562,6 +734,19 @@ export default function FinanceScreen() {
             Chart of Accounts
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.reportTypeButton, activeReport === 'ledger' && styles.reportTypeButtonActive]}
+          onPress={() => {
+            setActiveReport('ledger');
+            setSelectedAccountCode(null);
+          }}
+        >
+          <Receipt size={20} color={activeReport === 'ledger' ? '#007AFF' : '#666'} />
+          <Text style={[styles.reportTypeText, activeReport === 'ledger' && styles.reportTypeTextActive]}>
+            Account Ledger
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {activeReport === 'income' && renderIncomeStatement()}
@@ -569,6 +754,7 @@ export default function FinanceScreen() {
       {activeReport === 'cashflow' && renderCashFlow()}
       {activeReport === 'property' && renderPropertyPerformance()}
       {activeReport === 'accounts' && renderChartOfAccounts()}
+      {activeReport === 'ledger' && renderAccountLedger()}
     </View>
   );
 }
@@ -809,6 +995,130 @@ const styles = StyleSheet.create({
   },
   accountRow: {
     marginBottom: 16,
+  },
+  accountRowClickable: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+  },
+  accountBalanceInfo: {
+    alignItems: 'flex-end' as const,
+    marginLeft: 12,
+  },
+  accountBalanceValue: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#007AFF',
+    marginBottom: 2,
+  },
+  accountEntryCount: {
+    fontSize: 11,
+    color: '#999',
+  },
+  ledgerHeader: {
+    marginBottom: 16,
+  },
+  backButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  ledgerAccountHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+  },
+  ledgerAccountCode: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#007AFF',
+    marginBottom: 4,
+  },
+  ledgerAccountName: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  ledgerAccountDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  ledgerAccountBalance: {
+    alignItems: 'flex-end' as const,
+  },
+  ledgerBalanceLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  ledgerBalanceValue: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#007AFF',
+  },
+  ledgerEntry: {
+    paddingVertical: 12,
+  },
+  ledgerEntryHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  ledgerEntryDate: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  ledgerEntryDescription: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  ledgerEntryNotes: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 8,
+  },
+  ledgerEntryFooter: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  },
+  ledgerEntryType: {
+    fontSize: 12,
+    color: '#666',
+  },
+  ledgerEntryAmount: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  debitAmount: {
+    color: '#34C759',
+  },
+  creditAmount: {
+    color: '#FF3B30',
+  },
+  ledgerEntrySeparator: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginTop: 12,
   },
   accountInfo: {
     flexDirection: 'row' as const,
