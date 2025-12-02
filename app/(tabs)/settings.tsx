@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image } from 'react-native';
-import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image, ActivityIndicator } from 'react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X, Download, HardDrive, BarChart3, Archive } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import type { UserRole, UserPermissions } from '@/types';
 import Modal from '@/components/Modal';
 import { showPhotoOptions } from '@/components/PhotoPicker';
 import SyncStatusIndicator from '@/components/SyncStatusIndicator';
+import { DataExport } from '@/utils/dataExport';
+import { Analytics } from '@/utils/analytics';
+import { PerformanceMonitor } from '@/utils/performanceMonitor';
+import { CacheManager } from '@/utils/cacheManager';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -15,6 +19,10 @@ export default function SettingsScreen() {
   const [showAddStaffModal, setShowAddStaffModal] = useState<boolean>(false);
   const [showEditStaffModal, setShowEditStaffModal] = useState<boolean>(false);
   const [editingStaff, setEditingStaff] = useState<any>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isCreatingBackup, setIsCreatingBackup] = useState<boolean>(false);
+  const [showBackupsModal, setShowBackupsModal] = useState<boolean>(false);
+  const [backups, setBackups] = useState<any[]>([]);
   
   const [staffEmail, setStaffEmail] = useState<string>('');
   const [staffFirstName, setStaffFirstName] = useState<string>('');
@@ -292,6 +300,137 @@ export default function SettingsScreen() {
               <Text style={styles.managementTitle}>Notifications & Reminders</Text>
               <Text style={styles.managementSubtitle}>
                 View upcoming events and manage notification settings
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data Management</Text>
+          
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={async () => {
+              if (!currentTenant) return;
+              try {
+                setIsExporting(true);
+                await DataExport.exportToFile(currentTenant.id, currentTenant.name);
+                Alert.alert('Success', 'Data exported successfully');
+              } catch (error) {
+                Alert.alert('Error', 'Failed to export data');
+                Analytics.trackError(error as Error, 'high', 'data_export');
+              } finally {
+                setIsExporting(false);
+              }
+            }}
+            testID="export-data-button"
+            disabled={isExporting}
+          >
+            <View style={styles.managementIconContainer}>
+              {isExporting ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <Download size={20} color="#007AFF" />
+              )}
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>Export Data</Text>
+              <Text style={styles.managementSubtitle}>
+                Download all your data as a JSON file
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={async () => {
+              if (!currentTenant) return;
+              try {
+                setIsCreatingBackup(true);
+                await DataExport.createBackup(currentTenant.id);
+                Alert.alert('Success', 'Backup created successfully');
+              } catch (error) {
+                Alert.alert('Error', 'Failed to create backup');
+                Analytics.trackError(error as Error, 'high', 'backup_creation');
+              } finally {
+                setIsCreatingBackup(false);
+              }
+            }}
+            testID="create-backup-button"
+            disabled={isCreatingBackup}
+          >
+            <View style={styles.managementIconContainer}>
+              {isCreatingBackup ? (
+                <ActivityIndicator size="small" color="#34C759" />
+              ) : (
+                <HardDrive size={20} color="#34C759" />
+              )}
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>Create Backup</Text>
+              <Text style={styles.managementSubtitle}>
+                Create a local backup for quick restore
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={async () => {
+              const backupsList = await DataExport.getBackupMetadata();
+              setBackups(backupsList);
+              setShowBackupsModal(true);
+            }}
+            testID="manage-backups-button"
+          >
+            <View style={styles.managementIconContainer}>
+              <Archive size={20} color="#FF9500" />
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>Manage Backups</Text>
+              <Text style={styles.managementSubtitle}>
+                View and restore previous backups
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#999" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.managementCard}
+            onPress={() => {
+              const cacheStats = CacheManager.getStats();
+              const perfStats = PerformanceMonitor.getStats();
+              const errorStats = Analytics.getErrorStats();
+              
+              Alert.alert(
+                'System Stats',
+                `Cache: ${cacheStats.totalEntries} entries, ${(cacheStats.totalSize / 1024).toFixed(1)} KB\n` +
+                `Hit Rate: ${cacheStats.hitRate.toFixed(1)}%\n\n` +
+                `Performance: ${perfStats.totalMetrics} metrics\n` +
+                `Avg Duration: ${perfStats.averageDuration.toFixed(1)}ms\n\n` +
+                `Errors: ${errorStats.total} (${errorStats.bySeverity.critical} critical)`,
+                [
+                  { text: 'Clear Cache', onPress: () => CacheManager.clear() },
+                  { text: 'Clear Stats', onPress: () => {
+                    PerformanceMonitor.clearMetrics();
+                    Analytics.clearAllLogs();
+                  }},
+                  { text: 'OK' },
+                ]
+              );
+            }}
+            testID="system-stats-button"
+          >
+            <View style={styles.managementIconContainer}>
+              <BarChart3 size={20} color="#5856D6" />
+            </View>
+            <View style={styles.managementContent}>
+              <Text style={styles.managementTitle}>System Stats</Text>
+              <Text style={styles.managementSubtitle}>
+                View cache, performance, and error statistics
               </Text>
             </View>
             <ChevronRight size={20} color="#999" />

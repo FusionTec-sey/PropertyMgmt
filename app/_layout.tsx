@@ -9,6 +9,9 @@ import { AppContext } from "@/contexts/AppContext";
 import { NotificationContext } from "@/contexts/NotificationContext";
 import { SyncContext } from "@/contexts/SyncContext";
 import { trpc, trpcClient } from "@/lib/trpc";
+import { Analytics } from "@/utils/analytics";
+import { PerformanceMonitor } from "@/utils/performanceMonitor";
+import { CacheManager } from "@/utils/cacheManager";
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -27,10 +30,21 @@ export default function RootLayout() {
   useEffect(() => {
     const initApp = async () => {
       try {
+        console.log('[APP] Initializing utilities...');
+        
+        await Promise.all([
+          Analytics.init(),
+          PerformanceMonitor.init(),
+          CacheManager.init(),
+        ]);
+        
+        console.log('[APP] Utilities initialized successfully');
+        
         await SplashScreen.hideAsync();
-        console.log("App initialized successfully");
+        console.log('[APP] App initialized successfully');
       } catch (error) {
-        console.error("Error initializing app:", error);
+        console.error('[APP] Error initializing app:', error);
+        Analytics.trackError(error as Error, 'critical', 'app_initialization');
       }
     };
 
