@@ -25,6 +25,11 @@ import {
   shouldGenerateInvoiceFromPayment,
   generateDocumentExpiryReminder
 } from '@/utils/automationHelper';
+import { 
+  assignAccountCodeToExpense, 
+  assignAccountCodeToPayment 
+} from '@/utils/financialTransactions';
+import { mapExpenseCategoryToAccount } from '@/constants/chartOfAccounts';
 
 const STORAGE_KEYS = {
   CURRENT_TENANT: '@app/current_tenant',
@@ -447,6 +452,12 @@ export const [AppContext, useApp] = createContextHook(() => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+    
+    if (!newPayment.account_code) {
+      newPayment.account_code = assignAccountCodeToPayment(newPayment);
+      console.log(`[FINANCE] Auto-assigned account code ${newPayment.account_code} to payment ${newPayment.payment_type || 'rent'}`);
+    }
+    
     const updated = [...payments, newPayment];
     setPayments(updated);
     await saveData(STORAGE_KEYS.PAYMENTS, updated);
@@ -566,7 +577,35 @@ export const [AppContext, useApp] = createContextHook(() => {
     setMaintenanceRequests(updated);
     await saveData(STORAGE_KEYS.MAINTENANCE, updated);
     
-    if (currentTenant && maintenance && updates.status === 'resolved') {
+    if (currentTenant && currentUser && maintenance && updates.cost && updates.status === 'resolved' && maintenance.cost !== updates.cost) {
+      console.log(`[AUTOMATION] Maintenance cost ${updates.cost} - Creating expense record`);
+      
+      const newExpense: Expense = {
+        id: Date.now().toString(),
+        tenant_id: currentTenant.id,
+        created_by: currentUser.id,
+        property_id: maintenance.property_id,
+        unit_id: maintenance.unit_id,
+        category: 'maintenance',
+        description: `Maintenance: ${maintenance.title}`,
+        amount: updates.cost,
+        currency: 'SCR',
+        expense_date: updates.completed_date || new Date().toISOString().split('T')[0],
+        paid_by: 'landlord',
+        status: 'paid',
+        notes: `Auto-generated from maintenance request ${maintenance.id}`,
+        account_code: mapExpenseCategoryToAccount('maintenance'),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      const updatedExpenses = [...expenses, newExpense];
+      setExpenses(updatedExpenses);
+      await saveData(STORAGE_KEYS.EXPENSES, updatedExpenses);
+      console.log(`[AUTOMATION] Expense created for maintenance ${maintenance.id}`);
+    }
+    
+    if (currentTenant && maintenance && updates.status === 'resolved' && !updates.cost) {
       if (shouldTriggerAutomation('maintenance_inspection', { maintenance: { ...maintenance, ...updates } })) {
         const hasExistingTodo = todos.some(
           t => t.related_to_id === id && t.category === 'inspection' && t.title.includes('Post-Maintenance')
@@ -588,7 +627,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         }
       }
     }
-  }, [maintenanceRequests, currentTenant, todos, saveData]);
+  }, [maintenanceRequests, currentTenant, currentUser, todos, expenses, saveData]);
 
   const addNotification = useCallback(async (notification: Omit<Notification, 'id' | 'created_at'>) => {
     if (!currentTenant) return;
@@ -1089,6 +1128,12 @@ export const [AppContext, useApp] = createContextHook(() => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+    
+    if (!newExpense.account_code) {
+      newExpense.account_code = assignAccountCodeToExpense(newExpense);
+      console.log(`[FINANCE] Auto-assigned account code ${newExpense.account_code} to expense ${newExpense.category}`);
+    }
+    
     const updated = [...expenses, newExpense];
     setExpenses(updated);
     await saveData(STORAGE_KEYS.EXPENSES, updated);

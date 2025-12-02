@@ -119,6 +119,8 @@ export interface Property {
   description?: string;
   images?: string[];
   parking_spots?: ParkingSpot[];
+  purchase_price?: number;
+  purchase_date?: string;
   created_at: string;
   updated_at: string;
 }
@@ -248,6 +250,8 @@ export interface Payment {
   receipt_number?: string;
   receipt_generated_at?: string;
   receipt_pdf_uri?: string;
+  account_code?: string;
+  payment_type?: 'rent' | 'late_fee' | 'parking' | 'application' | 'other';
   created_at: string;
   updated_at: string;
 }
@@ -808,6 +812,8 @@ export interface PropertyInspection {
 export type TenantMessageId = string;
 export type ReceiptId = string;
 export type ExpenseId = string;
+export type JournalEntryId = string;
+export type AccountBalanceId = string;
 
 export interface TenantMessage {
   id: TenantMessageId;
@@ -897,7 +903,40 @@ export interface Expense {
   receipts?: ExpenseAttachment[];
   reimbursement_status?: 'pending' | 'completed';
   reimbursement_date?: string;
+  account_code?: string;
   created_by: UserId;
   created_at: string;
   updated_at: string;
+}
+
+export type EntryType = 'debit' | 'credit';
+export type TransactionType = 'payment' | 'expense' | 'invoice' | 'deposit' | 'adjustment';
+
+export interface JournalEntry {
+  id: JournalEntryId;
+  tenant_id: TenantId;
+  transaction_date: string;
+  transaction_type: TransactionType;
+  reference_id?: string;
+  reference_type?: 'payment' | 'expense' | 'invoice' | 'lease' | 'maintenance';
+  description: string;
+  account_code: string;
+  entry_type: EntryType;
+  amount: number;
+  currency: PaymentCurrency;
+  property_id?: PropertyId;
+  unit_id?: UnitId;
+  notes?: string;
+  created_by: UserId;
+  created_at: string;
+}
+
+export interface AccountBalance {
+  id: AccountBalanceId;
+  tenant_id: TenantId;
+  account_code: string;
+  balance: number;
+  currency: PaymentCurrency;
+  last_transaction_date?: string;
+  last_updated: string;
 }

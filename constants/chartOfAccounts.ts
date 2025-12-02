@@ -291,3 +291,15 @@ export function mapPaymentToAccount(paymentType: string): string {
   };
   return mapping[paymentType] || '4000';
 }
+
+export function getAccountBalance(accountCode: string): { debit: boolean; credit: boolean } {
+  const account = DEFAULT_CHART_OF_ACCOUNTS.find(acc => acc.code === accountCode);
+  if (!account) return { debit: false, credit: false };
+  
+  const type = account.type;
+  if (type === 'asset' || type === 'expense') {
+    return { debit: true, credit: false };
+  } else {
+    return { debit: false, credit: true };
+  }
+}
