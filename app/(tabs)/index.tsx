@@ -212,7 +212,7 @@ export default function DashboardScreen() {
     return `₨${amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR`;
   };
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
 
   const draftLeases = leases.filter((l) => l.status === 'draft');
