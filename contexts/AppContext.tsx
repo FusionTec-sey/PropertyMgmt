@@ -501,13 +501,19 @@ export const [AppContext, useApp] = createContextHook(() => {
 
   const updatePayment = useCallback(async (id: string, updates: Partial<Payment>) => {
     const payment = payments.find(p => p.id === id);
+    const amountChanged = updates.amount && updates.amount !== payment?.amount;
+    
     const updated = payments.map(p => 
       p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p
     );
     setPayments(updated);
     await saveData(STORAGE_KEYS.PAYMENTS, updated);
     
-    console.log('[FINANCE] Payment updated - Financial reports will auto-recalculate via React');
+    if (amountChanged) {
+      console.log(`[FINANCE] Payment amount updated from ${payment?.amount} to ${updates.amount} - Triggering financial recalculation`);
+    } else {
+      console.log('[FINANCE] Payment updated - Financial reports will auto-recalculate via React');
+    }
     
     if (currentTenant && payment && updates.status === 'overdue') {
       if (shouldTriggerAutomation('overdue_payment_followup', { payment: { ...payment, ...updates } })) {
@@ -538,6 +544,7 @@ export const [AppContext, useApp] = createContextHook(() => {
     if (currentTenant && payment && updates.status === 'paid') {
       const matchingInvoiceId = linkPaymentToInvoice({ ...payment, ...updates }, invoices);
       if (matchingInvoiceId) {
+        console.log(`[AUTOMATION] Auto-linking payment ${id} to invoice ${matchingInvoiceId}`);
         const updatedInvoices = invoices.map(inv => 
           inv.id === matchingInvoiceId ? { 
             ...inv, 
@@ -551,6 +558,8 @@ export const [AppContext, useApp] = createContextHook(() => {
         );
         setInvoices(updatedInvoices);
         await saveData(STORAGE_KEYS.INVOICES, updatedInvoices);
+        console.log(`[AUTOMATION] Invoice ${matchingInvoiceId} marked as paid and linked to payment`);
+        console.log('[FINANCE] Payment-invoice link created - Financial recalculation triggered');
       }
     }
   }, [payments, currentTenant, todos, invoices, saveData]);
@@ -579,36 +588,56 @@ export const [AppContext, useApp] = createContextHook(() => {
     setMaintenanceRequests(updated);
     await saveData(STORAGE_KEYS.MAINTENANCE, updated);
     
-    if (currentTenant && currentUser && maintenance && updates.cost && updates.status === 'resolved' && maintenance.cost !== updates.cost) {
-      console.log(`[AUTOMATION] Maintenance cost ${updates.cost} - Creating expense record`);
+    if (currentTenant && currentUser && maintenance && updates.cost && maintenance.cost !== updates.cost) {
+      console.log(`[AUTOMATION] Maintenance cost updated to ${updates.cost} - Creating/updating expense record`);
+      console.log('[FINANCE] Triggering financial recalculation due to maintenance cost update');
       
       const updatedMaintenance = { ...maintenance, ...updates };
       
-      const newExpense: Expense = {
-        id: Date.now().toString(),
-        tenant_id: currentTenant.id,
-        created_by: currentUser.id,
-        property_id: maintenance.property_id,
-        unit_id: maintenance.unit_id,
-        category: 'maintenance',
-        description: `Maintenance: ${maintenance.title}`,
-        amount: updates.cost,
-        currency: 'SCR',
-        expense_date: updates.completed_date || new Date().toISOString().split('T')[0],
-        paid_by: 'landlord',
-        status: 'paid',
-        notes: `Auto-generated from maintenance request ${maintenance.id}`,
-        receipts: updatedMaintenance.receipts,
-        account_code: mapExpenseCategoryToAccount('maintenance'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+      const existingExpense = expenses.find(
+        e => e.notes?.includes(`maintenance request ${maintenance.id}`)
+      );
       
-      const updatedExpenses = [...expenses, newExpense];
-      setExpenses(updatedExpenses);
-      await saveData(STORAGE_KEYS.EXPENSES, updatedExpenses);
-      console.log(`[AUTOMATION] Expense created for maintenance ${maintenance.id} with ${updatedMaintenance.receipts?.length || 0} receipts`);
-      console.log('[FINANCE] Maintenance expense created - Financial reports will auto-recalculate via React');
+      if (existingExpense) {
+        const updatedExpenses = expenses.map(e => 
+          e.id === existingExpense.id ? {
+            ...e,
+            amount: updates.cost!,
+            expense_date: updates.completed_date || e.expense_date,
+            receipts: updatedMaintenance.receipts || e.receipts,
+            updated_at: new Date().toISOString(),
+          } : e
+        );
+        setExpenses(updatedExpenses);
+        await saveData(STORAGE_KEYS.EXPENSES, updatedExpenses);
+        console.log(`[AUTOMATION] Expense ${existingExpense.id} updated with new cost and receipts`);
+      } else {
+        const newExpense: Expense = {
+          id: Date.now().toString(),
+          tenant_id: currentTenant.id,
+          created_by: currentUser.id,
+          property_id: maintenance.property_id,
+          unit_id: maintenance.unit_id,
+          category: 'maintenance',
+          description: `Maintenance: ${maintenance.title}`,
+          amount: updates.cost!,
+          currency: 'SCR',
+          expense_date: updates.completed_date || new Date().toISOString().split('T')[0],
+          paid_by: 'landlord',
+          status: 'paid',
+          notes: `Auto-generated from maintenance request ${maintenance.id}`,
+          receipts: updatedMaintenance.receipts,
+          account_code: mapExpenseCategoryToAccount('maintenance'),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        const updatedExpenses = [...expenses, newExpense];
+        setExpenses(updatedExpenses);
+        await saveData(STORAGE_KEYS.EXPENSES, updatedExpenses);
+        console.log(`[AUTOMATION] Expense created for maintenance ${maintenance.id} with ${updatedMaintenance.receipts?.length || 0} receipts`);
+      }
+      console.log('[FINANCE] Financial recalculation triggered - React will re-render finance reports');
     }
     
     if (currentTenant && maintenance && updates.status === 'resolved' && !updates.cost) {
@@ -836,12 +865,50 @@ export const [AppContext, useApp] = createContextHook(() => {
   }, [currentTenant, invoices, saveData]);
 
   const updateInvoice = useCallback(async (id: string, updates: Partial<Invoice>) => {
+    const invoice = invoices.find(i => i.id === id);
     const updated = invoices.map(i => 
       i.id === id ? { ...i, ...updates, updated_at: new Date().toISOString() } : i
     );
     setInvoices(updated);
     await saveData(STORAGE_KEYS.INVOICES, updated);
-  }, [invoices, saveData]);
+    
+    if (currentTenant && currentUser && invoice && updates.status === 'paid' && invoice.status !== 'paid') {
+      console.log(`[AUTOMATION] Invoice ${id} marked as paid - Auto-creating payment record`);
+      
+      const lease = leases.find(l => l.id === invoice.lease_id);
+      if (lease) {
+        const newPayment: Payment = {
+          id: `${Date.now()}-from-invoice-${id}`,
+          tenant_id: currentTenant.id,
+          lease_id: lease.id,
+          tenant_renter_id: invoice.tenant_renter_id,
+          amount: invoice.total_amount,
+          currency: invoice.currency,
+          payment_date: updates.paid_at || new Date().toISOString().split('T')[0],
+          due_date: invoice.due_date,
+          status: 'paid',
+          payment_method: 'bank_transfer',
+          notes: `Auto-generated from invoice ${invoice.invoice_number}`,
+          account_code: assignAccountCodeToPayment({ payment_type: 'rent' } as Payment),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        const updatedPayments = [...payments, newPayment];
+        setPayments(updatedPayments);
+        await saveData(STORAGE_KEYS.PAYMENTS, updatedPayments);
+        
+        const updatedInvoices = invoices.map(inv => 
+          inv.id === id ? { ...inv, payment_id: newPayment.id } : inv
+        );
+        setInvoices(updatedInvoices);
+        await saveData(STORAGE_KEYS.INVOICES, updatedInvoices);
+        
+        console.log(`[AUTOMATION] Payment record ${newPayment.id} created and linked to invoice ${id}`);
+        console.log('[FINANCE] Invoice marked paid - Financial recalculation triggered');
+      }
+    }
+  }, [invoices, currentTenant, currentUser, leases, payments, saveData]);
 
   const deleteInvoice = useCallback(async (id: string) => {
     const updated = invoices.filter(i => i.id !== id);
@@ -1147,11 +1214,20 @@ export const [AppContext, useApp] = createContextHook(() => {
   }, [currentTenant, currentUser, expenses, saveData]);
 
   const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
+    const expense = expenses.find(e => e.id === id);
+    const amountChanged = updates.amount && updates.amount !== expense?.amount;
+    
     const updated = expenses.map(e => 
       e.id === id ? { ...e, ...updates, updated_at: new Date().toISOString() } : e
     );
     setExpenses(updated);
     await saveData(STORAGE_KEYS.EXPENSES, updated);
+    
+    if (amountChanged) {
+      console.log(`[FINANCE] Expense amount updated from ${expense?.amount} to ${updates.amount} - Triggering financial recalculation`);
+    } else {
+      console.log('[FINANCE] Expense updated - Financial reports will auto-recalculate via React');
+    }
   }, [expenses, saveData]);
 
   const deleteExpense = useCallback(async (id: string) => {
