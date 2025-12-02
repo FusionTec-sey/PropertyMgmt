@@ -8,6 +8,7 @@ import {
   Pressable,
   Platform,
   Alert,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -480,63 +481,73 @@ export default function OnboardingScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top', 'bottom']}
     >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Welcome to Your Property Management App
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            Let&apos;s get your business set up in just a few steps
-          </Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.header}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              Welcome to Your Property Management App
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+              Let&apos;s get your business set up in just a few steps
+            </Text>
+          </View>
+
+          {renderStepIndicator()}
+          {renderStepContent()}
+        </ScrollView>
+
+        <View style={[styles.footer, { backgroundColor: colors.background }]}>
+          <View style={styles.buttonContainer}>
+            {currentStep > 1 && (
+              <TouchableOpacity
+                style={[
+                  styles.backButton,
+                  {
+                    backgroundColor: isDark ? colors.card : '#F3F4F6',
+                  },
+                ]}
+                onPress={handleBack}
+                disabled={isLoading}
+                testID="back-button"
+              >
+                <ChevronLeft size={20} color={colors.text} />
+                <Text style={[styles.backButtonText, { color: colors.text }]}>Back</Text>
+              </TouchableOpacity>
+            )}
+
+            <Button
+              title={currentStep === STEPS.length ? 'Complete Setup' : 'Next'}
+              onPress={handleNext}
+              loading={isLoading}
+              style={[styles.nextButton, currentStep === 1 && styles.fullWidthButton]}
+              testID="next-button"
+              rightIcon={
+                currentStep < STEPS.length ? (
+                  <ChevronRight size={20} color="#fff" />
+                ) : undefined
+              }
+            />
+          </View>
         </View>
-
-        {renderStepIndicator()}
-        {renderStepContent()}
-      </ScrollView>
-
-      <View style={[styles.footer, { backgroundColor: colors.background }]}>
-        <View style={styles.buttonContainer}>
-          {currentStep > 1 && (
-            <TouchableOpacity
-              style={[
-                styles.backButton,
-                {
-                  backgroundColor: isDark ? colors.card : '#F3F4F6',
-                },
-              ]}
-              onPress={handleBack}
-              disabled={isLoading}
-              testID="back-button"
-            >
-              <ChevronLeft size={20} color={colors.text} />
-              <Text style={[styles.backButtonText, { color: colors.text }]}>Back</Text>
-            </TouchableOpacity>
-          )}
-
-          <Button
-            title={currentStep === STEPS.length ? 'Complete Setup' : 'Next'}
-            onPress={handleNext}
-            loading={isLoading}
-            style={[styles.nextButton, currentStep === 1 && styles.fullWidthButton]}
-            testID="next-button"
-            rightIcon={
-              currentStep < STEPS.length ? (
-                <ChevronRight size={20} color="#fff" />
-              ) : undefined
-            }
-          />
-        </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  keyboardView: {
     flex: 1,
   },
   scrollView: {
