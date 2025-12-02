@@ -48,8 +48,10 @@ export default function MaintenanceScreen() {
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     category: '',
     scheduled_date: '',
+    cost: '',
     notes: '',
     images: [] as string[],
+    receipts: [] as string[],
   });
 
   const [scheduleFormData, setScheduleFormData] = useState({
@@ -77,8 +79,10 @@ export default function MaintenanceScreen() {
       priority: 'medium',
       category: '',
       scheduled_date: '',
+      cost: '',
       notes: '',
       images: [],
+      receipts: [],
     });
     setEditingRequest(null);
   };
@@ -128,8 +132,10 @@ export default function MaintenanceScreen() {
       priority: request.priority,
       category: request.category || '',
       scheduled_date: request.scheduled_date || '',
+      cost: request.cost?.toString() || '',
       notes: request.notes || '',
       images: request.images || [],
+      receipts: request.receipts?.map(r => r.uri) || [],
     });
     setRequestModalVisible(true);
   };
@@ -170,8 +176,15 @@ export default function MaintenanceScreen() {
       category: requestFormData.category || undefined,
       reported_date: new Date().toISOString(),
       scheduled_date: requestFormData.scheduled_date || undefined,
+      cost: requestFormData.cost ? parseFloat(requestFormData.cost) : undefined,
       notes: requestFormData.notes || undefined,
       images: requestFormData.images.length > 0 ? requestFormData.images : undefined,
+      receipts: requestFormData.receipts.length > 0 ? requestFormData.receipts.map(uri => ({
+        uri,
+        type: uri.toLowerCase().endsWith('.pdf') ? 'pdf' as const : 'image' as const,
+        name: uri.split('/').pop() || 'receipt',
+        uploadedAt: new Date().toISOString(),
+      })) : undefined,
     };
 
     if (editingRequest) {
@@ -297,11 +310,29 @@ export default function MaintenanceScreen() {
           {request.description}
         </Text>
 
+        {request.cost && (
+          <View style={styles.requestDetails}>
+            <Text style={styles.detailLabel}>Cost: </Text>
+            <Text style={[styles.detailValue, styles.costValue]}>₨{request.cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR</Text>
+          </View>
+        )}
+
         {request.images && request.images.length > 0 && (
           <View style={styles.photoGalleryContainer}>
+            <Text style={styles.galleryLabel}>Photos</Text>
             <PhotoGallery
               photos={request.images}
               testID={`request-gallery-${request.id}`}
+            />
+          </View>
+        )}
+
+        {request.receipts && request.receipts.length > 0 && (
+          <View style={styles.photoGalleryContainer}>
+            <Text style={styles.galleryLabel}>Purchase Receipts ({request.receipts.length})</Text>
+            <PhotoGallery
+              photos={request.receipts.map(r => r.uri)}
+              testID={`request-receipts-${request.id}`}
             />
           </View>
         )}
@@ -775,11 +806,30 @@ export default function MaintenanceScreen() {
             testID="request-notes-input"
           />
 
+          <Input
+            label="Cost"
+            value={requestFormData.cost}
+            onChangeText={text => setRequestFormData({ ...requestFormData, cost: text })}
+            placeholder="0.00"
+            keyboardType="decimal-pad"
+            testID="request-cost-input"
+          />
+
           <View style={styles.photoPickerContainer}>
             <Text style={styles.photoPickerLabel}>Photos</Text>
             <PhotoPicker
               photos={requestFormData.images}
               onPhotosChange={(photos) => setRequestFormData({ ...requestFormData, images: photos })}
+              maxPhotos={10}
+            />
+          </View>
+
+          <View style={styles.photoPickerContainer}>
+            <Text style={styles.photoPickerLabel}>Purchase Receipts</Text>
+            <Text style={styles.photoPickerHint}>Upload receipts for expenses related to this maintenance</Text>
+            <PhotoPicker
+              photos={requestFormData.receipts}
+              onPhotosChange={(photos) => setRequestFormData({ ...requestFormData, receipts: photos })}
               maxPhotos={10}
             />
           </View>
@@ -1148,7 +1198,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  photoPickerHint: {
+    fontSize: 12,
+    color: '#666',
     marginBottom: 8,
+  },
+  galleryLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: '#666',
+    marginBottom: 8,
+  },
+  costValue: {
+    color: '#FF9500',
+    fontWeight: '700' as const,
   },
   propertyCard: {
     marginBottom: 12,

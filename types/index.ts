@@ -273,6 +273,7 @@ export interface MaintenanceRequest {
   completed_date?: string;
   cost?: number;
   images?: string[];
+  receipts?: ExpenseAttachment[];
   notes?: string;
   created_at: string;
   updated_at: string;

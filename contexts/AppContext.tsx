@@ -580,6 +580,8 @@ export const [AppContext, useApp] = createContextHook(() => {
     if (currentTenant && currentUser && maintenance && updates.cost && updates.status === 'resolved' && maintenance.cost !== updates.cost) {
       console.log(`[AUTOMATION] Maintenance cost ${updates.cost} - Creating expense record`);
       
+      const updatedMaintenance = { ...maintenance, ...updates };
+      
       const newExpense: Expense = {
         id: Date.now().toString(),
         tenant_id: currentTenant.id,
@@ -594,6 +596,7 @@ export const [AppContext, useApp] = createContextHook(() => {
         paid_by: 'landlord',
         status: 'paid',
         notes: `Auto-generated from maintenance request ${maintenance.id}`,
+        receipts: updatedMaintenance.receipts,
         account_code: mapExpenseCategoryToAccount('maintenance'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -602,7 +605,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       const updatedExpenses = [...expenses, newExpense];
       setExpenses(updatedExpenses);
       await saveData(STORAGE_KEYS.EXPENSES, updatedExpenses);
-      console.log(`[AUTOMATION] Expense created for maintenance ${maintenance.id}`);
+      console.log(`[AUTOMATION] Expense created for maintenance ${maintenance.id} with ${updatedMaintenance.receipts?.length || 0} receipts`);
     }
     
     if (currentTenant && maintenance && updates.status === 'resolved' && !updates.cost) {
