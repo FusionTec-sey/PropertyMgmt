@@ -102,6 +102,18 @@ const styles = StyleSheet.create({
   },
 });
 
+function validateImageType(uri: string, mimeType?: string | null): boolean {
+  const validMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const validExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+  
+  if (mimeType && validMimeTypes.includes(mimeType.toLowerCase())) {
+    return true;
+  }
+  
+  const lowerUri = uri.toLowerCase();
+  return validExtensions.some(ext => lowerUri.endsWith(ext));
+}
+
 export async function pickPhoto(): Promise<string | null> {
   try {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -122,7 +134,17 @@ export async function pickPhoto(): Promise<string | null> {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      return result.assets[0].uri;
+      const asset = result.assets[0];
+      
+      if (!validateImageType(asset.uri, asset.mimeType)) {
+        Alert.alert(
+          'Invalid File Type',
+          'Please select a valid image file (JPG, PNG, or WEBP).'
+        );
+        return null;
+      }
+      
+      return asset.uri;
     }
 
     return null;
@@ -152,7 +174,17 @@ export async function takePhoto(): Promise<string | null> {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      return result.assets[0].uri;
+      const asset = result.assets[0];
+      
+      if (!validateImageType(asset.uri, asset.mimeType)) {
+        Alert.alert(
+          'Invalid File Type',
+          'The captured image format is not supported. Please try again.'
+        );
+        return null;
+      }
+      
+      return asset.uri;
     }
 
     return null;

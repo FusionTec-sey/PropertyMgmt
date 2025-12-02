@@ -63,33 +63,38 @@ export default function ApplicationDetailScreen() {
   };
 
   const confirmApprove = async () => {
-    await updateTenantApplication(application.id, {
-      status: 'approved',
-      reviewed_at: new Date().toISOString(),
-      review_notes: reviewNotes,
-    });
-    
-    Alert.alert(
-      'Create Tenant?',
-      'Application approved! Would you like to automatically create a tenant from this application?',
-      [
-        {
-          text: 'No, Later',
-          style: 'cancel',
-          onPress: () => {
-            setShowApproveModal(false);
-            router.back();
+    try {
+      await updateTenantApplication(application.id, {
+        status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        review_notes: reviewNotes,
+      });
+      
+      Alert.alert(
+        'Application Approved',
+        'Would you like to automatically create a tenant from this application?',
+        [
+          {
+            text: 'Later',
+            style: 'cancel',
+            onPress: () => {
+              setShowApproveModal(false);
+              router.push('/(tabs)/applications');
+            },
           },
-        },
-        {
-          text: 'Yes, Create Tenant',
-          onPress: async () => {
-            await createTenantFromApplication();
-            setShowApproveModal(false);
+          {
+            text: 'Create Tenant',
+            onPress: async () => {
+              await createTenantFromApplication();
+              setShowApproveModal(false);
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Error approving application:', error);
+      Alert.alert('Error', 'Failed to approve application. Please try again.');
+    }
   };
 
   const createTenantFromApplication = async () => {
@@ -120,28 +125,28 @@ export default function ApplicationDetailScreen() {
       });
 
       Alert.alert(
-        'Tenant Created',
+        'Success!',
         'Tenant created successfully! Would you like to create a lease for them now?',
         [
           {
             text: 'Later',
-            onPress: () => router.back(),
+            style: 'cancel',
+            onPress: () => {
+              router.push('/(tabs)/applications');
+            },
           },
           {
             text: 'Create Lease',
             onPress: () => {
-              router.back();
-              setTimeout(() => {
-                router.push('/(tabs)/tenants');
-              }, 100);
+              router.push('/(tabs)/tenants');
             },
           },
         ]
       );
     } catch (error) {
       console.error('Error creating tenant:', error);
-      Alert.alert('Error', 'Failed to create tenant. Please try again manually.');
-      router.back();
+      Alert.alert('Error', 'Failed to create tenant. Please try again from the Tenants tab.');
+      router.push('/(tabs)/applications');
     }
   };
 
@@ -151,18 +156,32 @@ export default function ApplicationDetailScreen() {
 
   const confirmReject = async () => {
     if (!rejectReason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for rejection.');
+      Alert.alert('Validation Error', 'Please provide a reason for rejection.');
       return;
     }
-    await updateTenantApplication(application.id, {
-      status: 'rejected',
-      reviewed_at: new Date().toISOString(),
-      rejection_reason: rejectReason,
-      review_notes: reviewNotes,
-    });
-    setShowRejectModal(false);
-    Alert.alert('Application Rejected', 'The applicant will be notified.');
-    router.back();
+    
+    try {
+      await updateTenantApplication(application.id, {
+        status: 'rejected',
+        reviewed_at: new Date().toISOString(),
+        rejection_reason: rejectReason,
+        review_notes: reviewNotes,
+      });
+      setShowRejectModal(false);
+      Alert.alert(
+        'Application Rejected',
+        'The application has been rejected. The applicant will be notified.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/(tabs)/applications'),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error rejecting application:', error);
+      Alert.alert('Error', 'Failed to reject application. Please try again.');
+    }
   };
 
   const handleScreeningUpdate = (type: 'credit' | 'background' | 'reference') => {

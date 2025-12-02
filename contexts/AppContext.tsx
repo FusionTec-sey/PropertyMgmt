@@ -280,13 +280,23 @@ export const [AppContext, useApp] = createContextHook(() => {
     );
     setProperties(updated);
     await saveData(STORAGE_KEYS.PROPERTIES, updated);
-  }, [properties, saveData]);
+    
+    const updatedProperty = updated.find(p => p.id === id);
+    if (updatedProperty) {
+      await sync.addPendingChange('properties', 'update', updatedProperty as unknown as Record<string, unknown>);
+    }
+  }, [properties, saveData, sync]);
 
   const deleteProperty = useCallback(async (id: string) => {
+    const property = properties.find(p => p.id === id);
     const updated = properties.filter(p => p.id !== id);
     setProperties(updated);
     await saveData(STORAGE_KEYS.PROPERTIES, updated);
-  }, [properties, saveData]);
+    
+    if (property) {
+      await sync.addPendingChange('properties', 'delete', { id } as Record<string, unknown>);
+    }
+  }, [properties, saveData, sync]);
 
   const addUnit = useCallback(async (unit: Omit<Unit, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
     if (!currentTenant) return;

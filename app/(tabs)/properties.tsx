@@ -23,6 +23,7 @@ export default function PropertiesScreen() {
   const [unitModalVisible, setUnitModalVisible] = useState<boolean>(false);
   const [parkingModalVisible, setParkingModalVisible] = useState<boolean>(false);
   const [photosModalVisible, setPhotosModalVisible] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
@@ -129,24 +130,32 @@ export default function PropertiesScreen() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.address || !formData.city) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Validation Error', 'Please fill in all required fields');
       return;
     }
 
-    if (editingProperty) {
-      await updateProperty(editingProperty.id, {
-        ...formData,
-        total_units: parseInt(formData.total_units) || 0,
-      });
-    } else {
-      await addProperty({
-        ...formData,
-        total_units: parseInt(formData.total_units) || 0,
-      });
-    }
+    setIsSaving(true);
+    try {
+      if (editingProperty) {
+        await updateProperty(editingProperty.id, {
+          ...formData,
+          total_units: parseInt(formData.total_units) || 0,
+        });
+      } else {
+        await addProperty({
+          ...formData,
+          total_units: parseInt(formData.total_units) || 0,
+        });
+      }
 
-    setModalVisible(false);
-    resetForm();
+      setModalVisible(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving property:', error);
+      Alert.alert('Error', 'Failed to save property. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddUnit = (propertyId: string) => {
@@ -174,31 +183,39 @@ export default function PropertiesScreen() {
 
   const handleSaveUnit = async () => {
     if (!unitFormData.unit_number || !unitFormData.rent_amount) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Validation Error', 'Please fill in all required fields');
       return;
     }
 
-    const unitData = {
-      property_id: selectedPropertyId,
-      unit_number: unitFormData.unit_number,
-      floor: unitFormData.floor ? parseInt(unitFormData.floor) : undefined,
-      bedrooms: unitFormData.bedrooms ? parseInt(unitFormData.bedrooms) : undefined,
-      bathrooms: unitFormData.bathrooms ? parseFloat(unitFormData.bathrooms) : undefined,
-      square_feet: unitFormData.square_feet ? parseInt(unitFormData.square_feet) : undefined,
-      rent_amount: parseFloat(unitFormData.rent_amount),
-      deposit_amount: unitFormData.deposit_amount ? parseFloat(unitFormData.deposit_amount) : undefined,
-      status: unitFormData.status,
-      description: unitFormData.description || undefined,
-    };
+    setIsSaving(true);
+    try {
+      const unitData = {
+        property_id: selectedPropertyId,
+        unit_number: unitFormData.unit_number,
+        floor: unitFormData.floor ? parseInt(unitFormData.floor) : undefined,
+        bedrooms: unitFormData.bedrooms ? parseInt(unitFormData.bedrooms) : undefined,
+        bathrooms: unitFormData.bathrooms ? parseFloat(unitFormData.bathrooms) : undefined,
+        square_feet: unitFormData.square_feet ? parseInt(unitFormData.square_feet) : undefined,
+        rent_amount: parseFloat(unitFormData.rent_amount),
+        deposit_amount: unitFormData.deposit_amount ? parseFloat(unitFormData.deposit_amount) : undefined,
+        status: unitFormData.status,
+        description: unitFormData.description || undefined,
+      };
 
-    if (editingUnit) {
-      await updateUnit(editingUnit.id, unitData);
-    } else {
-      await addUnit(unitData);
+      if (editingUnit) {
+        await updateUnit(editingUnit.id, unitData);
+      } else {
+        await addUnit(unitData);
+      }
+
+      setUnitModalVisible(false);
+      resetUnitForm();
+    } catch (error) {
+      console.error('Error saving unit:', error);
+      Alert.alert('Error', 'Failed to save unit. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
-
-    setUnitModalVisible(false);
-    resetUnitForm();
   };
 
   const handleManageParking = (property: Property) => {
@@ -262,25 +279,33 @@ export default function PropertiesScreen() {
     }
   };
 
-  const handleAddParkingSpot = () => {
+  const handleAddParkingSpot = async () => {
     if (!parkingFormData.spot_number) {
-      Alert.alert('Error', 'Please enter a spot number');
+      Alert.alert('Validation Error', 'Please enter a spot number');
       return;
     }
 
     if (editingProperty) {
-      const newSpot: ParkingSpot = {
-        id: Date.now().toString(),
-        spot_number: parkingFormData.spot_number,
-        notes: parkingFormData.notes || undefined,
-      };
+      setIsSaving(true);
+      try {
+        const newSpot: ParkingSpot = {
+          id: Date.now().toString(),
+          spot_number: parkingFormData.spot_number,
+          notes: parkingFormData.notes || undefined,
+        };
 
-      const existingSpots = editingProperty.parking_spots || [];
-      updateProperty(editingProperty.id, {
-        parking_spots: [...existingSpots, newSpot],
-      });
+        const existingSpots = editingProperty.parking_spots || [];
+        await updateProperty(editingProperty.id, {
+          parking_spots: [...existingSpots, newSpot],
+        });
 
-      setParkingFormData({ spot_number: '', notes: '' });
+        setParkingFormData({ spot_number: '', notes: '' });
+      } catch (error) {
+        console.error('Error adding parking spot:', error);
+        Alert.alert('Error', 'Failed to add parking spot. Please try again.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -728,6 +753,7 @@ export default function PropertiesScreen() {
           title={editingProperty ? 'Update Property' : 'Add Property'}
           onPress={handleSave}
           fullWidth
+          disabled={isSaving}
           testID="save-property-button"
         />
       </Modal>
@@ -851,6 +877,7 @@ export default function PropertiesScreen() {
           title={editingUnit ? 'Update Unit' : 'Add Unit'}
           onPress={handleSaveUnit}
           fullWidth
+          disabled={isSaving}
           testID="save-unit-button"
         />
       </Modal>
@@ -889,6 +916,7 @@ export default function PropertiesScreen() {
               title="Add Spot"
               onPress={handleAddParkingSpot}
               fullWidth
+              disabled={isSaving}
               testID="add-parking-button"
             />
           </View>
