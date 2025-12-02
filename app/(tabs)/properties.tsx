@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
-import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench, User } from 'lucide-react-native';
+import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench, User, TrendingUp, TrendingDown } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Property, Unit, PropertyType, ParkingSpot } from '@/types';
 import Button from '@/components/Button';
@@ -16,7 +16,7 @@ import SwipeableItem, { SwipeAction } from '@/components/SwipeableItem';
 import { useRouter } from 'expo-router';
 
 export default function PropertiesScreen() {
-  const { properties, units, addProperty, updateProperty, deleteProperty, addUnit, updateUnit, leases, tenantRenters, maintenanceRequests } = useApp();
+  const { properties, units, addProperty, updateProperty, deleteProperty, addUnit, updateUnit, leases, tenantRenters, maintenanceRequests, payments, expenses } = useApp();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
@@ -358,6 +358,53 @@ export default function PropertiesScreen() {
     return `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed';
   };
 
+  const calculatePropertyFinancials = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return properties.map(property => {
+      const propertyUnits = units.filter(u => u.property_id === property.id);
+
+      const propertyPayments = payments.filter(p => {
+        const lease = leases.find(l => l.id === p.lease_id);
+        if (!lease || lease.property_id !== property.id) return false;
+        
+        const paymentDate = new Date(p.payment_date);
+        return (
+          p.status === 'paid' &&
+          paymentDate.getMonth() === currentMonth &&
+          paymentDate.getFullYear() === currentYear
+        );
+      });
+
+      const propertyExpenses = expenses.filter(e => {
+        if (e.property_id !== property.id) return false;
+        
+        const expenseDate = new Date(e.expense_date);
+        return (
+          e.status === 'paid' &&
+          expenseDate.getMonth() === currentMonth &&
+          expenseDate.getFullYear() === currentYear
+        );
+      });
+
+      const totalIncome = propertyPayments.reduce((sum, p) => sum + p.amount + (p.late_fee || 0), 0);
+      const totalExpenses = propertyExpenses.reduce((sum, e) => sum + e.amount, 0);
+      const netIncome = totalIncome - totalExpenses;
+      const potentialMonthlyRent = propertyUnits.reduce((sum, u) => sum + u.rent_amount, 0);
+
+      return {
+        propertyId: property.id,
+        totalIncome,
+        totalExpenses,
+        netIncome,
+        potentialMonthlyRent,
+        profitMargin: totalIncome > 0 ? ((netIncome / totalIncome) * 100) : 0,
+      };
+    });
+  }, [properties, units, leases, payments, expenses]);
+
   const renderUnit = (unit: Unit) => {
     const tenant = getUnitTenant(unit);
     const maintenanceCount = getUnitMaintenanceCount(unit.id);
@@ -449,6 +496,7 @@ export default function PropertiesScreen() {
     const isExpanded = expandedProperties.has(item.id);
     const parkingCount = item.parking_spots?.length || 0;
     const propertyMaintenanceCount = maintenanceRequests.filter(m => m.property_id === item.id && m.status !== 'resolved').length;
+    const financials = calculatePropertyFinancials.find(f => f.propertyId === item.id);
 
     const swipeActions: SwipeAction[] = [
       {
@@ -534,6 +582,44 @@ export default function PropertiesScreen() {
               <Text style={styles.statLabel}>Parking</Text>
             </View>
           </View>
+
+          {financials && (
+            <TouchableOpacity 
+              style={styles.financialSummary}
+              onPress={() => router.push('/(tabs)/finance')}
+              testID={`financials-property-${item.id}`}
+            >
+              <View style={styles.financialRow}>
+                <View style={styles.financialItem}>
+                  <Text style={styles.financialLabel}>Income</Text>
+                  <Text style={styles.financialValue}>${financials.totalIncome.toLocaleString()}</Text>
+                </View>
+                <View style={styles.financialDivider} />
+                <View style={styles.financialItem}>
+                  <Text style={styles.financialLabel}>Expenses</Text>
+                  <Text style={styles.financialValue}>${financials.totalExpenses.toLocaleString()}</Text>
+                </View>
+                <View style={styles.financialDivider} />
+                <View style={styles.financialItem}>
+                  <View style={styles.netIncomeHeader}>
+                    <Text style={styles.financialLabel}>Net</Text>
+                    {financials.netIncome >= 0 ? (
+                      <TrendingUp size={12} color="#34C759" />
+                    ) : (
+                      <TrendingDown size={12} color="#FF3B30" />
+                    )}
+                  </View>
+                  <Text style={[
+                    styles.netIncomeValue,
+                    financials.netIncome >= 0 ? styles.profitPositive : styles.profitNegative
+                  ]}>
+                    ${Math.abs(financials.netIncome).toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.financialFootnote}>This month • Tap for details</Text>
+            </TouchableOpacity>
+          )}
         </TouchableOpacity>
 
         {isExpanded && (
@@ -1361,5 +1447,58 @@ const styles = StyleSheet.create({
   },
   maintenanceStatLabel: {
     color: '#FF9500',
+  },
+  financialSummary: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  financialRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  financialItem: {
+    flex: 1,
+    alignItems: 'center' as const,
+  },
+  financialLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '500' as const,
+  },
+  financialValue: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#1A1A1A',
+  },
+  financialDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E0E0E0',
+  },
+  netIncomeHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    marginBottom: 4,
+  },
+  netIncomeValue: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  profitPositive: {
+    color: '#34C759',
+  },
+  profitNegative: {
+    color: '#FF3B30',
+  },
+  financialFootnote: {
+    fontSize: 10,
+    color: '#999',
+    textAlign: 'center' as const,
   },
 });
