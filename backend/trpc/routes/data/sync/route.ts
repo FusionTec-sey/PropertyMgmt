@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
 import { inMemoryDB } from '../../../../db/schema';
+import { postgresStore } from '../../../../db/postgres';
 
 const syncRoute = {
   getAllData: publicProcedure
@@ -8,9 +9,48 @@ const syncRoute = {
       tenantId: z.string(),
       lastSyncTime: z.string().optional()
     }))
-    .query(({ input }) => {
+    .query(async ({ input }) => {
       console.log(`[SYNC] Getting all data for tenant ${input.tenantId}`);
       
+      if (postgresStore.isAvailable()) {
+        try {
+          const [properties, units, tenant_renters, leases, payments, maintenance_requests,
+                 notifications, move_in_checklists, property_items, maintenance_schedules,
+                 todos, inventory_history, invoices, business_documents, tenant_applications,
+                 tenant_onboardings, property_inspections, expenses, staff_users] = await Promise.all([
+            postgresStore.query`SELECT * FROM properties WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM units WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM tenant_renters WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM leases WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM payments WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM maintenance_requests WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM notifications WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM move_in_checklists WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM property_items WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM maintenance_schedules WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM todos WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM inventory_history WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM invoices WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM business_documents WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM tenant_applications WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM tenant_onboardings WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM property_inspections WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM expenses WHERE tenant_id = ${input.tenantId}`,
+            postgresStore.query`SELECT * FROM staff_users WHERE tenant_id = ${input.tenantId}`,
+          ]);
+
+          return {
+            properties, units, tenant_renters, leases, payments, maintenance_requests,
+            notifications, move_in_checklists, property_items, maintenance_schedules,
+            todos, inventory_history, invoices, business_documents, tenant_applications,
+            tenant_onboardings, property_inspections, expenses, staff_users,
+            syncTime: new Date().toISOString(),
+          };
+        } catch (error) {
+          console.error('[SYNC] PostgreSQL error, falling back to in-memory:', error);
+        }
+      }
+
       const filterByTenant = <T extends { tenant_id: string }>(items: T[]) => 
         items.filter(item => item.tenant_id === input.tenantId);
 
@@ -63,8 +103,51 @@ const syncRoute = {
         staff_users: z.array(z.any()).optional(),
       }),
     }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       console.log(`[SYNC] Pushing changes for tenant ${input.tenantId}`);
+
+      if (postgresStore.isAvailable()) {
+        try {
+          const upsertItems = async (table: string, items: any[] | undefined) => {
+            if (!items || items.length === 0) return;
+
+            for (const item of items) {
+              const jsonData = JSON.stringify(item);
+              
+              if (table === 'properties' && item.id) {
+                await postgresStore.query`
+                  INSERT INTO properties 
+                  SELECT * FROM jsonb_populate_record(null::properties, ${jsonData}::jsonb)
+                  ON CONFLICT (id) DO UPDATE SET 
+                    tenant_id = EXCLUDED.tenant_id,
+                    name = EXCLUDED.name,
+                    address = EXCLUDED.address,
+                    city = EXCLUDED.city,
+                    island = EXCLUDED.island,
+                    postal_code = EXCLUDED.postal_code,
+                    country = EXCLUDED.country,
+                    property_type = EXCLUDED.property_type,
+                    total_units = EXCLUDED.total_units,
+                    description = EXCLUDED.description,
+                    images = EXCLUDED.images,
+                    parking_spots = EXCLUDED.parking_spots,
+                    updated_at = EXCLUDED.updated_at,
+                    version = EXCLUDED.version + 1
+                `;
+              }
+            }
+          };
+
+          await upsertItems('properties', input.changes.properties);
+
+          return {
+            success: true,
+            syncTime: new Date().toISOString(),
+          };
+        } catch (error) {
+          console.error('[SYNC] PostgreSQL push error, falling back to in-memory:', error);
+        }
+      }
       
       const mergeData = <T extends { id: string; version: number; tenant_id: string }>(
         dbArray: T[],
