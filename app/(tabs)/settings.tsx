@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image, ActivityIndicator, FlatList } from 'react-native';
-import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X, Download, HardDrive, BarChart3, Archive, Clock, RotateCcw, AlertCircle, TrendingUp } from 'lucide-react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X, Download, HardDrive, BarChart3, Archive, Clock, RotateCcw, AlertCircle, TrendingUp, Sun, Moon, Monitor } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { UserRole, UserPermissions } from '@/types';
 import Modal from '@/components/Modal';
 import { showPhotoOptions } from '@/components/PhotoPicker';
@@ -15,6 +16,7 @@ import { CacheManager } from '@/utils/cacheManager';
 export default function SettingsScreen() {
   const router = useRouter();
   const { currentTenant, currentUser, logout, staffUsers, addStaffUser, updateStaffUser, deleteStaffUser, businessLogo, updateBusinessLogo } = useApp();
+  const { colors, themePreference, setTheme } = useTheme();
   
   const [showAddStaffModal, setShowAddStaffModal] = useState<boolean>(false);
   const [showEditStaffModal, setShowEditStaffModal] = useState<boolean>(false);
@@ -147,11 +149,68 @@ export default function SettingsScreen() {
 
   return (
     <>
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
       <View style={styles.content}>
         <SyncStatusIndicator />
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Business Information</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
+          
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={[styles.label, { color: colors.textTertiary }]}>Theme</Text>
+            <View style={styles.themeOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.themeOption,
+                  { borderColor: colors.border },
+                  themePreference === 'light' && [styles.themeOptionActive, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]
+                ]}
+                onPress={() => setTheme('light')}
+                testID="theme-light"
+              >
+                <Sun size={24} color={themePreference === 'light' ? colors.tint : colors.textSecondary} />
+                <Text style={[
+                  styles.themeOptionText,
+                  { color: themePreference === 'light' ? colors.tint : colors.textSecondary }
+                ]}>Light</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.themeOption,
+                  { borderColor: colors.border },
+                  themePreference === 'dark' && [styles.themeOptionActive, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]
+                ]}
+                onPress={() => setTheme('dark')}
+                testID="theme-dark"
+              >
+                <Moon size={24} color={themePreference === 'dark' ? colors.tint : colors.textSecondary} />
+                <Text style={[
+                  styles.themeOptionText,
+                  { color: themePreference === 'dark' ? colors.tint : colors.textSecondary }
+                ]}>Dark</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.themeOption,
+                  { borderColor: colors.border },
+                  themePreference === 'system' && [styles.themeOptionActive, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]
+                ]}
+                onPress={() => setTheme('system')}
+                testID="theme-system"
+              >
+                <Monitor size={24} color={themePreference === 'system' ? colors.tint : colors.textSecondary} />
+                <Text style={[
+                  styles.themeOptionText,
+                  { color: themePreference === 'system' ? colors.tint : colors.textSecondary }
+                ]}>System</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Business Information</Text>
           
           <View style={styles.card}>
             <Text style={styles.label}>Business Logo</Text>
@@ -1380,5 +1439,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#FFF',
+  },
+  themeOptions: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    marginTop: 12,
+  },
+  themeOption: {
+    flex: 1,
+    alignItems: 'center' as const,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    gap: 8,
+  },
+  themeOptionActive: {
+    borderWidth: 2,
+  },
+  themeOptionText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
 });

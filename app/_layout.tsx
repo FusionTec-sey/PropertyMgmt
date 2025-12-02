@@ -8,6 +8,7 @@ import AppErrorBoundary from "@/components/AppErrorBoundary";
 import { AppContext } from "@/contexts/AppContext";
 import { NotificationContext } from "@/contexts/NotificationContext";
 import { SyncContext } from "@/contexts/SyncContext";
+import { ThemeContext } from "@/contexts/ThemeContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 import { Analytics } from "@/utils/analytics";
 import { PerformanceMonitor } from "@/utils/performanceMonitor";
@@ -58,17 +59,19 @@ export default function RootLayout() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <SyncContext>
-          <NotificationContext>
-            <AppContext>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <AppErrorBoundary>
-                  <RootLayoutNav />
-                </AppErrorBoundary>
-              </GestureHandlerRootView>
-            </AppContext>
-          </NotificationContext>
-        </SyncContext>
+        <ThemeContext>
+          <SyncContext>
+            <NotificationContext>
+              <AppContext>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <AppErrorBoundary>
+                    <RootLayoutNav />
+                  </AppErrorBoundary>
+                </GestureHandlerRootView>
+              </AppContext>
+            </NotificationContext>
+          </SyncContext>
+        </ThemeContext>
       </QueryClientProvider>
     </trpc.Provider>
   );
