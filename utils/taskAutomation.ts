@@ -598,3 +598,136 @@ export const runTaskAutomation = (
 
   return result;
 };
+
+export const generateTasksFromEvent = (
+  eventType: 'lease_created' | 'payment_status_changed' | 'maintenance_created' | 'maintenance_status_changed' | 'invoice_created' | 'document_added' | 'application_received',
+  eventData: any,
+  existingTodos: Todo[],
+  tenantId: string
+): Omit<Todo, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>[] => {
+  const tasks: Omit<Todo, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>[] = [];
+  const today = new Date();
+
+  const isDuplicate = (task: Omit<Todo, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    return existingTodos.some(
+      t =>
+        t.title === task.title &&
+        t.related_to_id === task.related_to_id &&
+        t.status !== 'completed' &&
+        t.status !== 'cancelled'
+    );
+  };
+
+  switch (eventType) {
+    case 'lease_created':
+      if (eventData.status === 'active' || eventData.status === 'draft') {
+        const endDate = new Date(eventData.end_date);
+        const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilExpiry > 0 && daysUntilExpiry <= 60) {
+          const task = generateLeaseRenewalReminder(eventData, tenantId, 60);
+          if (!isDuplicate(task)) tasks.push(task);
+        }
+
+        if (eventData.status === 'active') {
+          const task = {
+            title: `Schedule Move-In Inspection - ${eventData.unit_id}`,
+            description: 'New lease activated. Schedule and conduct move-in inspection.',
+            priority: 'high' as const,
+            status: 'pending' as const,
+            due_date: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            category: 'inspection' as const,
+            related_to_type: 'lease' as const,
+            related_to_id: eventData.id,
+          };
+          if (!isDuplicate(task)) tasks.push(task);
+        }
+      }
+      break;
+
+    case 'payment_status_changed':
+      if (eventData.status === 'overdue') {
+        const dueDate = new Date(eventData.due_date);
+        const daysOverdue = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysOverdue >= 1) {
+          const task = generateOverduePaymentTodo(eventData, tenantId, daysOverdue);
+          if (!isDuplicate(task)) tasks.push(task);
+        }
+      }
+      break;
+
+    case 'maintenance_created':
+      if (eventData.priority === 'urgent') {
+        const task = {
+          title: `URGENT: Assign Maintenance Request`,
+          description: `New urgent maintenance: ${eventData.title}. Requires immediate attention.`,
+          priority: 'urgent' as const,
+          status: 'pending' as const,
+          due_date: today.toISOString().split('T')[0],
+          category: 'maintenance' as const,
+          related_to_type: 'maintenance' as const,
+          related_to_id: eventData.id,
+        };
+        if (!isDuplicate(task)) tasks.push(task);
+      }
+      break;
+
+    case 'maintenance_status_changed':
+      if (eventData.status === 'resolved') {
+        const task = generateMaintenanceCompletionInspectionTodo(eventData, tenantId);
+        if (!isDuplicate(task)) tasks.push(task);
+      }
+      break;
+
+    case 'invoice_created':
+      if (eventData.status === 'sent') {
+        const dueDate = new Date(eventData.due_date);
+        const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilDue <= 3 && daysUntilDue >= 0) {
+          const task = {
+            title: `Monitor Invoice Payment - ${eventData.invoice_number}`,
+            description: `Invoice due in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}. Monitor for payment.`,
+            priority: 'medium' as const,
+            status: 'pending' as const,
+            due_date: eventData.due_date,
+            category: 'payment' as const,
+            related_to_type: 'payment' as const,
+            related_to_id: eventData.id,
+          };
+          if (!isDuplicate(task)) tasks.push(task);
+        }
+      }
+      break;
+
+    case 'document_added':
+      if (eventData.expiry_date) {
+        const expiryDate = new Date(eventData.expiry_date);
+        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilExpiry > 0 && daysUntilExpiry <= 60) {
+          const task = generateDocumentExpiryReminder(eventData.id, eventData.name, eventData.expiry_date, tenantId, 60);
+          if (!isDuplicate(task)) tasks.push(task);
+        }
+      }
+      break;
+
+    case 'application_received':
+      const task = {
+        title: `Review New Application - ${eventData.applicant_email}`,
+        description: `New tenant application received. Review and process within 3 days.`,
+        priority: 'high' as const,
+        status: 'pending' as const,
+        due_date: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        category: 'lease' as const,
+        related_to_type: 'tenant_renter' as const,
+        related_to_id: eventData.id,
+      };
+      if (!isDuplicate(task)) tasks.push(task);
+      break;
+  }
+
+  console.log(`[EVENT TASK GENERATION] Generated ${tasks.length} tasks for event: ${eventType}`);
+  return tasks;
+};
