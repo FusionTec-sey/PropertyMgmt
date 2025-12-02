@@ -83,7 +83,7 @@ export default function DepositReturnScreen() {
               }
 
               Alert.alert('Success', 'Deposit return completed successfully!', [
-                { text: 'OK', onPress: () => router.push('/(tabs)') },
+                { text: 'OK', onPress: () => router.push('/(tabs)/home') },
               ]);
             } catch (error) {
               console.error('Error completing deposit return:', error);

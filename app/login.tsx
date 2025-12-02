@@ -33,7 +33,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (currentTenant && currentUser) {
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/home');
     }
   }, [currentTenant, currentUser, router]);
 
@@ -66,7 +66,7 @@ export default function LoginScreen() {
       setNewTenantName('');
       setNewTenantEmail('');
       setShowNewTenant(false);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/home');
     }
   };
 
@@ -83,7 +83,7 @@ export default function LoginScreen() {
     };
 
     await login(tenant, defaultUser);
-    router.replace('/(tabs)');
+    router.replace('/(tabs)/home');
   };
 
   const handleSelectStaffLogin = (tenant: Tenant) => {
@@ -94,7 +94,7 @@ export default function LoginScreen() {
   const handleStaffUserSelect = async (staff: User) => {
     if (!selectedTenantForStaff) return;
     await login(selectedTenantForStaff, staff);
-    router.replace('/(tabs)');
+    router.replace('/(tabs)/home');
   };
 
   const availableStaffForTenant = selectedTenantForStaff ? 
