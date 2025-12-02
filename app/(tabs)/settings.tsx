@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image, ActivityIndicator } from 'react-native';
-import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X, Download, HardDrive, BarChart3, Archive } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image, ActivityIndicator, FlatList } from 'react-native';
+import { LogOut, UserPlus, Mail, Phone, Shield, Trash2, Edit, FileText, ChevronRight, CheckSquare, Bell, Upload, X, Download, HardDrive, BarChart3, Archive, Clock, RotateCcw, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import type { UserRole, UserPermissions } from '@/types';
 import Modal from '@/components/Modal';
 import { showPhotoOptions } from '@/components/PhotoPicker';
 import SyncStatusIndicator from '@/components/SyncStatusIndicator';
-import { DataExport } from '@/utils/dataExport';
+import { DataExport, BackupMetadata } from '@/utils/dataExport';
 import { Analytics } from '@/utils/analytics';
 import { PerformanceMonitor } from '@/utils/performanceMonitor';
 import { CacheManager } from '@/utils/cacheManager';
@@ -21,6 +21,11 @@ export default function SettingsScreen() {
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isCreatingBackup, setIsCreatingBackup] = useState<boolean>(false);
+  const [showBackupsModal, setShowBackupsModal] = useState<boolean>(false);
+  const [backupsList, setBackupsList] = useState<BackupMetadata[]>([]);
+  const [loadingBackups, setLoadingBackups] = useState<boolean>(false);
+  const [restoringBackupId, setRestoringBackupId] = useState<string | null>(null);
+  const [deletingBackupId, setDeletingBackupId] = useState<string | null>(null);
   
   const [staffEmail, setStaffEmail] = useState<string>('');
   const [staffFirstName, setStaffFirstName] = useState<string>('');
@@ -382,12 +387,17 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.managementCard}
             onPress={async () => {
-              const backupsList = await DataExport.getBackupMetadata();
-              Alert.alert(
-                'Backups',
-                `Found ${backupsList.length} backup(s).\n\nBackup management UI coming soon.`,
-                [{ text: 'OK' }]
-              );
+              setLoadingBackups(true);
+              setShowBackupsModal(true);
+              try {
+                const backups = await DataExport.getBackupMetadata();
+                setBackupsList(backups);
+              } catch (error) {
+                Alert.alert('Error', 'Failed to load backups');
+                Analytics.trackError(error as Error, 'medium', 'load_backups');
+              } finally {
+                setLoadingBackups(false);
+              }
             }}
             testID="manage-backups-button"
           >
@@ -653,6 +663,144 @@ export default function SettingsScreen() {
           <Text style={styles.submitButtonText}>Add Staff Member</Text>
         </TouchableOpacity>
       </ScrollView>
+    </Modal>
+
+    <Modal
+      visible={showBackupsModal}
+      onClose={() => {
+        setShowBackupsModal(false);
+        setBackupsList([]);
+      }}
+      title="Manage Backups"
+    >
+      <View style={styles.backupsModalContent}>
+        {loadingBackups ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>Loading backups...</Text>
+          </View>
+        ) : backupsList.length === 0 ? (
+          <View style={styles.emptyBackupsContainer}>
+            <AlertCircle size={48} color="#999" />
+            <Text style={styles.emptyBackupsText}>No backups found</Text>
+            <Text style={styles.emptyBackupsSubtext}>
+              Create your first backup to enable quick restore
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={backupsList}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.backupCard}>
+                <View style={styles.backupHeader}>
+                  <Clock size={16} color="#666" />
+                  <Text style={styles.backupDate}>
+                    {new Date(item.createdAt).toLocaleString()}
+                  </Text>
+                </View>
+                <Text style={styles.backupSize}>
+                  Size: {DataExport.formatFileSize(item.dataSize)}
+                </Text>
+                <Text style={styles.backupVersion}>Version: {item.version}</Text>
+                
+                <View style={styles.backupActions}>
+                  <TouchableOpacity
+                    style={[styles.backupButton, styles.restoreButton]}
+                    onPress={() => {
+                      Alert.alert(
+                        'Restore Backup',
+                        'This will replace all current data with the backup. Are you sure?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Restore',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                setRestoringBackupId(item.id);
+                                await DataExport.restoreFromBackup(item.id);
+                                Alert.alert(
+                                  'Success',
+                                  'Backup restored successfully. Please restart the app.',
+                                  [
+                                    {
+                                      text: 'OK',
+                                      onPress: () => {
+                                        setShowBackupsModal(false);
+                                        setBackupsList([]);
+                                      },
+                                    },
+                                  ]
+                                );
+                              } catch (error) {
+                                Alert.alert('Error', 'Failed to restore backup');
+                                Analytics.trackError(error as Error, 'high', 'backup_restore');
+                              } finally {
+                                setRestoringBackupId(null);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    disabled={restoringBackupId === item.id || deletingBackupId !== null}
+                    testID={`restore-backup-${item.id}`}
+                  >
+                    {restoringBackupId === item.id ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <RotateCcw size={16} color="#FFF" />
+                    )}
+                    <Text style={styles.backupButtonText}>Restore</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.backupButton, styles.deleteBackupButton]}
+                    onPress={() => {
+                      Alert.alert(
+                        'Delete Backup',
+                        'Are you sure you want to delete this backup?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                setDeletingBackupId(item.id);
+                                await DataExport.deleteBackup(item.id);
+                                const updatedBackups = backupsList.filter(b => b.id !== item.id);
+                                setBackupsList(updatedBackups);
+                                Alert.alert('Success', 'Backup deleted successfully');
+                              } catch (error) {
+                                Alert.alert('Error', 'Failed to delete backup');
+                                Analytics.trackError(error as Error, 'medium', 'backup_delete');
+                              } finally {
+                                setDeletingBackupId(null);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    disabled={deletingBackupId === item.id || restoringBackupId !== null}
+                    testID={`delete-backup-${item.id}`}
+                  >
+                    {deletingBackupId === item.id ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Trash2 size={16} color="#FFF" />
+                    )}
+                    <Text style={styles.backupButtonText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            contentContainerStyle={styles.backupsList}
+          />
+        )}
+      </View>
     </Modal>
 
     <Modal
@@ -1106,5 +1254,97 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
     textAlign: 'center' as const,
+  },
+  backupsModalContent: {
+    maxHeight: 500,
+    minHeight: 300,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 12,
+  },
+  emptyBackupsContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyBackupsText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyBackupsSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center' as const,
+  },
+  backupsList: {
+    padding: 16,
+  },
+  backupCard: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  backupHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: 8,
+  },
+  backupDate: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+  },
+  backupSize: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  backupVersion: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+  },
+  backupActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+    marginTop: 8,
+  },
+  backupButton: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  restoreButton: {
+    backgroundColor: '#34C759',
+  },
+  deleteBackupButton: {
+    backgroundColor: '#FF3B30',
+  },
+  backupButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#FFF',
   },
 });
