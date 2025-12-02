@@ -507,6 +507,8 @@ export const [AppContext, useApp] = createContextHook(() => {
     setPayments(updated);
     await saveData(STORAGE_KEYS.PAYMENTS, updated);
     
+    console.log('[FINANCE] Payment updated - Financial reports will auto-recalculate via React');
+    
     if (currentTenant && payment && updates.status === 'overdue') {
       if (shouldTriggerAutomation('overdue_payment_followup', { payment: { ...payment, ...updates } })) {
         const dueDate = new Date(payment.due_date);
@@ -606,6 +608,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       setExpenses(updatedExpenses);
       await saveData(STORAGE_KEYS.EXPENSES, updatedExpenses);
       console.log(`[AUTOMATION] Expense created for maintenance ${maintenance.id} with ${updatedMaintenance.receipts?.length || 0} receipts`);
+      console.log('[FINANCE] Maintenance expense created - Financial reports will auto-recalculate via React');
     }
     
     if (currentTenant && maintenance && updates.status === 'resolved' && !updates.cost) {
