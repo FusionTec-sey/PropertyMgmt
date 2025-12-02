@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
-import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye, Send, RefreshCw, Receipt, TrendingDown, X } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Plus, DollarSign, Calendar, AlertCircle, Paperclip, FileText, Eye, Send, RefreshCw, Receipt, TrendingDown, X, Folder } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Payment, PaymentCurrency, Invoice, Expense, ExpenseCategory, ExpensePaidBy, ExpenseStatus } from '@/types';
 import * as DocumentPicker from 'expo-document-picker';
@@ -16,6 +17,7 @@ import Badge from '@/components/Badge';
 import EmptyState from '@/components/EmptyState';
 
 export default function PaymentsScreen() {
+  const router = useRouter();
   const { 
     payments, 
     leases, 
@@ -494,6 +496,16 @@ export default function PaymentsScreen() {
               <Text style={[styles.actionText, { color: '#34C759' }]}>
                 {item.receipt_number ? 'Re-generate Receipt' : 'Generate Receipt'}
               </Text>
+            </TouchableOpacity>
+          )}
+          {(item.payment_proof || item.receipt_pdf_uri) && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/files?category=receipts')}
+              testID={`view-files-${item.id}`}
+            >
+              <Folder size={16} color="#007AFF" />
+              <Text style={[styles.actionText, { color: '#007AFF' }]}>View Files</Text>
             </TouchableOpacity>
           )}
         </View>

@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
-import { TrendingUp, DollarSign, PieChart, FileText, Building2 } from 'lucide-react-native';
+import { TrendingUp, DollarSign, PieChart, FileText, Building2, X } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import { 
   generateIncomeStatement, 
@@ -19,13 +20,21 @@ type PeriodType = 'month' | 'quarter' | 'year' | 'custom';
 
 export default function FinanceScreen() {
   const { payments, expenses, leases, properties, units } = useApp();
+  const params = useLocalSearchParams<{ propertyId?: string }>();
   
   const [activeReport, setActiveReport] = useState<ReportType>('income');
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('month');
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [selectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  useEffect(() => {
+    if (params.propertyId) {
+      setSelectedPropertyId(params.propertyId);
+    }
+  }, [params.propertyId]);
 
   const dateRange = useMemo(() => {
     const year = parseInt(selectedMonth.split('-')[0]);
@@ -64,23 +73,37 @@ export default function FinanceScreen() {
     };
   }, [selectedMonth, selectedPeriod]);
 
+  const filteredPayments = useMemo(() => {
+    if (!selectedPropertyId) return payments;
+    const propertyLeases = leases.filter(l => l.property_id === selectedPropertyId);
+    return payments.filter(p => propertyLeases.some(l => l.id === p.lease_id));
+  }, [payments, leases, selectedPropertyId]);
+
+  const filteredExpenses = useMemo(() => {
+    if (!selectedPropertyId) return expenses;
+    return expenses.filter(e => e.property_id === selectedPropertyId);
+  }, [expenses, selectedPropertyId]);
+
   const incomeStatement = useMemo(() => 
-    generateIncomeStatement(payments, expenses, dateRange.start, dateRange.end),
-    [payments, expenses, dateRange]
+    generateIncomeStatement(filteredPayments, filteredExpenses, dateRange.start, dateRange.end),
+    [filteredPayments, filteredExpenses, dateRange]
   );
 
   const balanceSheet = useMemo(() => 
-    generateBalanceSheet(payments, expenses, leases, dateRange.end),
-    [payments, expenses, leases, dateRange]
+    generateBalanceSheet(filteredPayments, filteredExpenses, leases, dateRange.end),
+    [filteredPayments, filteredExpenses, leases, dateRange]
   );
 
   const cashFlow = useMemo(() => 
-    generateCashFlowStatement(payments, expenses, dateRange.start, dateRange.end),
-    [payments, expenses, dateRange]
+    generateCashFlowStatement(filteredPayments, filteredExpenses, dateRange.start, dateRange.end),
+    [filteredPayments, filteredExpenses, dateRange]
   );
 
-  const propertyPerformance = useMemo(() => 
-    properties.map(p => 
+  const propertyPerformance = useMemo(() => {
+    const propertiesToShow = selectedPropertyId 
+      ? properties.filter(p => p.id === selectedPropertyId)
+      : properties;
+    return propertiesToShow.map(p => 
       generatePropertyPerformance(
         p.id,
         p.name,
@@ -91,8 +114,12 @@ export default function FinanceScreen() {
         dateRange.start,
         dateRange.end
       )
-    ),
-    [properties, payments, expenses, units, leases, dateRange]
+    );
+  }, [properties, payments, expenses, units, leases, dateRange, selectedPropertyId]);
+
+  const selectedProperty = useMemo(() => 
+    selectedPropertyId ? properties.find(p => p.id === selectedPropertyId) : null,
+    [selectedPropertyId, properties]
   );
 
 
@@ -403,10 +430,60 @@ export default function FinanceScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Financial Reports</Text>
-          <Text style={styles.headerSubtitle}>Track your business performance</Text>
+          <Text style={styles.headerSubtitle}>
+            {selectedProperty ? `Property: ${selectedProperty.name}` : 'Track your business performance'}
+          </Text>
         </View>
+      </View>
+
+      {selectedProperty && (
+        <View style={styles.propertyFilterBar}>
+          <View style={styles.propertyFilterContent}>
+            <Building2 size={16} color="#007AFF" />
+            <Text style={styles.propertyFilterText}>{selectedProperty.name}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.clearFilterButton}
+            onPress={() => setSelectedPropertyId(null)}
+          >
+            <X size={16} color="#666" />
+            <Text style={styles.clearFilterText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.propertySelector}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <TouchableOpacity
+            style={[
+              styles.propertySelectorButton,
+              !selectedPropertyId && styles.propertySelectorButtonActive
+            ]}
+            onPress={() => setSelectedPropertyId(null)}
+          >
+            <Text style={[
+              styles.propertySelectorButtonText,
+              !selectedPropertyId && styles.propertySelectorButtonTextActive
+            ]}>All Properties</Text>
+          </TouchableOpacity>
+          {properties.map(property => (
+            <TouchableOpacity
+              key={property.id}
+              style={[
+                styles.propertySelectorButton,
+                selectedPropertyId === property.id && styles.propertySelectorButtonActive
+              ]}
+              onPress={() => setSelectedPropertyId(property.id)}
+            >
+              <Text style={[
+                styles.propertySelectorButtonText,
+                selectedPropertyId === property.id && styles.propertySelectorButtonTextActive
+              ]}>{property.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <View style={styles.periodSelector}>
@@ -752,5 +829,66 @@ const styles = StyleSheet.create({
   accountDescription: {
     fontSize: 12,
     color: '#666',
+  },
+  propertyFilterBar: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    backgroundColor: '#E8F4FF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#007AFF',
+  },
+  propertyFilterContent: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  propertyFilterText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  clearFilterButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  clearFilterText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  propertySelector: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  propertySelectorButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
+    marginRight: 8,
+  },
+  propertySelectorButtonActive: {
+    backgroundColor: '#007AFF',
+  },
+  propertySelectorButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666',
+  },
+  propertySelectorButtonTextActive: {
+    color: '#FFFFFF',
   },
 });
