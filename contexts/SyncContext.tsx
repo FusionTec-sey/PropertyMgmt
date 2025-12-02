@@ -33,6 +33,9 @@ export const [SyncContext, useSync] = createContextHook(() => {
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
   
   const syncInProgress = useRef(false);
+  const syncRetryCount = useRef(0);
+  const maxSyncRetries = 5;
+  const syncFailureTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -71,7 +74,8 @@ export const [SyncContext, useSync] = createContextHook(() => {
       setIsOnline(online);
       
       if (online && syncEnabled && pendingChanges.length > 0 && currentTenantId && syncNowRef.current) {
-        console.log(`[SYNC] Back online with ${pendingChanges.length} pending changes, triggering sync`);
+        console.log(`[SYNC] Back online with ${pendingChanges.length} pending changes, resetting retry count and triggering sync`);
+        syncRetryCount.current = 0;
         syncNowRef.current(currentTenantId);
       }
     });
@@ -152,10 +156,18 @@ export const [SyncContext, useSync] = createContextHook(() => {
       return;
     }
 
-    console.log(`[SYNC] Starting sync for tenant ${tenantId}`);
+    console.log(`[SYNC] Starting sync for tenant ${tenantId} (retry ${syncRetryCount.current}/${maxSyncRetries})`);
     syncInProgress.current = true;
     setSyncStatus('syncing');
     setErrorMessage(null);
+
+    if (syncRetryCount.current >= maxSyncRetries) {
+      console.error('[SYNC] Max retry limit reached, stopping sync');
+      setSyncStatus('error');
+      setErrorMessage('Sync failed after maximum retries. Please try again later.');
+      syncInProgress.current = false;
+      return;
+    }
 
     try {
       if (pendingChanges.length > 0) {
@@ -202,6 +214,8 @@ export const [SyncContext, useSync] = createContextHook(() => {
         setSyncStatus('success');
         console.log(`[SYNC] Sync completed successfully at ${syncTime}`);
         
+        syncRetryCount.current = 0;
+        
         setTimeout(() => {
           if (syncStatus === 'success') {
             setSyncStatus('idle');
@@ -209,10 +223,30 @@ export const [SyncContext, useSync] = createContextHook(() => {
         }, 3000);
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Sync failed';
+      const errorMsg = error instanceof Error ? error.message : 'Sync failed';
       console.error('[SYNC] Sync error:', error);
       setSyncStatus('error');
-      setErrorMessage(errorMessage);
+      setErrorMessage(errorMsg);
+      
+      syncRetryCount.current += 1;
+      
+      if (syncRetryCount.current < maxSyncRetries && isOnline) {
+        const retryDelay = Math.min(1000 * Math.pow(2, syncRetryCount.current), 30000);
+        console.log(`[SYNC] Will retry in ${retryDelay}ms (attempt ${syncRetryCount.current + 1}/${maxSyncRetries})`);
+        
+        if (syncFailureTimeout.current) {
+          clearTimeout(syncFailureTimeout.current);
+        }
+        
+        syncFailureTimeout.current = setTimeout(() => {
+          if (isOnline && currentTenantId) {
+            console.log('[SYNC] Retrying after failure...');
+            syncNow(currentTenantId);
+          }
+        }, retryDelay);
+      } else {
+        console.error('[SYNC] Max retries reached or offline, stopping auto-retry');
+      }
     } finally {
       syncInProgress.current = false;
     }
@@ -225,6 +259,7 @@ export const [SyncContext, useSync] = createContextHook(() => {
     savePendingChanges,
     queryClient,
     syncStatus,
+    currentTenantId,
   ]);
 
   const pullFromServer = useCallback(async (tenantId: string) => {

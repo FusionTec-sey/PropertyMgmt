@@ -4,6 +4,27 @@ import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { fillTenancyAgreementTemplate, TENANCY_AGREEMENT_TEMPLATE, TenancyAgreementData } from '@/constants/tenancyAgreement';
 
+const sanitizeUserInput = (input: string | undefined | null): string => {
+  if (!input) return '';
+  if (typeof input !== 'string') return String(input);
+  
+  return input
+    .replace(/[&<>"'\/`=]/g, (char) => {
+      const escapes: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;',
+        '`': '&#x60;',
+        '=': '&#x3D;'
+      };
+      return escapes[char] || char;
+    })
+    .substring(0, 10000);
+};
+
 export function generateChecklistHTML(checklist: MoveInChecklist): string {
   const itemsByCategory: Record<string, typeof checklist.items> = {};
   
@@ -125,7 +146,7 @@ export async function generateChecklistPDF(
         <div class="header">
           <h1>RENTAL PROPERTY CONDITION CHECKLIST</h1>
           <p><strong>Property:</strong> ${property.name} - Unit ${unit.unit_number}</p>
-          <p><strong>Tenant:</strong> ${tenant.type === 'business' ? tenant.business_name : `${tenant.first_name} ${tenant.last_name}`}</p>
+          <p><strong>Tenant:</strong> ${tenant.type === 'business' ? sanitizeUserInput(tenant.business_name || '') : `${sanitizeUserInput(tenant.first_name || '')} ${sanitizeUserInput(tenant.last_name || '')}`}</p>
         </div>
         ${generateChecklistHTML(checklist)}
       </body>

@@ -115,6 +115,11 @@ export const [AppContext, useApp] = createContextHook(() => {
         savedInventoryHistory,
         savedInvoices,
         savedBusinessDocuments,
+        savedTenantApplications,
+        savedTenantOnboardings,
+        savedPropertyInspections,
+        savedBusinessLogo,
+        savedExpenses,
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TENANT),
         AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
@@ -138,6 +143,8 @@ export const [AppContext, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
         AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
+        AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_LOGO),
+        AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
       ]);
 
       if (savedCurrentTenant) setCurrentTenant(JSON.parse(savedCurrentTenant));
@@ -159,13 +166,6 @@ export const [AppContext, useApp] = createContextHook(() => {
       if (savedInventoryHistory) setInventoryHistory(JSON.parse(savedInventoryHistory));
       if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
       if (savedBusinessDocuments) setBusinessDocuments(JSON.parse(savedBusinessDocuments));
-      const [savedTenantApplications, savedTenantOnboardings, savedPropertyInspections, savedBusinessLogo, savedExpenses] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.TENANT_APPLICATIONS),
-        AsyncStorage.getItem(STORAGE_KEYS.TENANT_ONBOARDINGS),
-        AsyncStorage.getItem(STORAGE_KEYS.PROPERTY_INSPECTIONS),
-        AsyncStorage.getItem(STORAGE_KEYS.BUSINESS_LOGO),
-        AsyncStorage.getItem(STORAGE_KEYS.EXPENSES),
-      ]);
       if (savedTenantApplications) setTenantApplications(JSON.parse(savedTenantApplications));
       if (savedTenantOnboardings) setTenantOnboardings(JSON.parse(savedTenantOnboardings));
       if (savedPropertyInspections) setPropertyInspections(JSON.parse(savedPropertyInspections));
@@ -187,6 +187,7 @@ export const [AppContext, useApp] = createContextHook(() => {
       const { isValid, errors } = validateData(key, data as any);
       if (!isValid) {
         console.error(`[VALIDATION] Data validation failed for ${key}:`, errors);
+        throw new Error(`Validation failed for ${key}: ${errors.join(', ')}`);
       }
       await AsyncStorage.setItem(key, JSON.stringify(data));
     } catch (error) {

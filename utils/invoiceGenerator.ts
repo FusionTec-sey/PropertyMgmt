@@ -359,21 +359,18 @@ export async function generateInvoicePDF(
   unit: Unit,
   landlordInfo: { name: string; address?: string; email?: string; phone?: string; logo?: string | null }
 ): Promise<string> {
-  const htmlContent = formatInvoiceHTML(invoice, tenantRenter, property, unit, landlordInfo);
-  
   try {
+    const htmlContent = formatInvoiceHTML(invoice, tenantRenter, property, unit, landlordInfo);
     const { uri } = await Print.printToFileAsync({
       html: htmlContent,
       base64: false,
     });
     
-    console.log('[Invoice] Generated PDF at:', uri);
-    
-    console.log('[Invoice] PDF generated successfully');
+    console.log('[Invoice] PDF generated successfully at:', uri);
     return uri;
   } catch (error) {
     console.error('[Invoice] Error generating PDF:', error);
-    throw error;
+    throw new Error(`Failed to generate invoice PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
