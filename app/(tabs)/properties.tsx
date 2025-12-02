@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
-import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench, User, TrendingUp, TrendingDown } from 'lucide-react-native';
+import { Plus, Building2, MapPin, Edit, Trash2, ChevronDown, ChevronRight, Home, DollarSign, ParkingCircle, Image as ImageIcon, Package, Wrench, User, TrendingUp, TrendingDown, FileText } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Property, Unit, PropertyType, ParkingSpot } from '@/types';
 import Button from '@/components/Button';
@@ -408,6 +408,7 @@ export default function PropertiesScreen() {
   const renderUnit = (unit: Unit) => {
     const tenant = getUnitTenant(unit);
     const maintenanceCount = getUnitMaintenanceCount(unit.id);
+    const activeLease = leases.find(l => l.unit_id === unit.id && l.status === 'active');
 
     return (
     <Card key={unit.id} style={styles.unitCard}>
@@ -458,6 +459,16 @@ export default function PropertiesScreen() {
       )}
 
       <View style={styles.unitActions}>
+        {activeLease && (
+          <TouchableOpacity
+            style={[styles.unitActionButton, styles.viewLeaseButton]}
+            onPress={() => router.push(`/lease/${activeLease.id}`)}
+            testID={`view-lease-unit-${unit.id}`}
+          >
+            <FileText size={16} color="#34C759" />
+            <Text style={[styles.unitActionText, styles.viewLeaseText]}>View Lease</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={styles.unitActionButton}
           onPress={() => {
@@ -1500,5 +1511,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#999',
     textAlign: 'center' as const,
+  },
+  viewLeaseButton: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#34C759',
+  },
+  viewLeaseText: {
+    color: '#34C759',
+    fontWeight: '700' as const,
   },
 });

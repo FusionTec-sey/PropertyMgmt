@@ -12,6 +12,7 @@ import { trpc, trpcClient } from "@/lib/trpc";
 import { Analytics } from "@/utils/analytics";
 import { PerformanceMonitor } from "@/utils/performanceMonitor";
 import { CacheManager } from "@/utils/cacheManager";
+import { AppInitializer } from "@/utils/appInitializer";
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -39,6 +40,9 @@ export default function RootLayout() {
         ]);
         
         console.log('[APP] Utilities initialized successfully');
+        
+        console.log('[APP] Running app initializer...');
+        await AppInitializer.checkAndCreateExpiringDocumentReminders();
         
         await SplashScreen.hideAsync();
         console.log('[APP] App initialized successfully');
