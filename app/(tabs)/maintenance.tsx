@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
-import { Plus, Wrench, Calendar, AlertCircle, Building2, ChevronRight, ChevronDown, User } from 'lucide-react-native';
+import { Plus, Wrench, Calendar, AlertCircle, Building2, ChevronRight, ChevronDown, User, Receipt as ReceiptIcon, DollarSign, FileText } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
+import { useRouter } from 'expo-router';
 import { MaintenanceRequest, MaintenanceSchedule, Property, Unit } from '@/types';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -17,6 +18,7 @@ import PhotoGallery from '@/components/PhotoGallery';
 type Tab = 'requests' | 'schedules';
 
 export default function MaintenanceScreen() {
+  const router = useRouter();
   const { 
     maintenanceRequests, 
     maintenanceSchedules,
@@ -311,10 +313,14 @@ export default function MaintenanceScreen() {
         </Text>
 
         {request.cost && (
-          <View style={styles.requestDetails}>
+          <TouchableOpacity
+            style={styles.requestDetails}
+            onPress={() => router.push('/(tabs)/payments')}
+          >
             <Text style={styles.detailLabel}>Cost: </Text>
             <Text style={[styles.detailValue, styles.costValue]}>₨{request.cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SCR</Text>
-          </View>
+            <ReceiptIcon size={14} color="#FF9500" style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
         )}
 
         {request.images && request.images.length > 0 && (
@@ -329,7 +335,18 @@ export default function MaintenanceScreen() {
 
         {request.receipts && request.receipts.length > 0 && (
           <View style={styles.photoGalleryContainer}>
-            <Text style={styles.galleryLabel}>Purchase Receipts ({request.receipts.length})</Text>
+            <View style={styles.receiptHeaderRow}>
+              <Text style={styles.galleryLabel}>Purchase Receipts ({request.receipts.length})</Text>
+              {request.related_expense_id && (
+                <TouchableOpacity
+                  style={styles.linkedBadge}
+                  onPress={() => router.push('/(tabs)/payments')}
+                >
+                  <DollarSign size={12} color="#34C759" />
+                  <Text style={styles.linkedBadgeText}>Linked to Expense</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <PhotoGallery
               photos={request.receipts.map(r => r.uri)}
               testID={`request-receipts-${request.id}`}
@@ -1325,5 +1342,27 @@ const styles = StyleSheet.create({
   affectedTenantContact: {
     fontSize: 13,
     color: '#666',
+  },
+  receiptHeaderRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  linkedBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#34C759',
+  },
+  linkedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: '#34C759',
   },
 });
