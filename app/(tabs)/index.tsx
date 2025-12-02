@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { 
   Building2, 
@@ -18,6 +18,7 @@ import {
   Wrench,
   Receipt,
   ClipboardCheck,
+  File,
 } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'expo-router';
@@ -38,9 +39,10 @@ Notifications.setNotificationHandler({
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo, tenantApplications, propertyInspections, invoices, businessDocuments } = useApp();
+  const { dashboardStats, currentTenant, properties, units, tenantRenters, leases, maintenanceRequests, todos, updateTodo, tenantApplications, propertyInspections, invoices, businessDocuments, payments } = useApp();
   const [requestingNotificationPermission, setRequestingNotificationPermission] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'overdue_payments' | 'pending_maintenance' | 'expiring_leases' | 'recent_files'>('overdue_payments');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -86,7 +88,6 @@ export default function DashboardScreen() {
   const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
 
   const draftLeases = leases.filter((l) => l.status === 'draft');
-  const recentLeases = leases.filter((l) => l.status !== 'draft').slice(-3).reverse();
   const urgentMaintenance = maintenanceRequests.filter(
     (m) => m.priority === 'urgent' || m.priority === 'high'
   ).slice(0, 3);
@@ -307,6 +308,27 @@ export default function DashboardScreen() {
         return '#8E8E93';
     }
   };
+
+  const overduePayments = useMemo(() => {
+    return payments.filter((p) => {
+      if (p.status === 'paid') return false;
+      return new Date(p.due_date) < today;
+    }).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+  }, [payments, today]);
+
+  const pendingMaintenanceRequests = useMemo(() => {
+    return maintenanceRequests.filter((m) => m.status === 'open' || m.status === 'in_progress')
+      .sort((a, b) => {
+        const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+        return priorityOrder[a.priority as keyof typeof priorityOrder] - priorityOrder[b.priority as keyof typeof priorityOrder];
+      });
+  }, [maintenanceRequests]);
+
+  const recentFiles = useMemo(() => {
+    return businessDocuments.sort((a, b) => 
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    ).slice(0, 10);
+  }, [businessDocuments]);
 
   return (
     <ScrollView 
@@ -932,30 +954,306 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {recentLeases.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Calendar size={20} color="#5856D6" />
-            <Text style={styles.sectionTitle}>Recent Leases</Text>
-          </View>
-          {recentLeases.map((lease) => {
-            const property = properties.find((p) => p.id === lease.property_id);
-            return (
-              <View key={lease.id} style={styles.leaseCard}>
-                <View style={styles.leaseInfo}>
-                  <Text style={styles.leaseProperty}>{property?.name || 'Unknown'}</Text>
-                  <Text style={styles.leaseDetails}>
-                    ₨{lease.rent_amount.toLocaleString()} SCR/month
-                  </Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(lease.status) }]}>
-                  <Text style={styles.statusText}>{lease.status}</Text>
-                </View>
-              </View>
-            );
-          })}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <AlertCircle size={20} color="#007AFF" />
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
-      )}
+        
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'overdue_payments' && styles.activeTab]}
+            onPress={() => setActiveTab('overdue_payments')}
+          >
+            <Receipt size={16} color={activeTab === 'overdue_payments' ? '#007AFF' : '#8E8E93'} />
+            <Text style={[styles.tabText, activeTab === 'overdue_payments' && styles.activeTabText]}>
+              Overdue
+            </Text>
+            {overduePayments.length > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{overduePayments.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'pending_maintenance' && styles.activeTab]}
+            onPress={() => setActiveTab('pending_maintenance')}
+          >
+            <Wrench size={16} color={activeTab === 'pending_maintenance' ? '#007AFF' : '#8E8E93'} />
+            <Text style={[styles.tabText, activeTab === 'pending_maintenance' && styles.activeTabText]}>
+              Maintenance
+            </Text>
+            {pendingMaintenanceRequests.length > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{pendingMaintenanceRequests.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'expiring_leases' && styles.activeTab]}
+            onPress={() => setActiveTab('expiring_leases')}
+          >
+            <Calendar size={16} color={activeTab === 'expiring_leases' ? '#007AFF' : '#8E8E93'} />
+            <Text style={[styles.tabText, activeTab === 'expiring_leases' && styles.activeTabText]}>
+              Expiring
+            </Text>
+            {expiringLeases.length > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{expiringLeases.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'recent_files' && styles.activeTab]}
+            onPress={() => setActiveTab('recent_files')}
+          >
+            <File size={16} color={activeTab === 'recent_files' ? '#007AFF' : '#8E8E93'} />
+            <Text style={[styles.tabText, activeTab === 'recent_files' && styles.activeTabText]}>
+              Files
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.tabContent}>
+          {activeTab === 'overdue_payments' && (
+            <View>
+              {overduePayments.length === 0 ? (
+                <View style={styles.emptyTabContent}>
+                  <CheckCircle size={32} color="#34C759" />
+                  <Text style={styles.emptyTabText}>No overdue payments</Text>
+                </View>
+              ) : (
+                <View>
+                  {overduePayments.slice(0, 5).map((payment) => {
+                    const lease = leases.find((l) => l.id === payment.lease_id);
+                    const property = properties.find((p) => p.id === lease?.property_id);
+                    const unit = units.find((u) => u.id === lease?.unit_id);
+                    const tenant = tenantRenters.find((t) => t.id === lease?.tenant_renter_id);
+                    const tenantName = tenant
+                      ? tenant.type === 'business'
+                        ? tenant.business_name || 'Unnamed Business'
+                        : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+                      : 'Unknown';
+                    const daysOverdue = Math.floor((today.getTime() - new Date(payment.due_date).getTime()) / (1000 * 60 * 60 * 24));
+
+                    return (
+                      <TouchableOpacity
+                        key={payment.id}
+                        style={styles.activityCard}
+                        onPress={() => router.push('/(tabs)/payments')}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.activityIcon, { backgroundColor: '#FF3B3020' }]}>
+                          <Receipt size={20} color="#FF3B30" />
+                        </View>
+                        <View style={styles.activityInfo}>
+                          <Text style={styles.activityTitle}>{property?.name || 'Unknown'}</Text>
+                          <Text style={styles.activitySubtitle}>
+                            {tenantName} • Unit {unit?.unit_number || 'N/A'}
+                          </Text>
+                          <Text style={[styles.activityMeta, { color: '#FF3B30' }]}>
+                            {daysOverdue} day{daysOverdue !== 1 ? 's' : ''} overdue
+                          </Text>
+                        </View>
+                        <View style={styles.activityRight}>
+                          <Text style={styles.activityAmount}>{formatCurrency(payment.amount)}</Text>
+                          <ArrowRight size={16} color="#8E8E93" />
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => router.push('/(tabs)/payments')}
+                  >
+                    <Text style={styles.viewAllText}>View All Payments</Text>
+                    <ArrowRight size={16} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'pending_maintenance' && (
+            <View>
+              {pendingMaintenanceRequests.length === 0 ? (
+                <View style={styles.emptyTabContent}>
+                  <CheckCircle size={32} color="#34C759" />
+                  <Text style={styles.emptyTabText}>No pending maintenance</Text>
+                </View>
+              ) : (
+                <View>
+                  {pendingMaintenanceRequests.slice(0, 5).map((request) => {
+                    const property = properties.find((p) => p.id === request.property_id);
+                    const unit = units.find((u) => u.id === request.unit_id);
+                    const createdDate = new Date(request.created_at);
+                    const daysSinceCreated = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                    return (
+                      <TouchableOpacity
+                        key={request.id}
+                        style={styles.activityCard}
+                        onPress={() => router.push('/(tabs)/maintenance')}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.activityIcon, { backgroundColor: `${getPriorityColor(request.priority)}20` }]}>
+                          <Wrench size={20} color={getPriorityColor(request.priority)} />
+                        </View>
+                        <View style={styles.activityInfo}>
+                          <Text style={styles.activityTitle}>{request.title}</Text>
+                          <Text style={styles.activitySubtitle}>
+                            {property?.name || 'Unknown'} • Unit {unit?.unit_number || 'N/A'}
+                          </Text>
+                          <View style={styles.activityMetaRow}>
+                            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(request.priority) }]}>
+                              <Text style={styles.priorityText}>{request.priority}</Text>
+                            </View>
+                            <Text style={styles.activityMeta}>
+                              {daysSinceCreated === 0 ? 'Today' : `${daysSinceCreated} day${daysSinceCreated !== 1 ? 's' : ''} ago`}
+                            </Text>
+                          </View>
+                        </View>
+                        <ArrowRight size={16} color="#8E8E93" />
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => router.push('/(tabs)/maintenance')}
+                  >
+                    <Text style={styles.viewAllText}>View All Maintenance</Text>
+                    <ArrowRight size={16} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'expiring_leases' && (
+            <View>
+              {expiringLeases.length === 0 ? (
+                <View style={styles.emptyTabContent}>
+                  <CheckCircle size={32} color="#34C759" />
+                  <Text style={styles.emptyTabText}>No expiring leases in the next 30 days</Text>
+                </View>
+              ) : (
+                <View>
+                  {expiringLeases.slice(0, 5).map((lease) => {
+                    const property = properties.find((p) => p.id === lease.property_id);
+                    const unit = units.find((u) => u.id === lease.unit_id);
+                    const tenant = tenantRenters.find((t) => t.id === lease.tenant_renter_id);
+                    const tenantName = tenant
+                      ? tenant.type === 'business'
+                        ? tenant.business_name || 'Unnamed Business'
+                        : `${tenant.first_name || ''} ${tenant.last_name || ''}`.trim() || 'Unnamed'
+                      : 'Unknown';
+                    const endDate = new Date(lease.end_date);
+                    const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+                    return (
+                      <TouchableOpacity
+                        key={lease.id}
+                        style={styles.activityCard}
+                        onPress={() => {
+                          const monthsDiff = Math.round(
+                            (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) / 
+                            (1000 * 60 * 60 * 24 * 30)
+                          );
+                          const leasePeriod = [6, 12, 24].includes(monthsDiff) ? monthsDiff : 12;
+                          router.push(`/renewLease/${lease.id}?leasePeriod=${leasePeriod}` as any);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.activityIcon, { backgroundColor: daysUntilExpiry <= 7 ? '#FF3B3020' : '#FF950020' }]}>
+                          <Calendar size={20} color={daysUntilExpiry <= 7 ? '#FF3B30' : '#FF9500'} />
+                        </View>
+                        <View style={styles.activityInfo}>
+                          <Text style={styles.activityTitle}>{property?.name || 'Unknown'}</Text>
+                          <Text style={styles.activitySubtitle}>
+                            {tenantName} • Unit {unit?.unit_number || 'N/A'}
+                          </Text>
+                          <Text style={[styles.activityMeta, { color: daysUntilExpiry <= 7 ? '#FF3B30' : '#FF9500' }]}>
+                            {daysUntilExpiry === 0 
+                              ? 'Expires today' 
+                              : daysUntilExpiry === 1 
+                              ? 'Expires tomorrow' 
+                              : `Expires in ${daysUntilExpiry} days`}
+                          </Text>
+                        </View>
+                        <View style={styles.activityRight}>
+                          <Text style={styles.activityAmount}>{formatCurrency(lease.rent_amount)}</Text>
+                          <ArrowRight size={16} color="#8E8E93" />
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => router.push('/(tabs)/tenants')}
+                  >
+                    <Text style={styles.viewAllText}>View All Leases</Text>
+                    <ArrowRight size={16} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'recent_files' && (
+            <View>
+              {recentFiles.length === 0 ? (
+                <View style={styles.emptyTabContent}>
+                  <FileText size={32} color="#8E8E93" />
+                  <Text style={styles.emptyTabText}>No files uploaded yet</Text>
+                </View>
+              ) : (
+                <View>
+                  {recentFiles.slice(0, 5).map((doc) => {
+                    const property = doc.property_id ? properties.find((p) => p.id === doc.property_id) : null;
+                    const uploadedDate = doc.created_at ? new Date(doc.created_at) : null;
+                    const daysAgo = uploadedDate ? Math.floor((today.getTime() - uploadedDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+                    return (
+                      <TouchableOpacity
+                        key={doc.id}
+                        style={styles.activityCard}
+                        onPress={() => router.push('/(tabs)/files')}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.activityIcon, { backgroundColor: '#5856D620' }]}>
+                          <FileText size={20} color="#5856D6" />
+                        </View>
+                        <View style={styles.activityInfo}>
+                          <Text style={styles.activityTitle}>{doc.name}</Text>
+                          <Text style={styles.activitySubtitle}>
+                            {doc.category.replace('_', ' ')} {property && `• ${property.name}`}
+                          </Text>
+                          {uploadedDate && (
+                            <Text style={styles.activityMeta}>
+                              {daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`}
+                            </Text>
+                          )}
+                        </View>
+                        <ArrowRight size={16} color="#8E8E93" />
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => router.push('/(tabs)/files')}
+                  >
+                    <Text style={styles.viewAllText}>View All Files</Text>
+                    <ArrowRight size={16} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
 
       {pendingTodos.length > 0 && (
         <View style={styles.section}>
@@ -1734,10 +2032,131 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     borderRadius: 8,
     alignItems: 'center' as const,
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
   },
   viewAllText: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#FFF',
+  },
+  tabsContainer: {
+    flexDirection: 'row' as const,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    gap: 4,
+    position: 'relative' as const,
+  },
+  activeTab: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: '#8E8E93',
+  },
+  activeTabText: {
+    color: '#007AFF',
+  },
+  tabBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 4,
+    position: 'absolute' as const,
+    top: 4,
+    right: 4,
+  },
+  tabBadgeText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: '#FFF',
+  },
+  tabContent: {
+    minHeight: 200,
+  },
+  emptyTabContent: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 40,
+    gap: 12,
+  },
+  emptyTabText: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center' as const,
+  },
+  activityCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  activitySubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  activityMeta: {
+    fontSize: 12,
+    color: '#8E8E93',
+  },
+  activityMetaRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  activityRight: {
+    alignItems: 'flex-end' as const,
+    gap: 4,
+  },
+  activityAmount: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1A1A1A',
   },
 });
