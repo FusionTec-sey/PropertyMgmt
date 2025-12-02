@@ -421,21 +421,21 @@ export function generateCompleteTenancyDocument(
     let activeList: 'ul' | 'ol' | null = null;
     let sectionOpen = false;
 
-    const closeList = () => {
+    const closeList = (): void => {
       if (activeList) {
         htmlParts.push(`</${activeList}>`);
         activeList = null;
       }
     };
 
-    const openSectionIfNeeded = () => {
+    const openSectionIfNeeded = (): void => {
       if (!sectionOpen) {
         htmlParts.push('<div class="agreement-section">');
         sectionOpen = true;
       }
     };
 
-    const closeSection = () => {
+    const closeSection = (): void => {
       closeList();
       if (sectionOpen) {
         htmlParts.push('</div>');
@@ -443,7 +443,7 @@ export function generateCompleteTenancyDocument(
       }
     };
 
-    lines.forEach(rawLine => {
+    lines.forEach((rawLine: string) => {
       const trimmedLine = rawLine.trim();
 
       if (trimmedLine === '') {
@@ -453,7 +453,8 @@ export function generateCompleteTenancyDocument(
 
       if (trimmedLine.startsWith('# ')) {
         closeSection();
-        htmlParts.push(`<h1 class="main-title">${trimmedLine.substring(2).trim()}</h1>`);
+        const headingContent = trimmedLine.substring(2).trim();
+        htmlParts.push(`<h1 class="main-title">${escapeHtml(headingContent)}</h1>`);
         return;
       }
 
@@ -461,20 +462,22 @@ export function generateCompleteTenancyDocument(
         closeSection();
         const headingText = trimmedLine.substring(3).trim();
         const normalizedHeading = headingText.toLowerCase();
-        const shouldForceBreak = normalizedHeading.includes('signatures') || normalizedHeading.includes('schedules');
+        const shouldForceBreak = normalizedHeading.includes('signatures') || normalizedHeading.includes('schedules') || normalizedHeading.includes('schedule 1') || normalizedHeading.includes('schedule 2');
         htmlParts.push('<div class="agreement-section">');
         sectionOpen = true;
-        htmlParts.push(`<h2 class="section-title${shouldForceBreak ? ' section-title--page-break' : ''}">${headingText}</h2>`);
+        htmlParts.push(`<h2 class="section-title${shouldForceBreak ? ' section-title--page-break' : ''}">${escapeHtml(headingText)}</h2>`);
         return;
       }
 
       if (trimmedLine.startsWith('### ')) {
         openSectionIfNeeded();
-        htmlParts.push(`<h3 class="subsection-title">${trimmedLine.substring(4).trim()}</h3>`);
+        const subheadingContent = trimmedLine.substring(4).trim();
+        htmlParts.push(`<h3 class="subsection-title">${escapeHtml(subheadingContent)}</h3>`);
         return;
       }
 
-      if (/^(\d+)\.\s+/.test(trimmedLine)) {
+      const orderedListMatch = /^(\d+)\.\s+/.exec(trimmedLine);
+      if (orderedListMatch) {
         openSectionIfNeeded();
         if (activeList !== 'ol') {
           closeList();
@@ -486,7 +489,8 @@ export function generateCompleteTenancyDocument(
         return;
       }
 
-      if (/^[-*•]\s+/.test(trimmedLine)) {
+      const unorderedListMatch = /^[-*•]\s+/.exec(trimmedLine);
+      if (unorderedListMatch) {
         openSectionIfNeeded();
         if (activeList !== 'ul') {
           closeList();
@@ -513,8 +517,20 @@ export function generateCompleteTenancyDocument(
     return htmlParts.join('\n');
   };
 
+  const escapeHtml = (text: string): string => {
+    const htmlEscapes: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+    return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
+  };
+
   const processInlineFormatting = (text: string): string => {
-    return text
+    const escaped = escapeHtml(text);
+    return escaped
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/__(.+?)__/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -579,13 +595,16 @@ export function generateCompleteTenancyDocument(
             color: #003366;
             margin: 30px 0 15px 0;
             page-break-after: avoid;
+            break-after: avoid;
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
           
           .section-title--page-break {
             page-break-before: always;
-            margin-top: 60px;
+            break-before: always;
+            margin-top: 0;
+            padding-top: 20px;
           }
           
           .subsection-title {
@@ -733,10 +752,22 @@ export function generateCompleteTenancyDocument(
             
             .section-title, .category-title {
               page-break-after: avoid;
+              break-after: avoid;
+            }
+            
+            .section-title--page-break {
+              page-break-before: always;
+              break-before: page;
             }
             
             .checklist-category, .inventory-category {
               page-break-inside: avoid;
+              break-inside: avoid;
+            }
+            
+            .schedule-title {
+              page-break-before: always;
+              break-before: page;
             }
           }
         </style>

@@ -62,9 +62,10 @@ export const [SyncContext, useSync] = createContextHook(() => {
   }, []);
 
   const syncNowRef = useRef<((tenantId: string) => Promise<void>) | null>(null);
+  const syncDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state: any) => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       const online = state.isConnected === true && state.isInternetReachable !== false;
       console.log(`[SYNC] Network status changed: ${online ? 'ONLINE' : 'OFFLINE'}`);
       setIsOnline(online);
@@ -88,10 +89,10 @@ export const [SyncContext, useSync] = createContextHook(() => {
     }
   }, []);
 
-  const addPendingChange = useCallback(async (
+  const addPendingChange = useCallback(async <T extends Record<string, unknown>>(
     entity: string,
     action: 'create' | 'update' | 'delete',
-    data: Record<string, unknown>
+    data: T
   ) => {
     if (!syncEnabled) {
       console.log('[SYNC] Sync disabled, not queuing change');
@@ -113,7 +114,14 @@ export const [SyncContext, useSync] = createContextHook(() => {
     console.log(`[SYNC] Queued ${action} ${entity}: ${data.id}`);
 
     if (isOnline && currentTenantId && syncNowRef.current) {
-      syncNowRef.current(currentTenantId);
+      if (syncDebounceTimer.current) {
+        clearTimeout(syncDebounceTimer.current);
+      }
+      syncDebounceTimer.current = setTimeout(() => {
+        if (syncNowRef.current && currentTenantId) {
+          syncNowRef.current(currentTenantId);
+        }
+      }, 2000);
     }
   }, [pendingChanges, savePendingChanges, syncEnabled, isOnline, currentTenantId]);
 
@@ -276,7 +284,14 @@ export const [SyncContext, useSync] = createContextHook(() => {
   const setTenantId = useCallback((tenantId: string | null) => {
     setCurrentTenantId(tenantId);
     if (tenantId && syncEnabled && isOnline && syncNowRef.current) {
-      syncNowRef.current(tenantId);
+      if (syncDebounceTimer.current) {
+        clearTimeout(syncDebounceTimer.current);
+      }
+      syncDebounceTimer.current = setTimeout(() => {
+        if (syncNowRef.current && tenantId) {
+          syncNowRef.current(tenantId);
+        }
+      }, 1000);
     }
   }, [syncEnabled, isOnline]);
 

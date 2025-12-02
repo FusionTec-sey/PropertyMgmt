@@ -25,19 +25,23 @@ export default function PhotoGallery({
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   const handlePhotoPress = (index: number) => {
-    setSelectedIndex(index);
-    setViewerVisible(true);
+    if (index >= 0 && index < photos.length) {
+      setSelectedIndex(index);
+      setViewerVisible(true);
+    }
   };
 
   const handleDeleteCurrent = () => {
-    if (onDeletePhoto) {
-      onDeletePhoto(selectedIndex);
-      if (selectedIndex >= photos.length - 1 && selectedIndex > 0) {
-        setSelectedIndex(selectedIndex - 1);
-      }
-      if (photos.length === 1) {
-        setViewerVisible(false);
-      }
+    if (!onDeletePhoto || photos.length === 0) return;
+    
+    onDeletePhoto(selectedIndex);
+    
+    if (selectedIndex >= photos.length - 1 && selectedIndex > 0) {
+      setSelectedIndex(selectedIndex - 1);
+    }
+    
+    if (photos.length === 1) {
+      setViewerVisible(false);
     }
   };
 
@@ -115,8 +119,11 @@ export default function PhotoGallery({
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onScroll={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / width);
-              setSelectedIndex(index);
+              const contentOffsetX = e.nativeEvent.contentOffset.x;
+              const index = Math.round(contentOffsetX / width);
+              if (index >= 0 && index < photos.length) {
+                setSelectedIndex(index);
+              }
             }}
             scrollEventThrottle={16}
             contentOffset={{ x: selectedIndex * width, y: 0 }}

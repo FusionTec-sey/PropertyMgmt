@@ -183,7 +183,9 @@ export default function InspectionDetailScreen() {
   };
 
   const handleAddPhoto = () => {
-    showPhotoOptions((uri: string) => {
+    showPhotoOptions((uri: string | null) => {
+      if (!uri) return;
+      
       const currentPhotos = inspection.images || [];
       updatePropertyInspection(inspection.id, {
         images: [...currentPhotos, uri],

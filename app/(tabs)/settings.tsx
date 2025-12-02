@@ -159,9 +159,11 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     style={styles.changeLogoButton}
                     onPress={() => {
-                      showPhotoOptions((uri: string) => {
-                        updateBusinessLogo(uri);
-                        Alert.alert('Success', 'Business logo updated successfully');
+                      showPhotoOptions((uri: string | null) => {
+                        if (uri) {
+                          updateBusinessLogo(uri);
+                          Alert.alert('Success', 'Business logo updated successfully');
+                        }
                       });
                     }}
                     testID="change-logo-button"
@@ -199,9 +201,11 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={styles.uploadLogoButton}
                 onPress={() => {
-                  showPhotoOptions((uri: string) => {
-                    updateBusinessLogo(uri);
-                    Alert.alert('Success', 'Business logo added successfully');
+                  showPhotoOptions((uri: string | null) => {
+                    if (uri) {
+                      updateBusinessLogo(uri);
+                      Alert.alert('Success', 'Business logo added successfully');
+                    }
                   });
                 }}
                 testID="upload-logo-button"

@@ -11,11 +11,16 @@ interface PhotoPickerProps {
 
 export function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: PhotoPickerProps) {
   const handleAddPhoto = () => {
-    showPhotoOptions((uri: string) => {
-      if (photos.length < maxPhotos) {
+    if (photos.length >= maxPhotos) {
+      Alert.alert('Limit Reached', `You can only add up to ${maxPhotos} photos.`);
+      return;
+    }
+    
+    showPhotoOptions((uri: string | null) => {
+      if (uri && photos.length < maxPhotos) {
         onPhotosChange([...photos, uri]);
-      } else {
-        Alert.alert('Limit Reached', `You can only add up to ${maxPhotos} photos.`);
+      } else if (!uri) {
+        console.log('[PhotoPicker] No photo selected');
       }
     });
   };
@@ -158,10 +163,13 @@ export async function takePhoto(): Promise<string | null> {
   }
 }
 
-export function showPhotoOptions(onPhotoSelected: (uri: string) => void) {
+export function showPhotoOptions(onPhotoSelected: (uri: string | null) => void) {
   if (Platform.OS === 'web') {
     pickPhoto().then(uri => {
-      if (uri) onPhotoSelected(uri);
+      onPhotoSelected(uri);
+    }).catch(error => {
+      console.error('[PhotoPicker] Error picking photo:', error);
+      onPhotoSelected(null);
     });
     return;
   }

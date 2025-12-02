@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSync } from './SyncContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { runMigrations } from '@/utils/dataMigration';
+import { validateData } from '@/utils/dataValidation';
 import type {
   Tenant, User, Property, Unit, TenantRenter, Lease, Payment,
   MaintenanceRequest, Notification,
@@ -183,9 +184,14 @@ export const [AppContext, useApp] = createContextHook(() => {
 
   const saveData = useCallback(async <T,>(key: string, data: T) => {
     try {
+      const { isValid, errors } = validateData(key, data as any);
+      if (!isValid) {
+        console.error(`[VALIDATION] Data validation failed for ${key}:`, errors);
+      }
       await AsyncStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
       console.error(`Error saving ${key}:`, error);
+      throw error;
     }
   }, []);
 

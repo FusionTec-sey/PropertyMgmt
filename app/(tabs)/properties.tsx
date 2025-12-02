@@ -229,7 +229,9 @@ export default function PropertiesScreen() {
   };
 
   const handleAddPhoto = () => {
-    showPhotoOptions((uri: string) => {
+    showPhotoOptions((uri: string | null) => {
+      if (!uri) return;
+      
       if (editingPhotosFor === 'property' && editingProperty) {
         const currentPhotos = editingProperty.images || [];
         updateProperty(editingProperty.id, {
