@@ -61,9 +61,12 @@ export const generateAutomaticTasks = (
     }
   };
 
+  const today = new Date();
+
   leases.forEach(lease => {
+    if (!lease.end_date) return;
     const endDate = new Date(lease.end_date);
-    const today = new Date();
+    if (isNaN(endDate.getTime())) return;
     const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (lease.status === 'active') {
@@ -89,9 +92,11 @@ export const generateAutomaticTasks = (
       }
     }
 
-    if (lease.status === 'draft' && !lease.signed_agreement) {
+    if (lease.status === 'draft' && !lease.signed_agreement && lease.created_at) {
+      const createdDate = new Date(lease.created_at);
+      if (isNaN(createdDate.getTime())) return;
       const daysSinceDraft = Math.ceil(
-        (today.getTime() - new Date(lease.created_at).getTime()) / (1000 * 60 * 60 * 24)
+        (today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       if (daysSinceDraft >= 7) {
         addTask({
@@ -109,8 +114,9 @@ export const generateAutomaticTasks = (
   });
 
   payments.forEach(payment => {
-    if (payment.status === 'overdue') {
+    if (payment.status === 'overdue' && payment.due_date) {
       const dueDate = new Date(payment.due_date);
+      if (isNaN(dueDate.getTime())) return;
       const daysOverdue = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysOverdue >= 3) {
@@ -131,8 +137,9 @@ export const generateAutomaticTasks = (
       }
     }
 
-    if (payment.status === 'pending') {
+    if (payment.status === 'pending' && payment.due_date) {
       const dueDate = new Date(payment.due_date);
+      if (isNaN(dueDate.getTime())) return;
       const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysUntilDue <= 3 && daysUntilDue >= 0) {
@@ -151,8 +158,9 @@ export const generateAutomaticTasks = (
   });
 
   maintenanceRequests.forEach(maintenance => {
-    if (maintenance.status === 'open') {
+    if (maintenance.status === 'open' && maintenance.reported_date) {
       const reportedDate = new Date(maintenance.reported_date);
+      if (isNaN(reportedDate.getTime())) return;
       const daysSinceReported = Math.ceil(
         (today.getTime() - reportedDate.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -184,6 +192,7 @@ export const generateAutomaticTasks = (
 
     if (maintenance.status === 'in_progress' && maintenance.scheduled_date) {
       const scheduledDate = new Date(maintenance.scheduled_date);
+      if (isNaN(scheduledDate.getTime())) return;
       const daysOverdue = Math.ceil((today.getTime() - scheduledDate.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysOverdue > 0) {
@@ -221,6 +230,7 @@ export const generateAutomaticTasks = (
   businessDocuments.forEach(doc => {
     if (doc.expiry_date) {
       const expiryDate = new Date(doc.expiry_date);
+      if (isNaN(expiryDate.getTime())) return;
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysUntilExpiry > 0 && daysUntilExpiry <= 60) {
@@ -243,8 +253,9 @@ export const generateAutomaticTasks = (
   });
 
   invoices.forEach(invoice => {
-    if (invoice.status === 'overdue') {
+    if (invoice.status === 'overdue' && invoice.due_date) {
       const dueDate = new Date(invoice.due_date);
+      if (isNaN(dueDate.getTime())) return;
       const daysOverdue = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
 
       addTask({
@@ -259,8 +270,9 @@ export const generateAutomaticTasks = (
       });
     }
 
-    if (invoice.status === 'sent') {
+    if (invoice.status === 'sent' && invoice.due_date) {
       const dueDate = new Date(invoice.due_date);
+      if (isNaN(dueDate.getTime())) return;
       const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysUntilDue <= 3 && daysUntilDue >= 0) {
@@ -279,8 +291,9 @@ export const generateAutomaticTasks = (
   });
 
   tenantApplications.forEach(app => {
-    if (app.status === 'pending' || app.status === 'under_review') {
+    if ((app.status === 'pending' || app.status === 'under_review') && app.created_at) {
       const submittedDate = new Date(app.created_at);
+      if (isNaN(submittedDate.getTime())) return;
       const daysPending = Math.ceil((today.getTime() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysPending >= 3) {
@@ -312,8 +325,9 @@ export const generateAutomaticTasks = (
   });
 
   propertyInspections.forEach(inspection => {
-    if (inspection.status === 'scheduled') {
+    if (inspection.status === 'scheduled' && inspection.scheduled_date) {
       const scheduledDate = new Date(inspection.scheduled_date);
+      if (isNaN(scheduledDate.getTime())) return;
       const daysUntilInspection = Math.ceil(
         (scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -360,8 +374,9 @@ export const generateAutomaticTasks = (
   });
 
   expenses.forEach(expense => {
-    if (expense.status === 'pending') {
+    if (expense.status === 'pending' && expense.expense_date) {
       const expenseDate = new Date(expense.expense_date);
+      if (isNaN(expenseDate.getTime())) return;
       const daysPending = Math.ceil((today.getTime() - expenseDate.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysPending >= 7) {
@@ -406,9 +421,6 @@ export const generateAutomaticTasks = (
       }
     }
   });
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   return {
     tasks: newTasks,
@@ -620,8 +632,9 @@ export const generateTasksFromEvent = (
 
   switch (eventType) {
     case 'lease_created':
-      if (eventData.status === 'active' || eventData.status === 'draft') {
+      if ((eventData.status === 'active' || eventData.status === 'draft') && eventData.end_date) {
         const endDate = new Date(eventData.end_date);
+        if (isNaN(endDate.getTime())) break;
         const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         
         if (daysUntilExpiry > 0 && daysUntilExpiry <= 60) {
@@ -646,8 +659,9 @@ export const generateTasksFromEvent = (
       break;
 
     case 'payment_status_changed':
-      if (eventData.status === 'overdue') {
+      if (eventData.status === 'overdue' && eventData.due_date) {
         const dueDate = new Date(eventData.due_date);
+        if (isNaN(dueDate.getTime())) break;
         const daysOverdue = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
         
         if (daysOverdue >= 1) {
@@ -681,8 +695,9 @@ export const generateTasksFromEvent = (
       break;
 
     case 'invoice_created':
-      if (eventData.status === 'sent') {
+      if (eventData.status === 'sent' && eventData.due_date) {
         const dueDate = new Date(eventData.due_date);
+        if (isNaN(dueDate.getTime())) break;
         const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         
         if (daysUntilDue <= 3 && daysUntilDue >= 0) {
@@ -704,6 +719,7 @@ export const generateTasksFromEvent = (
     case 'document_added':
       if (eventData.expiry_date) {
         const expiryDate = new Date(eventData.expiry_date);
+        if (isNaN(expiryDate.getTime())) break;
         const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         
         if (daysUntilExpiry > 0 && daysUntilExpiry <= 60) {
