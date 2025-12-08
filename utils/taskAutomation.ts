@@ -541,6 +541,7 @@ export const detectCompletedTasks = (
       const document = businessDocuments.find(d => d.id === todo.related_to_id);
       if (document && document.expiry_date) {
         const expiryDate = new Date(document.expiry_date);
+        if (isNaN(expiryDate.getTime())) return;
         const today = new Date();
         const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
